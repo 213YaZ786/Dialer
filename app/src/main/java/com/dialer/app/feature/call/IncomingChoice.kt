@@ -74,7 +74,14 @@ class GlassWave(val color: Color, val origin: Offset)
  * (see [GlassWave] and [drawGlassWave]); the other button melts away.
  */
 @Composable
-fun IncomingChoice(onAnswer: () -> Unit, onDecline: () -> Unit, onWave: (GlassWave) -> Unit) {
+fun IncomingChoice(
+    onAnswer: () -> Unit,
+    onDecline: () -> Unit,
+    onWave: (GlassWave) -> Unit,
+    onMessage: (() -> Unit)? = null,
+    onSilence: (() -> Unit)? = null,
+    silenced: Boolean = false
+) {
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     val answerSwell = remember { Animatable(1f) }
@@ -115,6 +122,31 @@ fun IncomingChoice(onAnswer: () -> Unit, onDecline: () -> Unit, onWave: (GlassWa
         }
     }
 
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    // Quieter choices above: write back instead, or just stop the ringing
+    // and let the call go to voicemail by itself.
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(ControlGap),
+        modifier = Modifier.graphicsLayer {
+            val f = minOf(answerFade.value, declineFade.value)
+            alpha = f
+        }
+    ) {
+        if (onMessage != null) {
+            CallControl(DialerIcons.Message, "Message", on = false, order = 0, onClick = onMessage)
+        }
+        if (onSilence != null) {
+            CallControl(
+                if (silenced) DialerIcons.VolumeOff else DialerIcons.Speaker,
+                if (silenced) "Silenced" else "Silence",
+                on = silenced,
+                enabled = !silenced,
+                order = 1,
+                onClick = onSilence
+            )
+        }
+    }
+    Spacer(Modifier.height(36.dp))
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -142,6 +174,7 @@ fun IncomingChoice(onAnswer: () -> Unit, onDecline: () -> Unit, onWave: (GlassWa
             onCenter = { answerAt = it },
             onClick = { choose(true) }
         )
+    }
     }
 }
 

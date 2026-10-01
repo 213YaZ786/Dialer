@@ -21,6 +21,8 @@
          deletes the calls the user removes. Granted with the phone app role. -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
+    <!-- One buzz when the person called picks up, felt at the ear or in a pocket. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Turns the screen off against the ear during a call. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

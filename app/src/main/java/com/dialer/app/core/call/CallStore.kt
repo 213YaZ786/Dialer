@@ -3,6 +3,9 @@ package com.dialer.app.core.call
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.VibratorManager
 import android.telecom.Call
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
@@ -43,7 +46,12 @@ data class CallInfo(
     val endedReason: String?,
     val sims: List<SimChoice>,
     /** The people of a conference, each its own call inside it. */
-    val participants: List<Participant> = emptyList()
+    val participants: List<Participant> = emptyList(),
+    /** A ringing call that can be declined with a text, and the replies offered. */
+    val canReplyByText: Boolean = false,
+    val replies: List<String> = emptyList(),
+    /** Placed from this phone, not received: it vibrates once when answered. */
+    val outgoing: Boolean = false
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -107,6 +115,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
     val state: StateFlow<CallsState> = _state.asStateFlow()
 
     private val ids = AtomicInteger(0)
+    private val answered = HashSet<Int>()
     private val calls = LinkedHashMap<Int, Call>()
     private val ended = HashMap<Int, CallInfo>()
     private val callbacks = HashMap<Int, Call.Callback>()
@@ -121,6 +130,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
             override fun onChildrenChanged(call: Call, children: List<Call>) = publish()
             override fun onParentChanged(call: Call, parent: Call?) = publish()
             override fun onConferenceableCallsChanged(call: Call, conferenceableCalls: List<Call>) = publish()
+            override fun onCannedTextResponsesLoaded(call: Call, cannedTextResponses: List<String>) = publish()
         }
         callbacks[id] = callback
         call.registerCallback(callback)
@@ -148,6 +158,18 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
 
     fun answer(id: Int) = calls[id]?.answer(0) // 0: audio only
     fun decline(id: Int) = calls[id]?.reject(false, null)
+
+    /** Declines and sends [text] to the caller; Telecom sends it, no SMS access needed here. */
+    fun reply(id: Int, text: String) = calls[id]?.reject(true, text)
+
+    /** Stops the ringing without answering: the call goes on until the caller gives up or voicemail takes it. */
+    fun silence() {
+        runCatching { context.getSystemService(TelecomManager::class.java).silenceRinger() }
+        _silenced.value = true
+    }
+
+    private val _silenced = MutableStateFlow(false)
+    val silenced: StateFlow<Boolean> = _silenced.asStateFlow()
     fun hangUp(id: Int) = calls[id]?.disconnect()
     fun hold(id: Int, on: Boolean) = calls[id]?.let { if (on) it.hold() else it.unhold() }
     fun mute(on: Boolean) = controls?.applyMute(on)
@@ -179,12 +201,28 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
         if (held != null) held.value.unhold() else call.hold()
     }
 
+    private fun buzz() {
+        val vibrator = context.getSystemService(VibratorManager::class.java)?.defaultVibrator ?: return
+        val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_HARDWARE_FEEDBACK))
+            } else {
+                vibrator.vibrate(effect)
+            }
+        }
+    }
+
     private fun idOf(call: Call): Int? = calls.entries.firstOrNull { it.value == call }?.key
 
     private fun publish() {
         // A call inside a conference is shown as the conference, not alone.
         val live = calls.filter { it.value.parent == null }.map { (id, call) -> info(id, call) }
         _state.update { it.copy(calls = live + ended.values.sortedBy(CallInfo::id)) }
+        if (live.none { it.phase == CallPhase.RINGING }) _silenced.value = false
+        // The phone is often at the ear or in a pocket while it rings out:
+        // one firm buzz says the other side picked up.
+        live.filter { it.outgoing && it.phase == CallPhase.ACTIVE && answered.add(it.id) }.forEach { _ -> buzz() }
     }
 
     private fun info(id: Int, call: Call): CallInfo {
@@ -214,6 +252,9 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
             canSwap = details.can(Call.Details.CAPABILITY_SWAP_CONFERENCE) || calls.size > 1,
             endedReason = details.disconnectCause?.label?.toString()?.takeIf { it.isNotBlank() },
             sims = if (phase == CallPhase.CHOOSE_SIM) simsOffered(details) else emptyList(),
+            canReplyByText = phase == CallPhase.RINGING && details.can(Call.Details.CAPABILITY_RESPOND_VIA_TEXT),
+            replies = call.cannedTextResponses.orEmpty().ifEmpty { DEFAULT_REPLIES },
+            outgoing = details.callDirection == Call.Details.DIRECTION_OUTGOING,
             participants = call.children.mapNotNull { child ->
                 val childId = idOf(child) ?: return@mapNotNull null
                 val d = child.details
@@ -260,5 +301,11 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
 
     private companion object {
         const val ENDED_LINGER_MS = 1800L
+        val DEFAULT_REPLIES = listOf(
+            "Can't talk now. What's up?",
+            "I'll call you right back.",
+            "I'll call you later.",
+            "Can't talk now. Call me later?"
+        )
     }
 }

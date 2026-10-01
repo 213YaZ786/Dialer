@@ -1,6 +1,26 @@
 package com.dialer.app.feature.call
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.Canvas
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -99,6 +119,28 @@ fun CallScreen(
 ) {
     val call = state.primary ?: return
     val compact = keypadOpen && call.phase != CallPhase.ENDED
+    val haptics = rememberHaptics()
+
+    // The contact's photo when the number is saved with one: on the
+    // caller's drop of glass, and blurred behind the whole screen.
+    val book: PhoneBook = koinInject()
+    LaunchedEffect(Unit) { book.refresh() }
+    val contacts by book.entries.collectAsState()
+    val photo = remember(contacts, call.number, call.isConference) {
+        if (call.isConference) null else PhoneIndex(contacts).find(T9.clean(call.number))?.photo
+    }
+
+    // Writing back instead of answering: the replies replace Answer and Decline.
+    var replying by remember(call.id) { mutableStateOf(false) }
+    val silenced by actions.silenced.collectAsState()
+
+    // The other side picked up: felt in the hand as well as seen.
+    var lastPhase by remember(call.id) { mutableStateOf(call.phase) }
+    LaunchedEffect(call.id, call.phase) {
+        if (call.phase == CallPhase.ACTIVE && lastPhase == CallPhase.DIALING) haptics.done()
+        if (call.phase == CallPhase.ENDED && lastPhase != CallPhase.ENDED) haptics.firm()
+        lastPhase = call.phase
+    }
 
     // The wave of glass let go by Answer or Decline, spread over the whole
     // window. Answering lets it settle away into the call; declining keeps
@@ -115,6 +157,7 @@ fun CallScreen(
     // scrolling when two calls and the keypad need more: Hang up is never
     // pushed out of reach.
     BoxWithConstraints(Modifier.fillMaxSize()) {
+    CallingCard(photo)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -127,7 +170,7 @@ fun CallScreen(
         Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
         StatusPill(call)
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
-        Caller(call, compact = compact)
+        Caller(call, photo, compact = compact)
         if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {
             Spacer(Modifier.height(16.dp))
             Participants(call.participants, onSplit = actions::split, onHangUp = actions::hangUp)
@@ -149,6 +192,7 @@ fun CallScreen(
             AnimatedContent(
                 targetState = when {
                     call.phase == CallPhase.ENDED -> Panel.ENDED
+                    call.phase == CallPhase.RINGING && replying -> Panel.REPLY
                     call.phase == CallPhase.RINGING -> Panel.RINGING
                     call.phase == CallPhase.CHOOSE_SIM -> Panel.SIM
                     keypadOpen -> Panel.KEYPAD
@@ -161,7 +205,18 @@ fun CallScreen(
                     Panel.RINGING -> IncomingChoice(
                         onAnswer = { actions.answer(call.id) },
                         onDecline = { actions.decline(call.id) },
-                        onWave = { wave = it }
+                        onWave = { wave = it },
+                        onMessage = { replying = true }.takeIf { call.canReplyByText },
+                        onSilence = actions::silence,
+                        silenced = silenced
+                    )
+                    Panel.REPLY -> Replies(
+                        replies = call.replies,
+                        onSend = { text ->
+                            haptics.done()
+                            actions.reply(call.id, text)
+                        },
+                        onBack = { replying = false }
                     )
                     Panel.SIM -> SimChooser(call, actions)
                     Panel.KEYPAD -> InCallKeypad(
@@ -169,7 +224,15 @@ fun CallScreen(
                         onHide = { onKeypad(false) },
                         onHangUp = { actions.hangUp(call.id) }
                     )
-                    Panel.CONTROLS -> Controls(state, call, actions, onKeypad = { onKeypad(true) }, onAddCall = onAddCall)
+                    Panel.CONTROLS -> CallControls(
+                        state, call, actions,
+                        onKeypad = { onKeypad(true) },
+                        onAddCall = onAddCall,
+                        onHangUp = { at ->
+                            wave = GlassWave(HangUpRed, at)
+                            actions.hangUp(call.id)
+                        }
+                    )
                     Panel.ENDED -> Ended(call)
                 }
             }
@@ -183,7 +246,7 @@ fun CallScreen(
     }
 }
 
-private enum class Panel { RINGING, SIM, KEYPAD, CONTROLS, ENDED }
+private enum class Panel { RINGING, REPLY, SIM, KEYPAD, CONTROLS, ENDED }
 
 /** One small pane at the top: what is happening, or how long it has lasted. */
 @Composable
@@ -196,12 +259,41 @@ private fun StatusPill(call: CallInfo) {
         CallPhase.ENDED -> "Call ended"
         CallPhase.ACTIVE -> elapsed(call.connectedAt)
     }
-    ZoneSurface(shape = CircleShape) {
-        Text(
-            text,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-        )
+    // On hold, the pill breathes, so a call left waiting is not forgotten.
+    val breathing = rememberInfiniteTransition(label = "hold")
+    val breath by breathing.animateFloat(1f, 0.55f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "breath")
+    ZoneSurface(
+        shape = CircleShape,
+        modifier = Modifier.graphicsLayer { alpha = if (call.phase == CallPhase.HOLDING) breath else 1f }
+    ) {
+        Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).animateContentSize()) {
+            if (call.phase == CallPhase.ACTIVE) {
+                RollingText(text, MaterialTheme.typography.titleMedium)
+            } else {
+                AnimatedContent(targetState = text, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "status") {
+                    Text(it, style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+    }
+}
+
+/** Each character on its own wheel: a digit that changes rolls up into the next one. */
+@Composable
+private fun RollingText(text: String, style: androidx.compose.ui.text.TextStyle) {
+    Row(Modifier.clipToBounds()) {
+        text.forEachIndexed { index, char ->
+            // Keyed from the right, so the seconds stay the seconds when a minute digit is added.
+            androidx.compose.runtime.key(text.length - index) {
+                AnimatedContent(
+                    targetState = char,
+                    transitionSpec = {
+                        (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
+                    },
+                    label = "digit"
+                ) { c -> Text(c.toString(), style = style) }
+            }
+        }
     }
 }
 
@@ -223,28 +315,62 @@ internal fun elapsed(since: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
 
-/** The person on the line: a round pane with their initial, their name, their number. */
+/**
+ * The person on the line: their photo or initial on a drop of glass, their
+ * name, their number. While the call goes out, rings leave the drop; when
+ * the other side picks up the drop pops once; on hold it fades back.
+ */
 @Composable
-private fun Caller(call: CallInfo, compact: Boolean) {
+private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
     if (compact) {
         // With the keypad open, the name alone: the keys need the room.
         Text(call.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         return
     }
     val size = 120.dp
-    if (call.isConference) {
-        ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(DialerIcons.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
-            }
+    val accent = MaterialTheme.colorScheme.primary
+    val rings = rememberInfiniteTransition(label = "dialing")
+    val ring by rings.animateFloat(0f, 1f, infiniteRepeatable(tween(2200, easing = LinearEasing)), label = "ring")
+    val pop = remember(call.id) { Animatable(1f) }
+    var wasDialing by remember(call.id) { mutableStateOf(call.phase == CallPhase.DIALING) }
+    LaunchedEffect(call.phase) {
+        if (call.phase == CallPhase.ACTIVE && wasDialing) {
+            pop.animateTo(1.12f, spring(dampingRatio = 0.4f, stiffness = 900f))
+            pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f))
         }
-    } else {
-        // The contact's photo when the number is saved with one.
-        val book: PhoneBook = koinInject()
-        LaunchedEffect(Unit) { book.refresh() }
-        val contacts by book.entries.collectAsState()
-        val photo = remember(contacts, call.number) { PhoneIndex(contacts).find(T9.clean(call.number))?.photo }
-        ContactAvatar(call.name, photo, size)
+        wasDialing = call.phase == CallPhase.DIALING
+    }
+    val dim by animateFloatAsState(if (call.phase == CallPhase.HOLDING) 0.45f else 1f, tween(500), label = "dim")
+    val dialing = call.phase == CallPhase.DIALING
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .graphicsLayer {
+                scaleX = pop.value
+                scaleY = pop.value
+                alpha = dim
+            }
+            .drawBehind {
+                if (!dialing) return@drawBehind
+                val r = this.size.minDimension / 2f
+                for (k in 0 until 3) {
+                    val t = (ring + k / 3f) % 1f
+                    val fade = (1f - t) * (1f - t)
+                    drawCircle(accent.copy(alpha = 0.35f * fade), r * (1f + 0.7f * t), style = Stroke(width = (3f - 2f * t).dp.toPx()))
+                }
+            }
+    ) {
+        if (call.isConference) {
+            ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(DialerIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(56.dp))
+                }
+            }
+        } else {
+            ContactAvatar(call.name, photo, size)
+        }
     }
     Spacer(Modifier.height(16.dp))
     Text(
@@ -257,6 +383,42 @@ private fun Caller(call: CallInfo, compact: Boolean) {
     if (call.name != null && !call.isConference) {
         Spacer(Modifier.height(6.dp))
         Text(call.number, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The contact's photo behind the whole call screen, blurred to light and
+ * colour, fading into the page towards the controls so the glass reads.
+ */
+@Composable
+private fun CallingCard(photo: String?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, photo) {
+        value = photo?.let { uri ->
+            withContext(Dispatchers.IO) {
+                // The thumbnail is enough: it is blurred anyway.
+                runCatching {
+                    context.contentResolver.openInputStream(android.net.Uri.parse(uri))?.use { android.graphics.BitmapFactory.decodeStream(it) }?.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+    }
+    val bitmap = image ?: return
+    val show = remember { Animatable(0f) }
+    LaunchedEffect(bitmap) { show.animateTo(1f, tween(700)) }
+    val ground = MaterialTheme.colorScheme.background
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = show.value }) {
+        androidx.compose.foundation.Image(
+            bitmap,
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().blur(36.dp).graphicsLayer { alpha = 0.55f }
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to ground.copy(alpha = 0.25f), 0.45f to ground.copy(alpha = 0.35f), 0.8f to ground.copy(alpha = 0.85f), 1f to ground)
+            )
+        )
     }
 }
 
@@ -349,90 +511,6 @@ private fun SimChooser(call: CallInfo, actions: CallStore) {
 }
 
 @Composable
-private fun Controls(state: CallsState, call: CallInfo, actions: CallStore, onKeypad: () -> Unit, onAddCall: () -> Unit) {
-    var routes by rememberSaveable { mutableStateOf(false) }
-    // Only the earpiece and the speaker: one tap switches. Anything more,
-    // a Bluetooth device or a headset, and the tap offers the choice.
-    val choice = state.routes.any { it.kind == AudioRoute.Kind.BLUETOOTH || it.kind == AudioRoute.Kind.WIRED }
-    val route = state.route
-    val routeIcon = if (route?.kind == AudioRoute.Kind.BLUETOOTH) DialerIcons.Bluetooth else DialerIcons.Speaker
-    val routeLabel = when {
-        choice -> route?.label ?: "Audio"
-        else -> "Speaker"
-    }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        ZoneSurface(shape = RoundedCornerShape(32.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    ToggleButton(DialerIcons.MicOff, "Mute", on = state.muted, enabled = call.canMute) {
-                        actions.mute(!state.muted)
-                    }
-                    ToggleButton(DialerIcons.Dialpad, "Keypad", on = false, onClick = onKeypad)
-                    ToggleButton(routeIcon, routeLabel, on = route != null && route.kind != AudioRoute.Kind.EARPIECE) {
-                        if (choice) {
-                            routes = true
-                        } else {
-                            val target = if (route?.kind == AudioRoute.Kind.SPEAKER) AudioRoute.Kind.EARPIECE else AudioRoute.Kind.SPEAKER
-                            state.routes.firstOrNull { it.kind == target }?.let(actions::route)
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    ToggleButton(DialerIcons.Hold, "Hold", on = call.phase == CallPhase.HOLDING, enabled = call.canHold) {
-                        actions.hold(call.id, call.phase != CallPhase.HOLDING)
-                    }
-                    // A second call: the dialpad opens, Telecom holds this one
-                    // when the new one goes out, and Merge joins them after.
-                    ToggleButton(DialerIcons.AddCall, "Add call", on = false, enabled = state.secondary == null, onClick = onAddCall)
-                }
-            }
-        }
-        Spacer(Modifier.height(28.dp))
-        BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed) {
-            actions.hangUp(call.id)
-        }
-    }
-
-    if (routes) {
-        ZoneAlertDialog(
-            onDismissRequest = { routes = false },
-            title = { Text("Audio") },
-            text = {
-                Column {
-                    state.routes.forEach { option ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    actions.route(option)
-                                    routes = false
-                                }
-                                .padding(vertical = 12.dp, horizontal = 8.dp)
-                        ) {
-                            Icon(
-                                if (option.kind == AudioRoute.Kind.BLUETOOTH) DialerIcons.Bluetooth else DialerIcons.Speaker,
-                                contentDescription = null,
-                                tint = if (option == route) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                option.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (option == route) FontWeight.SemiBold else FontWeight.Normal,
-                                modifier = Modifier.padding(start = 16.dp)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { routes = false }) { Text("Close") } }
-        )
-    }
-}
-
-@Composable
 private fun Ended(call: CallInfo) {
     Text(
         call.endedReason ?: "",
@@ -466,42 +544,8 @@ private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             Spacer(Modifier.size(80.dp))
             BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed, onClick = onHangUp)
-            ToggleButton(DialerIcons.Dialpad, "Hide", on = true, onClick = onHide)
+            CallControl(DialerIcons.Dialpad, "Hide", on = true, onClick = onHide)
         }
-    }
-}
-
-/** A round control of the call: a small pane of glass, washed with the accent when on. */
-@Composable
-private fun ToggleButton(icon: ImageVector, label: String, on: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    val haptics = rememberHaptics()
-    val glass = LocalGlass.current
-    val alpha = if (enabled) 1f else 0.38f
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = 80.dp)) {
-        val shape = CircleShape
-        val base = Modifier.size(64.dp).clip(shape)
-        val accent = rememberTinted(glass, glass?.accentTint)
-        val look = when {
-            glass != null && on -> base.glassZone(shape, accent!!, lens = 1f)
-            glass != null -> base.glassZone(shape, glass, lens = 1f)
-            on -> base.background(MaterialTheme.colorScheme.secondaryContainer)
-            else -> base.background(MaterialTheme.colorScheme.zone)
-        }
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = look.clickable(enabled = enabled, role = Role.Button, onClickLabel = label) {
-                haptics.toggle(!on)
-                onClick()
-            }
-        ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = (if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary).copy(alpha = alpha)
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha), maxLines = 1)
     }
 }
 
@@ -509,4 +553,50 @@ private fun ToggleButton(icon: ImageVector, label: String, on: Boolean, enabled:
 @Composable
 private fun BigButton(icon: ImageVector, label: String, fill: Color, size: Dp = 80.dp, onClick: () -> Unit) {
     GlassCallButton(icon = icon, label = label, color = fill, size = size, glow = 0.35f, onClick = onClick)
+}
+
+/**
+ * Declining with a message: the usual replies as panes of glass, and one's
+ * own words. The caller gets it as a text; Telecom sends it.
+ */
+@Composable
+private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () -> Unit) {
+    val haptics = rememberHaptics()
+    var own by rememberSaveable { mutableStateOf("") }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        replies.forEachIndexed { index, reply ->
+            Appear(order = index) {
+                ZoneSurface(
+                    shape = RoundedCornerShape(22.dp),
+                    onClick = { onSend(reply) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(reply, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
+                }
+            }
+        }
+        Appear(order = replies.size) {
+            ZoneSurface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 20.dp, end = 6.dp)) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = own,
+                        onValueChange = { own = it },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.weight(1f).padding(vertical = 14.dp),
+                        decorationBox = { field ->
+                            if (own.isEmpty()) Text("Write your own…", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            field()
+                        }
+                    )
+                    TextButton(enabled = own.isNotBlank(), onClick = { onSend(own.trim()) }) { Text("Send") }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        QuietButton(onClick = {
+            haptics.tick()
+            onBack()
+        }) { Text("Back") }
+    }
 }
