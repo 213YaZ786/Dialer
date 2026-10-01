@@ -69,6 +69,7 @@ import com.dialer.app.core.call.CallPhase
 import com.dialer.app.core.call.CallStore
 import com.dialer.app.core.call.CallsState
 import com.dialer.app.ui.component.BoldButton
+import com.dialer.app.ui.component.GlassKeypad
 import com.dialer.app.ui.component.QuietButton
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
@@ -86,6 +87,7 @@ fun CallScreen(
     state: CallsState,
     keypadOpen: Boolean,
     onKeypad: (Boolean) -> Unit,
+    onAddCall: () -> Unit,
     actions: CallStore
 ) {
     val call = state.primary ?: return
@@ -156,7 +158,7 @@ fun CallScreen(
                         onHide = { onKeypad(false) },
                         onHangUp = { actions.hangUp(call.id) }
                     )
-                    Panel.CONTROLS -> Controls(state, call, actions, onKeypad = { onKeypad(true) })
+                    Panel.CONTROLS -> Controls(state, call, actions, onKeypad = { onKeypad(true) }, onAddCall = onAddCall)
                     Panel.ENDED -> Ended(call)
                 }
             }
@@ -194,7 +196,7 @@ private fun StatusPill(call: CallInfo) {
 
 /** Minutes and seconds since [since], ticking once a second. */
 @Composable
-private fun elapsed(since: Long): String {
+internal fun elapsed(since: Long): String {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(since) {
         while (true) {
@@ -301,7 +303,7 @@ private fun SimChooser(call: CallInfo, actions: CallStore) {
 }
 
 @Composable
-private fun Controls(state: CallsState, call: CallInfo, actions: CallStore, onKeypad: () -> Unit) {
+private fun Controls(state: CallsState, call: CallInfo, actions: CallStore, onKeypad: () -> Unit, onAddCall: () -> Unit) {
     var routes by rememberSaveable { mutableStateOf(false) }
     // Only the earpiece and the speaker: one tap switches. Anything more,
     // a Bluetooth device or a headset, and the tap offers the choice.
@@ -329,9 +331,14 @@ private fun Controls(state: CallsState, call: CallInfo, actions: CallStore, onKe
                             state.routes.firstOrNull { it.kind == target }?.let(actions::route)
                         }
                     }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     ToggleButton(DialerIcons.Hold, "Hold", on = call.phase == CallPhase.HOLDING, enabled = call.canHold) {
                         actions.hold(call.id, call.phase != CallPhase.HOLDING)
                     }
+                    // A second call: the dialpad opens, Telecom holds this one
+                    // when the new one goes out, and Merge joins them after.
+                    ToggleButton(DialerIcons.AddCall, "Add call", on = false, enabled = state.secondary == null, onClick = onAddCall)
                 }
             }
         }
@@ -390,12 +397,6 @@ private fun Ended(call: CallInfo) {
     )
 }
 
-/** The letters under each key, as on every phone. */
-private val KeyLetters = mapOf(
-    '2' to "ABC", '3' to "DEF", '4' to "GHI", '5' to "JKL", '6' to "MNO",
-    '7' to "PQRS", '8' to "TUV", '9' to "WXYZ", '0' to "+"
-)
-
 /** The keypad during a call: each key its own pane of glass, sending its tone while held. */
 @Composable
 private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: () -> Unit) {
@@ -408,56 +409,18 @@ private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: 
             overflow = TextOverflow.Visible,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            listOf("123", "456", "789", "*0#").forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                    row.forEach { key ->
-                        KeypadKey(key) {
-                            typed += key
-                            onTone(it)
-                        }
-                    }
-                }
-            }
-        }
+        GlassKeypad(
+            onPress = { key ->
+                typed += key
+                onTone(key)
+            },
+            onRelease = { onTone(null) }
+        )
         Spacer(Modifier.height(28.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             Spacer(Modifier.size(80.dp))
             BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed, onClick = onHangUp)
             ToggleButton(DialerIcons.Dialpad, "Hide", on = true, onClick = onHide)
-        }
-    }
-}
-
-/** One key: pressed sends [key] to [onTone], released sends null to stop the tone. */
-@Composable
-private fun KeypadKey(key: Char, onTone: (Char?) -> Unit) {
-    val haptics = rememberHaptics()
-    val glass = LocalGlass.current
-    val shape = CircleShape
-    val base = Modifier.size(72.dp).clip(shape)
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = (if (glass != null) base.glassZone(shape, glass, lens = 1f) else base.background(MaterialTheme.colorScheme.zone))
-            .semantics {
-                role = Role.Button
-                contentDescription = key.toString()
-            }
-            .pointerInput(key) {
-                awaitEachGesture {
-                    awaitFirstDown()
-                    haptics.tick()
-                    onTone(key)
-                    waitForUpOrCancellation()
-                    onTone(null)
-                }
-            }
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(key.toString(), fontSize = 30.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp)
-            KeyLetters[key]?.let {
-                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
     }
 }

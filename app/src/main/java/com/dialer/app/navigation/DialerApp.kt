@@ -2,6 +2,23 @@ package com.dialer.app.navigation
 
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.fadeIn
+import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.glass.glassFloating
+import com.dialer.app.feature.dialpad.DialpadScreen
+import com.dialer.app.feature.call.ReturnToCall
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.animation.core.animateDpAsState
+import com.dialer.app.core.dial.DialRequests
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -128,6 +145,18 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
         if (!store.current.welcomeSeen) store.update { it.copy(welcomeSeen = true) }
     }
 
+    // The dialpad, over the tabs, with the number it opened on; null closed.
+    // Dial intents (tel: links, Add call) open it through DialRequests.
+    val dial: DialRequests = koinInject()
+    val pendingDial by dial.pending.collectAsState()
+    var dialpad by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingDial) {
+        pendingDial?.let {
+            dialpad = it
+            dial.consume()
+        }
+    }
+
     // Once when the app opens, never over the first launch page; debug
     // builds are a different app and skip it.
     val settings by store.settings.collectAsState()
@@ -174,6 +203,15 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
             try {
                 events.collect { }
                 closeWelcome()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            }
+        }
+
+        PredictiveBackHandler(enabled = dialpad != null) { events ->
+            try {
+                events.collect { }
+                dialpad = null
             } catch (cancelled: CancellationException) {
                 throw cancelled
             }
@@ -237,6 +275,10 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
                         vertical = true,
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
                     )
+                    DialpadButton(
+                        onClick = { dialpad = "" },
+                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 24.dp)
+                    )
                 }
             }
         } else {
@@ -250,6 +292,11 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
                         position = position,
                         onSelect = ::go,
                         modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+                    )
+                    // Level with the dock, at the thumb's side.
+                    DialpadButton(
+                        onClick = { dialpad = "" },
+                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 16.dp)
                     )
                 }
             }
@@ -266,6 +313,54 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
                 Readable { WelcomeScreen(onStart = ::closeWelcome) }
             }
         }
+
+        // The dialpad slides up over everything, keeping its number while it
+        // slides back down.
+        var shownNumber by remember { mutableStateOf("") }
+        dialpad?.let { shownNumber = it }
+        AnimatedVisibility(
+            visible = dialpad != null,
+            enter = slideInVertically(tween(NAV_MS)) { it / 4 } + fadeIn(tween(NAV_MS)),
+            exit = slideOutVertically(tween(NAV_MS)) { it / 4 } + fadeOut(tween(NAV_MS))
+        ) {
+            Surface(
+                Modifier.fillMaxSize().glassGround(LocalGlass.current, MaterialTheme.colorScheme.background),
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onBackground
+            ) {
+                DialpadScreen(initial = shownNumber, onClose = { dialpad = null })
+            }
+        }
+
+        // Over everything while a call goes on, below the page's banner or
+        // level with the dialpad's Close: back to the call in one tap.
+        val callTop by animateDpAsState(if (dialpad != null) 12.dp else 84.dp, tween(NAV_MS), label = "callTop")
+        ReturnToCall(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = callTop))
+    }
+}
+
+/**
+ * The way to the dialpad: a round pane of glass washed with the accent,
+ * bending the tabs under it like the dock does.
+ */
+@Composable
+private fun DialpadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val haptics = rememberHaptics()
+    val look = LocalGlass.current
+    val backdrop = LocalGlassBackdrop.current
+    val shape = CircleShape
+    val base = modifier.size(64.dp).clip(shape)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = when {
+            look != null && backdrop != null -> base.glassFloating(backdrop, shape, look, tint = look.accentTint, lens = 1.4f)
+            else -> base.background(MaterialTheme.colorScheme.primaryContainer)
+        }.clickable(role = Role.Button, onClickLabel = "Dialpad") {
+            haptics.firm()
+            onClick()
+        }
+    ) {
+        Icon(DialerIcons.Dialpad, contentDescription = "Dialpad", tint = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 

@@ -13,6 +13,10 @@
          which Android only grants to the phone app. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <!-- Places the calls dialled in the app; Android grants it with the phone app role. -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- Finds contacts as a number is typed. Read only, nothing leaves the phone. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Turns the screen off against the ear during a call. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

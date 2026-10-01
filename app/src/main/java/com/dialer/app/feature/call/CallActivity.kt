@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.dialer.app.MainActivity
 import com.dialer.app.core.call.AudioRoute
 import com.dialer.app.core.call.CallPhase
 import com.dialer.app.core.call.CallStore
@@ -63,6 +64,13 @@ class CallActivity : ComponentActivity() {
                     state = state,
                     keypadOpen = keypad,
                     onKeypad = { keypad = it },
+                    onAddCall = {
+                        startActivity(
+                            Intent(this, MainActivity::class.java)
+                                .setAction(Intent.ACTION_DIAL)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    },
                     actions = calls
                 )
             }
