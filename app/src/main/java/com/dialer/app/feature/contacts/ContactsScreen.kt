@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import com.dialer.app.core.call.Dialing
 import com.dialer.app.core.dial.DialRequests
 import com.dialer.app.core.dial.NumberActions
+import com.dialer.app.core.dial.Numbers
+import com.dialer.app.ui.component.ZoneAlertDialog
+import androidx.compose.material3.TextButton
 import com.dialer.app.core.dial.People
 import com.dialer.app.core.dial.Person
 import com.dialer.app.data.contacts.PhoneBook
@@ -61,11 +64,12 @@ import org.koin.compose.koinInject
 
 /**
  * Everyone in the phone's contacts who has a number, A to Z under their
- * letter, with a search on top. The green phone calls, a tap opens the
- * contact, a long press offers the rest.
+ * letter, with a search on top: a way to call, not a second contacts app.
+ * The green phone calls, a tap opens the calls with them, a long press
+ * offers the rest; making or changing a contact opens the Contacts app.
  */
 @Composable
-fun ContactsScreen(onOpenSettings: () -> Unit, onOpenContact: (Long) -> Unit) {
+fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
     val book: PhoneBook = koinInject()
     var allowed by remember { mutableStateOf(book.canRead()) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
@@ -132,7 +136,7 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenContact: (Long) -> Unit) {
                         )
                     }
                     items(group, key = { "person/${it.id}" }) { person ->
-                        PersonLine(person, onOpen = { onOpenContact(person.id) })
+                        PersonLine(person, onOpen = { onOpenNumber(person.number) })
                     }
                 }
             }
@@ -151,9 +155,23 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
     val haptics = rememberHaptics()
     val dial: DialRequests = koinInject()
     val menu = rememberPillMenu()
+    var choosing by remember { mutableStateOf(false) }
     fun call() {
+        // Several numbers: which one, asked first.
+        if (person.numbers.size > 1) {
+            haptics.tick()
+            choosing = true
+            return
+        }
         haptics.firm()
         if (!Dialing.call(context, person.number)) dial.open(person.number)
+    }
+    if (choosing) {
+        NumberChooser(person, onDismiss = { choosing = false }) { number ->
+            choosing = false
+            haptics.firm()
+            if (!Dialing.call(context, number)) dial.open(number)
+        }
     }
     Box(Modifier.widthIn(max = 640.dp).fillMaxWidth().then(menu.tracker)) {
         val shape = RoundedCornerShape(22.dp)
@@ -202,10 +220,34 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
                     PillMotion.BOUNCE,
                     StarGold
                 ) { NumberActions.star(context, person.id, !person.starred) } else null,
-                if (saved) PillItem(DialerIcons.Edit, "Edit", PillMotion.WIGGLE) { NumberActions.editContact(context, person.id) } else null
+                if (saved) PillItem(DialerIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) } else null
             )
         )
     }
 }
 
 val StarGold = Color(0xFFFFB300)
+
+/** A contact with several numbers: the one to call, chosen on a pane of glass. */
+@Composable
+fun NumberChooser(person: Person, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val context = LocalContext.current
+    ZoneAlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { ContactAvatar(person.name, person.photo, 56.dp) },
+        title = { Text("Call ${person.name}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                person.numbers.forEach { entry ->
+                    ZoneSurface(shape = RoundedCornerShape(20.dp), onClick = { onPick(entry.number) }, modifier = Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
+                            Text(Numbers.format(context, entry.number), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            Icon(DialerIcons.Call, contentDescription = null, tint = AnswerGreen)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}

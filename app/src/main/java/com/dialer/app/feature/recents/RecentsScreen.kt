@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -231,8 +232,8 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
                 Box {
-                    ContactAvatar(name, contact?.photo, 44.dp)
-                    NewDot(group.unseen, Modifier.align(Alignment.TopEnd))
+                    ContactAvatar(name, contact?.photo, 48.dp)
+                    KindBadge(call.kind, Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), unseen = group.unseen)
                 }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Text(
@@ -243,17 +244,16 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
                         overflow = TextOverflow.Ellipsis
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        group.kinds.forEach { kind ->
-                            Icon(kindIcon(kind), contentDescription = kindLabel(kind), tint = kindTint(kind), modifier = Modifier.size(16.dp))
-                        }
-                        Spacer(Modifier.width(6.dp))
-                        val parts = buildList {
-                            if (group.count > 1) add("(${group.count})")
-                            call.location?.let(::add)
-                            add(timeLabel(context, call.date))
-                        }
+                        // The kind in its colour, then the rest quieter.
                         Text(
-                            parts.joinToString(" · "),
+                            kindWord(call.kind) + if (group.count > 1) " ×${group.count}" else "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = kindTint(call.kind),
+                            maxLines = 1
+                        )
+                        val parts = listOfNotNull(call.location, timeLabel(context, call.date))
+                        Text(
+                            " · " + parts.joinToString(" · "),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

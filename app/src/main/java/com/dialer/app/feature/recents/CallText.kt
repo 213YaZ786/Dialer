@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dialer.app.core.calllog.CallKind
+import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.ui.icon.DialerIcons
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -43,14 +44,33 @@ fun kindLabel(kind: CallKind): String = when (kind) {
 }
 
 fun kindIcon(kind: CallKind): ImageVector = when (kind) {
-    CallKind.INCOMING -> DialerIcons.Incoming
-    CallKind.OUTGOING -> DialerIcons.Outgoing
-    CallKind.MISSED, CallKind.REJECTED -> DialerIcons.Missed
+    CallKind.INCOMING -> DialerIcons.ArrowIn
+    CallKind.OUTGOING -> DialerIcons.ArrowOut
+    CallKind.MISSED -> DialerIcons.Missed
+    CallKind.REJECTED -> DialerIcons.CallEnd
     CallKind.BLOCKED -> DialerIcons.Block
     CallKind.VOICEMAIL -> DialerIcons.Voicemail
 }
 
-/** Missed calls in the error colour, the only ones that ask for something. */
+/** The short word under a name: what the last call of the line was. */
+fun kindWord(kind: CallKind): String = when (kind) {
+    CallKind.INCOMING -> "Incoming"
+    CallKind.OUTGOING -> "Outgoing"
+    CallKind.MISSED -> "Missed"
+    CallKind.REJECTED -> "Declined"
+    CallKind.BLOCKED -> "Blocked"
+    CallKind.VOICEMAIL -> "Voicemail"
+}
+
+/**
+ * Each kind of call its own colour, read before the words: missed in red,
+ * answered in green, placed in the accent, turned away in grey.
+ */
 @Composable
-fun kindTint(kind: CallKind): Color =
-    if (kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+fun kindTint(kind: CallKind): Color = when (kind) {
+    CallKind.MISSED -> MaterialTheme.colorScheme.error
+    CallKind.INCOMING -> AnswerGreen
+    CallKind.OUTGOING -> MaterialTheme.colorScheme.primary
+    CallKind.VOICEMAIL -> MaterialTheme.colorScheme.tertiary
+    CallKind.REJECTED, CallKind.BLOCKED -> MaterialTheme.colorScheme.onSurfaceVariant
+}

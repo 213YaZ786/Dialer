@@ -42,11 +42,6 @@ object NumberActions {
 
     fun newContact(context: Context) = open(context, Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI))
 
-    fun editContact(context: Context, contactId: Long) = open(
-        context,
-        Intent(Intent.ACTION_EDIT, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, contactId.toString()))
-    )
-
     fun copy(context: Context, number: String) {
         context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Phone number", number))
     }

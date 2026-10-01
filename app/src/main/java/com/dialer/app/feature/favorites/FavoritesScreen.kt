@@ -50,7 +50,10 @@ import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.feature.call.AnswerGreen
+import com.dialer.app.feature.contacts.NumberChooser
 import com.dialer.app.feature.contacts.PersonLine
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.dialer.app.feature.contacts.StarGold
 import com.dialer.app.feature.main.TabFrame
 import com.dialer.app.ui.component.ContactAvatar
@@ -69,7 +72,7 @@ import org.koin.compose.koinInject
  * then the people called most these last weeks, saved or not.
  */
 @Composable
-fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenContact: (Long) -> Unit, onOpenNumber: (String) -> Unit) {
+fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
     val book: PhoneBook = koinInject()
     val history: CallHistory = koinInject()
     val settings: SettingsStore = koinInject()
@@ -105,7 +108,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenContact: (Long) -> Unit, o
         ) {
             items(favorites, key = { "fav/${it.id}" }) { person ->
                 val digit = prefs.speedDial.entries.firstOrNull { (_, n) -> person.numbers.any { T9.clean(n) == it.digits } }?.key
-                FavoriteTile(person, digit, onOpen = { onOpenContact(person.id) })
+                FavoriteTile(person, digit, onOpen = { onOpenNumber(person.number) })
             }
             if (frequents.isNotEmpty()) {
                 item(key = "frequent-heading", span = { GridItemSpan(maxLineSpan) }) {
@@ -125,7 +128,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenContact: (Long) -> Unit, o
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         PersonLine(
                             person,
-                            onOpen = { if (saved != null) onOpenContact(saved.id) else onOpenNumber(frequent.number) },
+                            onOpen = { onOpenNumber(frequent.number) },
                             subtitle = "${frequent.calls} calls",
                             saved = saved != null
                         )
@@ -148,9 +151,22 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
     val press = remember { MutableInteractionSource() }
     val pressed by press.collectIsPressedAsState()
     val sink by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "sink")
+    var choosing by remember { mutableStateOf(false) }
     fun call() {
+        if (person.numbers.size > 1) {
+            haptics.tick()
+            choosing = true
+            return
+        }
         haptics.firm()
         if (!Dialing.call(context, person.number)) dial.open(person.number)
+    }
+    if (choosing) {
+        NumberChooser(person, onDismiss = { choosing = false }) { number ->
+            choosing = false
+            haptics.firm()
+            if (!Dialing.call(context, number)) dial.open(number)
+        }
     }
     Box(Modifier.then(menu.tracker)) {
         val shape = RoundedCornerShape(28.dp)
@@ -192,7 +208,8 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
             listOf(
                 PillItem(DialerIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
                 PillItem(DialerIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
-                PillItem(DialerIcons.Person, "Open contact", PillMotion.BOUNCE) { onOpen() },
+                PillItem(DialerIcons.Recents, "Calls", PillMotion.BOUNCE) { onOpen() },
+                PillItem(DialerIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) },
                 PillItem(DialerIcons.StarOutline, "Remove from favorites", PillMotion.DROP, StarGold) { NumberActions.star(context, person.id, false) }
             )
         )

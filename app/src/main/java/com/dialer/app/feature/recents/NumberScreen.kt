@@ -162,7 +162,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                         calls.forEachIndexed { i, call ->
                             if (i > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                                Icon(kindIcon(call.kind), contentDescription = null, tint = kindTint(call.kind), modifier = Modifier.size(20.dp))
+                                KindBadge(call.kind, size = 32.dp)
                                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                                     Text(kindLabel(call.kind), style = MaterialTheme.typography.bodyLarge)
                                     if (call.duration > 0) {

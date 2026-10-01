@@ -1,6 +1,21 @@
 package com.dialer.app.feature.call
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.expandVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import com.dialer.app.ui.component.ZoneSurface
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -105,12 +120,27 @@ fun CallControls(
                 order = 0
             ) { actions.mute(!state.muted) }
             CallControl(DialerIcons.Dialpad, "Keypad", on = false, order = 1, onClick = onKeypad)
+            // Sound: a tap switches between the ear and the speaker; with a
+            // headset or Bluetooth device about, or held, it offers them all.
             CallControl(
-                icon = if (route?.kind == AudioRoute.Kind.BLUETOOTH) DialerIcons.Bluetooth else DialerIcons.Speaker,
-                label = if (choice) route?.label ?: "Audio" else "Speaker",
+                icon = routeIcon(route?.kind),
+                label = when {
+                    route == null -> "Speaker"
+                    route.kind == AudioRoute.Kind.EARPIECE -> if (choice) "Audio" else "Speaker"
+                    else -> route.label
+                },
                 on = route != null && route.kind != AudioRoute.Kind.EARPIECE,
-                motion = ControlMotion.WAVES,
-                order = 2
+                motion = if (route?.kind == AudioRoute.Kind.SPEAKER) ControlMotion.WAVES else ControlMotion.NONE,
+                order = 2,
+                onLongPress = { routes = true },
+                extra = {
+                    if (routes) {
+                        RoutePopover(state, onPick = {
+                            actions.route(it)
+                            routes = false
+                        }, onDismiss = { routes = false })
+                    }
+                }
             ) {
                 if (choice) {
                     routes = true
@@ -155,12 +185,6 @@ fun CallControls(
         }
     }
 
-    if (routes) {
-        RouteDialog(state, onPick = {
-            actions.route(it)
-            routes = false
-        }, onDismiss = { routes = false })
-    }
 }
 
 /** Rises into place, a little after the controls before it. */
@@ -188,6 +212,7 @@ fun Appear(order: Int, content: @Composable () -> Unit) {
  * on, the accent fills it from the centre like a drop spreading, and its
  * icon turns into the other one; the speaker, while on, sends out waves.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CallControl(
     icon: ImageVector,
@@ -196,6 +221,8 @@ fun CallControl(
     enabled: Boolean = true,
     motion: ControlMotion = ControlMotion.NONE,
     order: Int = 0,
+    onLongPress: (() -> Unit)? = null,
+    extra: @Composable () -> Unit = {},
     onClick: () -> Unit
 ) {
     val haptics = rememberHaptics()
@@ -226,15 +253,28 @@ fun CallControl(
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = (if (glass != null) base.glassZone(CircleShape, glass, lens = 1.3f) else base.background(MaterialTheme.colorScheme.zone))
-                        .clickable(interactionSource = press, indication = null, enabled = enabled, role = Role.Button, onClickLabel = label) {
-                            if (motion == ControlMotion.TURN) {
-                                haptics.tick()
-                                turns++
-                            } else {
-                                haptics.toggle(!on)
+                        .combinedClickable(
+                            interactionSource = press,
+                            indication = null,
+                            enabled = enabled,
+                            role = Role.Button,
+                            onClickLabel = label,
+                            onLongClick = onLongPress?.let { long ->
+                                {
+                                    haptics.firm()
+                                    long()
+                                }
+                            },
+                            onClick = {
+                                if (motion == ControlMotion.TURN) {
+                                    haptics.tick()
+                                    turns++
+                                } else {
+                                    haptics.toggle(!on)
+                                }
+                                onClick()
                             }
-                            onClick()
-                        }
+                        )
                 ) {
                     // The accent spreading from the centre, under the icon.
                     val wash = glass?.accentTint ?: MaterialTheme.colorScheme.primaryContainer
@@ -259,6 +299,7 @@ fun CallControl(
                         )
                     }
                 }
+                extra()
             }
             Spacer(Modifier.height(8.dp))
             AnimatedContent(targetState = label, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "label") { text ->
@@ -296,44 +337,80 @@ private fun Modifier.soundWaves(color: Color): Modifier {
 
 private fun lerpColor(a: Color, b: Color, t: Float): Color = androidx.compose.ui.graphics.lerp(a, b, t.coerceIn(0f, 1f))
 
+fun routeIcon(kind: AudioRoute.Kind?): ImageVector = when (kind) {
+    AudioRoute.Kind.BLUETOOTH -> DialerIcons.Bluetooth
+    AudioRoute.Kind.WIRED -> DialerIcons.Headset
+    else -> DialerIcons.Speaker
+}
+
+/**
+ * Where the sound goes, offered on a pane of glass rising above the
+ * button: the phone at the ear, the speaker, each Bluetooth device by its
+ * name, a wired headset. The one in use carries the accent.
+ */
 @Composable
-private fun RouteDialog(state: CallsState, onPick: (AudioRoute) -> Unit, onDismiss: () -> Unit) {
+private fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDismiss: () -> Unit) {
     val haptics = rememberHaptics()
-    ZoneAlertDialog(
+    val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
+    Popup(
+        popupPositionProvider = remember { Above(margin) },
         onDismissRequest = onDismiss,
-        title = { Text("Audio") },
-        text = {
-            Column {
-                state.routes.forEach { option ->
-                    val chosen = option == state.route
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                haptics.tick()
-                                onPick(option)
+        properties = PopupProperties(focusable = true)
+    ) {
+        val appear = remember { MutableTransitionState(false) }.apply { targetState = true }
+        AnimatedVisibility(
+            visibleState = appear,
+            enter = fadeIn(tween(140)) + scaleIn(spring(dampingRatio = 0.6f, stiffness = 500f), initialScale = 0.6f, transformOrigin = TransformOrigin(0.5f, 1f)) +
+                expandVertically(tween(200), expandFrom = Alignment.Bottom)
+        ) {
+            ZoneSurface(shape = RoundedCornerShape(28.dp), shadowElevation = 6.dp, modifier = Modifier.widthIn(min = 220.dp, max = 320.dp)) {
+                Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    state.routes.forEach { option ->
+                        val chosen = option == state.route
+                        val wash = LocalGlass.current?.accentTint ?: MaterialTheme.colorScheme.secondaryContainer
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(if (chosen) wash else Color.Transparent)
+                                .clickable {
+                                    haptics.tick()
+                                    onPick(option)
+                                }
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                                Icon(
+                                    if (option.kind == AudioRoute.Kind.EARPIECE) DialerIcons.Smartphone else routeIcon(option.kind),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    option.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f).padding(start = 14.dp)
+                                )
+                                if (chosen) Icon(DialerIcons.CheckCircle, contentDescription = "In use", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
-                            .padding(vertical = 12.dp, horizontal = 8.dp)
-                    ) {
-                        Icon(
-                            if (option.kind == AudioRoute.Kind.BLUETOOTH) DialerIcons.Bluetooth else DialerIcons.Speaker,
-                            contentDescription = null,
-                            tint = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            option.label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                            modifier = Modifier.padding(start = 16.dp)
-                        )
+                        }
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
-    )
+        }
+    }
+}
+
+/** Centres a popup above its anchor, kept on screen. */
+private class Above(val margin: Int) : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+        val x = anchorBounds.center.x - popupContentSize.width / 2
+        val y = anchorBounds.top - popupContentSize.height - margin
+        return IntOffset(
+            x.coerceIn(margin, (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin)),
+            y.coerceAtLeast(margin)
+        )
+    }
 }
 
 val ControlSize = 72.dp

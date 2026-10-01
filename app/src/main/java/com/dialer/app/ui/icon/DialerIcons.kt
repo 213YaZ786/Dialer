@@ -107,18 +107,32 @@ object DialerIcons {
         )
     }
 
-    /** Edit a contact. */
-    val Edit: ImageVector by lazy {
-        build(
-            "Edit",
-            "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39" +
-                "-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-        )
-    }
-
     /** Clear a field. */
     val Close: ImageVector by lazy {
         build("Close", "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z")
+    }
+
+    /** A call that came in: a bold arrow down and to the left. */
+    val ArrowIn: ImageVector by lazy { build("ArrowIn", "M15 19v-2H8.41L20 5.41 18.59 4 7 15.59V9H5v10h10z") }
+
+    /** A call that went out: a bold arrow up and to the right. */
+    val ArrowOut: ImageVector by lazy { build("ArrowOut", "M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z") }
+
+    /** Sound in a headset. */
+    val Headset: ImageVector by lazy {
+        build(
+            "Headset",
+            "M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 " +
+                "3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"
+        )
+    }
+
+    /** Sound at the ear, from the phone itself. */
+    val Smartphone: ImageVector by lazy {
+        build(
+            "Smartphone",
+            "M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"
+        )
     }
 
     /** The dialpad. */
