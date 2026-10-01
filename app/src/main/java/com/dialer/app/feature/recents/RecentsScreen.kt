@@ -56,6 +56,7 @@ import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.feature.main.TabFrame
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.EmptyZone
+import com.dialer.app.ui.component.FloatingPane
 import com.dialer.app.ui.component.LoadingMark
 import com.dialer.app.ui.component.NewDot
 import com.dialer.app.ui.component.PillItem
@@ -119,7 +120,15 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
         }
     }
 
-    TabFrame(title = "Recents", onOpenSettings = onOpenSettings) {
+    TabFrame(
+        title = "Recents",
+        onOpenSettings = onOpenSettings,
+        controls = {
+            if (allowed && loaded && entries.isNotEmpty()) {
+                Filters(missedOnly, onChange = { missedOnly = it }, query = query, onQuery = { query = it })
+            }
+        }
+    ) { padding ->
         when {
             !allowed -> EmptyZone(
                 title = "Your calls show here",
@@ -127,28 +136,27 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                 icon = DialerIcons.Recents,
                 actionLabel = "Allow call history",
                 onAction = { ask.launch(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG)) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(padding)
             )
-            !loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingMark(size = 72.dp) }
+            !loaded -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { LoadingMark(size = 72.dp) }
             entries.isEmpty() -> EmptyZone(
                 title = "No calls yet",
                 message = "Calls you make and receive show here, newest first.",
                 icon = DialerIcons.Recents,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(padding)
             )
             else -> {
-                Filters(missedOnly, onChange = { missedOnly = it }, query = query, onQuery = { query = it })
                 if (loaded && sections.isEmpty()) {
                     EmptyZone(
                         title = if (query.isNotBlank()) "No calls found" else "No missed calls",
                         message = if (query.isNotBlank()) "No name or number matches \"$query\"." else "Every call was answered.",
                         icon = DialerIcons.Missed,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().padding(padding)
                     )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -183,9 +191,9 @@ private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: Str
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        SearchPill(query, onQuery, hint = "Search calls", modifier = Modifier.widthIn(max = 420.dp).weight(1f, fill = false).fillMaxWidth())
+        SearchPill(query, onQuery, hint = "Search calls", modifier = Modifier.widthIn(max = 420.dp).weight(1f, fill = false).fillMaxWidth(), floating = true)
         listOf(false to "All", true to "Missed").forEach { (value, label) ->
-            ZoneSurface(
+            FloatingPane(
                 shape = CircleShape,
                 accent = missedOnly == value,
                 onClick = {
@@ -193,7 +201,7 @@ private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: Str
                     onChange(value)
                 }
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+                Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
             }
         }
     }

@@ -50,6 +50,12 @@ data class Settings(
     val announce: AnnounceMode = AnnounceMode.OFF,
     /** One firm buzz when the person called picks up. */
     val vibrateOnAnswer: Boolean = true,
+    /**
+     * Where the user left the dialpad button, as fractions of the room it
+     * moves in (0 to 1 across, 0 to 1 down); below 0, its usual place.
+     */
+    val dialpadX: Float = -1f,
+    val dialpadY: Float = -1f,
     /** Held keys 2 to 9 of the dialpad call these numbers. */
     val speedDial: Map<Int, String> = emptyMap()
 )

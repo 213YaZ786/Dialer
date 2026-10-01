@@ -88,13 +88,13 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
     val frequents = remember(calls, people) { People.frequents(calls, people, System.currentTimeMillis()) }
     val context = LocalContext.current
 
-    TabFrame(title = "Favorites", onOpenSettings = onOpenSettings) {
+    TabFrame(title = "Favorites", onOpenSettings = onOpenSettings) { padding ->
         if (favorites.isEmpty() && frequents.isEmpty()) {
             EmptyZone(
                 title = "No favorites yet",
                 message = "Star a contact to call them from here in one tap. The people you call most show here too.",
                 icon = DialerIcons.Star,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(padding)
             )
             return@TabFrame
         }
@@ -102,7 +102,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(132.dp),
             modifier = Modifier.widthIn(max = 672.dp).fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding()),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {

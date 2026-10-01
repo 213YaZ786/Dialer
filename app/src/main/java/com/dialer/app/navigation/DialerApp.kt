@@ -19,6 +19,25 @@ import androidx.compose.foundation.background
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.roundToInt
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -47,6 +66,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -314,10 +334,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                         vertical = true,
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
                     )
-                    DialpadButton(
-                        onClick = { dialpad = "" },
-                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 24.dp)
-                    )
+                    MovableDialpadButton(onClick = { dialpad = "" }, above = 24.dp)
                 }
             }
         } else {
@@ -332,11 +349,8 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                         onSelect = ::go,
                         modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
                     )
-                    // Level with the dock, at the thumb's side.
-                    DialpadButton(
-                        onClick = { dialpad = "" },
-                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 16.dp)
-                    )
+                    // At the thumb's side, just above the dock, until moved.
+                    MovableDialpadButton(onClick = { dialpad = "" }, above = DockClearance + 4.dp)
                 }
             }
         }
@@ -380,28 +394,94 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
 
 /**
  * The way to the dialpad: a round pane of glass washed with the accent,
- * bending the tabs under it like the dock does.
+ * bending the tabs under it like the dock does. A tap opens the dialpad;
+ * held, it lifts (a little larger, a firm tick) and follows the finger
+ * anywhere on the screen, and stays where it is let go, kept for next time.
+ * Until moved it sits at the thumb's side, [above] the bottom edge.
  */
 @Composable
-private fun DialpadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun MovableDialpadButton(onClick: () -> Unit, above: Dp) {
     val haptics = rememberHaptics()
+    val store: SettingsStore = koinInject()
+    val settings by store.settings.collectAsState()
     val look = LocalGlass.current
     val backdrop = LocalGlassBackdrop.current
+    val density = LocalDensity.current
     val shape = CircleShape
-    val base = modifier.size(64.dp).clip(shape)
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = when {
-            look != null && backdrop != null -> base.glassFloating(backdrop, shape, look, tint = look.accentTint, lens = 1.4f)
-            else -> base.background(MaterialTheme.colorScheme.primaryContainer)
-        }.clickable(role = Role.Button, onClickLabel = "Dialpad") {
-            haptics.firm()
-            onClick()
-        }
+    val longPress = LocalViewConfiguration.current.longPressTimeoutMillis
+
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(12.dp)
     ) {
-        Icon(DialerIcons.Dialpad, contentDescription = "Dialpad", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        val side = with(density) { ButtonSize.toPx() }
+        val roomX = (constraints.maxWidth - side).coerceAtLeast(0f)
+        val roomY = (constraints.maxHeight - side).coerceAtLeast(0f)
+        val usual = with(density) { Offset(roomX - 8.dp.toPx(), roomY - (above - 12.dp).coerceAtLeast(0.dp).toPx()) }
+        val saved = if (settings.dialpadX >= 0f) Offset(settings.dialpadX * roomX, settings.dialpadY * roomY) else null
+        var dragging by remember { mutableStateOf<Offset?>(null) }
+        val at = dragging ?: saved ?: usual
+        val current by rememberUpdatedState(at)
+        val lift by animateFloatAsState(if (dragging != null) 1.14f else 1f, spring(dampingRatio = 0.5f, stiffness = 500f), label = "lift")
+
+        val base = Modifier
+            .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+            .size(ButtonSize)
+            .graphicsLayer {
+                scaleX = lift
+                scaleY = lift
+            }
+            .clip(shape)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = when {
+                look != null && backdrop != null -> base.glassFloating(backdrop, shape, look, tint = look.accentTint, lens = 1.4f)
+                else -> base.background(MaterialTheme.colorScheme.primaryContainer)
+            }
+                .semantics {
+                    role = Role.Button
+                    contentDescription = "Dialpad"
+                }
+                .pointerInput(roomX, roomY) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        val up = withTimeoutOrNull(longPress) { waitForUpOrCancellation() }
+                        if (up != null) {
+                            haptics.firm()
+                            onClick()
+                            return@awaitEachGesture
+                        }
+                        // Held: picked up, it follows the finger.
+                        haptics.firm()
+                        var where = current
+                        dragging = where
+                        drag(down.id) { change ->
+                            val d = change.positionChange()
+                            change.consume()
+                            where = Offset((where.x + d.x).coerceIn(0f, roomX), (where.y + d.y).coerceIn(0f, roomY))
+                            dragging = where
+                        }
+                        haptics.tick()
+                        val placed = where
+                        store.update {
+                            it.copy(
+                                dialpadX = if (roomX > 0f) placed.x / roomX else 1f,
+                                dialpadY = if (roomY > 0f) placed.y / roomY else 1f
+                            )
+                        }
+                        dragging = null
+                    }
+                }
+        ) {
+            Icon(DialerIcons.Dialpad, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
     }
 }
+
+private val ButtonSize = 64.dp
 
 /** Long enough to be read as motion, short enough not to be waited on. */
 private const val NAV_MS = 260

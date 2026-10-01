@@ -28,9 +28,12 @@ import com.dialer.app.ui.icon.DialerIcons
 
 /** A pill of glass to type a name or a number in; the cross clears it. */
 @Composable
-fun SearchPill(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
+fun SearchPill(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier, floating: Boolean = false) {
     val haptics = rememberHaptics()
-    ZoneSurface(shape = CircleShape, modifier = modifier) {
+    val pane: @Composable (@Composable () -> Unit) -> Unit = { inner ->
+        if (floating) FloatingPane(shape = CircleShape, modifier = modifier) { inner() } else ZoneSurface(shape = CircleShape, modifier = modifier) { inner() }
+    }
+    pane {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.dp, end = 4.dp)) {
             Icon(DialerIcons.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))

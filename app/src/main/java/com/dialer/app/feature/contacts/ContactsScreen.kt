@@ -52,6 +52,7 @@ import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.feature.main.TabFrame
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.EmptyZone
+import com.dialer.app.ui.component.FloatingPane
 import com.dialer.app.ui.component.PillItem
 import com.dialer.app.ui.component.PillMenu
 import com.dialer.app.ui.component.PillMotion
@@ -80,7 +81,27 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
     val shown = remember(people, query) { People.search(people, query) }
     val context = LocalContext.current
 
-    TabFrame(title = "Contacts", onOpenSettings = onOpenSettings) {
+    TabFrame(
+        title = "Contacts",
+        onOpenSettings = onOpenSettings,
+        controls = {
+            if (allowed && people.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    SearchPill(query, { query = it }, hint = "Search ${people.size} contacts", modifier = Modifier.widthIn(max = 560.dp).weight(1f, fill = false).fillMaxWidth(), floating = true)
+                    Spacer(Modifier.width(10.dp))
+                    FloatingPane(shape = CircleShape, onClick = { NumberActions.newContact(context) }, modifier = Modifier.size(52.dp)) {
+                        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+                            Icon(DialerIcons.PersonAdd, contentDescription = "New contact", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        }
+    ) { padding ->
         if (!allowed) {
             EmptyZone(
                 title = "Your contacts show here",
@@ -88,22 +109,9 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 icon = DialerIcons.Person,
                 actionLabel = "Allow contacts",
                 onAction = { ask.launch(Manifest.permission.READ_CONTACTS) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(padding)
             )
             return@TabFrame
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            SearchPill(query, { query = it }, hint = "Search ${people.size} contacts", modifier = Modifier.widthIn(max = 560.dp).weight(1f, fill = false).fillMaxWidth())
-            Spacer(Modifier.width(10.dp))
-            ZoneSurface(shape = CircleShape, onClick = { NumberActions.newContact(context) }, modifier = Modifier.size(52.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(DialerIcons.PersonAdd, contentDescription = "New contact", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
         }
         when {
             people.isEmpty() -> EmptyZone(
@@ -112,17 +120,17 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 icon = DialerIcons.Person,
                 actionLabel = "New contact",
                 onAction = { NumberActions.newContact(context) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(padding)
             )
             shown.isEmpty() -> EmptyZone(
                 title = "No one found",
                 message = "No name or number matches \"$query\".",
                 icon = DialerIcons.Search,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(padding)
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
