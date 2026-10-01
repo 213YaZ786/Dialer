@@ -18,6 +18,8 @@ class SettingsViewModel(private val store: SettingsStore) : ViewModel() {
     fun setTextScale(scale: Float) = store.update { it.copy(textScale = scale) }
     fun setUpdates(mode: UpdateMode) = store.update { it.copy(updates = mode) }
     fun setSilenceUnknown(on: Boolean) = store.update { it.copy(silenceUnknown = on) }
+    fun setBlockSpoofed(on: Boolean) = store.update { it.copy(blockSpoofed = on) }
+    fun setHideInRecents(on: Boolean) = store.update { it.copy(hideInRecents = on) }
     fun setBlockHidden(on: Boolean) = store.update { it.copy(blockHidden = on) }
     fun setFlipToSilence(on: Boolean) = store.update { it.copy(flipToSilence = on) }
     fun setAnnounce(mode: AnnounceMode) = store.update { it.copy(announce = mode) }

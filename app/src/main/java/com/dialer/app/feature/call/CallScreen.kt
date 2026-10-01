@@ -88,6 +88,8 @@ import com.dialer.app.core.call.CallInfo
 import com.dialer.app.core.call.CallPhase
 import com.dialer.app.core.call.CallStore
 import com.dialer.app.core.call.CallsState
+import com.dialer.app.core.call.NumberCheck
+import androidx.compose.foundation.layout.width
 import com.dialer.app.core.network.CellProtection
 import com.dialer.app.core.network.CellWatch
 import com.dialer.app.core.network.Protocol
@@ -397,6 +399,27 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
     if (call.name != null && !call.isConference) {
         Spacer(Modifier.height(6.dp))
         Text(call.number, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    // What the network says of the number: checked, or likely faked.
+    when (call.numberCheck) {
+        NumberCheck.VERIFIED -> {
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(DialerIcons.CheckCircle, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Number checked by your carrier", style = MaterialTheme.typography.labelLarge, color = AnswerGreen)
+            }
+        }
+        NumberCheck.FAILED -> {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "This number may be faked: don't give any code or bank detail",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+        }
+        NumberCheck.NONE -> Unit
     }
 }
 

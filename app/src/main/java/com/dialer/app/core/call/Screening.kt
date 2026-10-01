@@ -1,6 +1,7 @@
 package com.dialer.app.core.call
 
 import android.telecom.Call
+import android.telecom.Connection
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
 import com.dialer.app.core.dial.ContactLookup
@@ -10,9 +11,10 @@ import org.koin.core.component.inject
 
 /**
  * Looks at each incoming call before it rings, which Android lets the phone
- * app do. Two choices of the user, both off by default: hidden numbers are
- * turned away, and numbers not in the contacts ring without a sound (the
- * call still shows and can be answered). Everything is decided on the
+ * app do. Numbers the network found to be faked (STIR/SHAKEN failed) are
+ * turned away, on by default; hidden numbers are turned away and numbers
+ * not in the contacts ring without a sound (the call still shows and can be
+ * answered), both off by default. Everything is decided on the
  * phone, from the contacts; no number is sent anywhere.
  */
 class Screening : CallScreeningService(), KoinComponent {
@@ -28,7 +30,13 @@ class Screening : CallScreeningService(), KoinComponent {
         val prefs = settings.current
         val hidden = details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED ||
             details.handle?.schemeSpecificPart.isNullOrBlank()
+        val spoofed = details.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED
         val response = when {
+            spoofed && prefs.blockSpoofed -> CallResponse.Builder()
+                .setDisallowCall(true)
+                .setRejectCall(true)
+                .setSkipNotification(true)
+                .build()
             hidden && prefs.blockHidden -> CallResponse.Builder()
                 .setDisallowCall(true)
                 .setRejectCall(true)

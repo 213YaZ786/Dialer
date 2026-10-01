@@ -99,6 +99,12 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 onChange = viewModel::setSilenceUnknown
             )
             SwitchRow(
+                title = "Block faked numbers",
+                summary = "Calls your carrier finds are not really from the number shown are turned away. They still show in Recents.",
+                checked = settings.blockSpoofed,
+                onChange = viewModel::setBlockSpoofed
+            )
+            SwitchRow(
                 title = "Block hidden numbers",
                 summary = "Calls that hide their number are turned away. They still show in Recents.",
                 checked = settings.blockHidden,
@@ -194,6 +200,12 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 summary = "Deeper blacks in dark mode. Easier on the battery with OLED screens.",
                 checked = settings.pureBlack,
                 onChange = viewModel::setPureBlack
+            )
+            SwitchRow(
+                title = "Hide in recent apps",
+                summary = "Dialer's picture in the recent apps stays blank, so your calls and contacts are not seen there.",
+                checked = settings.hideInRecents,
+                onChange = viewModel::setHideInRecents
             )
             SwitchRow(
                 title = "Glass effects",

@@ -8,6 +8,7 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.telecom.Call
+import android.telecom.Connection
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.telephony.PhoneNumberUtils
@@ -56,7 +57,9 @@ data class CallInfo(
     /** Over Wi-Fi calling rather than the mobile network. */
     val wifi: Boolean = false,
     /** High definition voice (VoLTE, VoNR, Wi-Fi calling). */
-    val hd: Boolean = false
+    val hd: Boolean = false,
+    /** What the network says of the caller's number (STIR/SHAKEN): checked, failed, or not known. */
+    val numberCheck: NumberCheck = NumberCheck.NONE
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -64,6 +67,9 @@ data class CallInfo(
 
 /** One person in a conference: they can be talked to alone, or let go. */
 data class Participant(val id: Int, val title: String, val canSplit: Boolean, val canHangUp: Boolean)
+
+/** The network's check of an incoming number, as French and US carriers do it now. */
+enum class NumberCheck { NONE, VERIFIED, FAILED }
 
 /** Where the sound of the call goes. */
 data class AudioRoute(val kind: Kind, val label: String) {
@@ -263,6 +269,11 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             outgoing = details.callDirection == Call.Details.DIRECTION_OUTGOING,
             wifi = details.hasProperty(Call.Details.PROPERTY_WIFI),
             hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
+            numberCheck = if (details.callDirection != Call.Details.DIRECTION_INCOMING) NumberCheck.NONE else when (details.callerNumberVerificationStatus) {
+                Connection.VERIFICATION_STATUS_PASSED -> NumberCheck.VERIFIED
+                Connection.VERIFICATION_STATUS_FAILED -> NumberCheck.FAILED
+                else -> NumberCheck.NONE
+            },
             participants = call.children.mapNotNull { child ->
                 val childId = idOf(child) ?: return@mapNotNull null
                 val d = child.details

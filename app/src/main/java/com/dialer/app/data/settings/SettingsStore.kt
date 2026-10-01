@@ -38,6 +38,10 @@ data class Settings(
     val welcomeSeen: Boolean = false,
     /** Numbers not in the contacts ring without a sound; the call still shows and can be answered. */
     val silenceUnknown: Boolean = false,
+    /** Calls whose number the network found faked are turned away; they still show in Recents. */
+    val blockSpoofed: Boolean = true,
+    /** The app's picture in the recent apps screen stays blank: no calls nor contacts to be seen there. */
+    val hideInRecents: Boolean = true,
     /** Calls with a hidden number are turned away; they still show in Recents. */
     val blockHidden: Boolean = false,
     /** Turning the phone face down stops the ringing. */

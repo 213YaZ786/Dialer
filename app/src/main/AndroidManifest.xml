@@ -41,7 +41,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Dialer"
         android:enableOnBackInvokedCallback="false"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config">
 
         <activity
             android:name=".MainActivity"
@@ -107,10 +108,13 @@
             </intent-filter>
         </service>
 
-        <!-- Missed calls: Telecom gives the notification to the phone app. -->
+        <!-- Missed calls: Telecom gives the notification to the phone app. Only
+             the system may send it (it holds every permission): another app
+             cannot fake a missed call whose Call back dials its number. -->
         <receiver
             android:name=".core.call.MissedCallReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.MODIFY_PHONE_STATE">
             <intent-filter>
                 <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
             </intent-filter>
