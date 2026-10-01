@@ -1,5 +1,11 @@
 package com.dialer.app.feature.settings
 
+import android.content.Context
+import android.content.Intent
+import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
+import com.dialer.app.data.settings.AnnounceMode
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -53,7 +59,7 @@ import com.dialer.app.ui.theme.TEXT_SCALES
 import com.dialer.app.ui.theme.textScaleLabel
 import org.koin.androidx.compose.koinViewModel
 
-private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES }
+private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewModel()) {
@@ -75,6 +81,71 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             title = "Settings",
             leading = { BannerAction(icon = DialerIcons.ArrowBack, label = "Back", onClick = onBack) }
         )
+
+        Section("Calls") {
+            SwitchRow(
+                title = "Silence unknown callers",
+                summary = "Numbers not in your contacts ring without a sound. The call still shows and you can answer.",
+                checked = settings.silenceUnknown,
+                onChange = viewModel::setSilenceUnknown
+            )
+            SwitchRow(
+                title = "Block hidden numbers",
+                summary = "Calls that hide their number are turned away. They still show in Recents.",
+                checked = settings.blockHidden,
+                onChange = viewModel::setBlockHidden
+            )
+            SwitchRow(
+                title = "Flip to silence",
+                summary = "Turn the phone face down to stop the ringing.",
+                checked = settings.flipToSilence,
+                onChange = viewModel::setFlipToSilence
+            )
+            SettingRow(
+                title = "Announce the caller",
+                summary = announceLabel(settings.announce),
+                onClick = { dialog = OpenDialog.ANNOUNCE }
+            )
+            SwitchRow(
+                title = "Vibrate when answered",
+                summary = "One buzz when the person you call picks up.",
+                checked = settings.vibrateOnAnswer,
+                onChange = viewModel::setVibrateOnAnswer
+            )
+            SettingRow(
+                title = "Blocked numbers",
+                summary = "The list Android keeps for every app",
+                onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
+            )
+        }
+
+        Section("Phone") {
+            SettingRow(
+                title = "Call forwarding, call waiting, caller ID",
+                summary = "Your carrier's settings",
+                onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) }
+            )
+            SettingRow(
+                title = "SIMs and calling accounts",
+                summary = "Which SIM calls, Wi-Fi calling",
+                onClick = { open(context, Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
+            )
+            SettingRow(
+                title = "Voicemail",
+                summary = "Number and notifications",
+                onClick = { open(context, Intent(TelephonyManager.ACTION_CONFIGURE_VOICEMAIL)) }
+            )
+            SettingRow(
+                title = "Ringtone and vibration",
+                summary = "Android's sound settings",
+                onClick = { open(context, Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)) }
+            )
+            SettingRow(
+                title = "Accessibility",
+                summary = "Hearing aids, real-time text",
+                onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS)) }
+            )
+        }
 
         Section("Appearance") {
             SettingRow(
@@ -147,6 +218,13 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 // Installing needs Android's leave, asked when chosen.
                 if (mode == UpdateMode.INSTALL && !Updates.canInstall(context)) Updates.allowInstalls(context)
             },
+            onDismiss = { dialog = OpenDialog.NONE }
+        )
+        OpenDialog.ANNOUNCE -> ChoiceDialog(
+            title = "Announce the caller",
+            options = AnnounceMode.entries.map { it to announceLabel(it) },
+            selected = settings.announce,
+            onSelect = viewModel::setAnnounce,
             onDismiss = { dialog = OpenDialog.NONE }
         )
         OpenDialog.NONE -> Unit
@@ -250,6 +328,17 @@ private fun <T> ChoiceDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+private fun announceLabel(mode: AnnounceMode): String = when (mode) {
+    AnnounceMode.OFF -> "Off"
+    AnnounceMode.HEADPHONES -> "With headphones only"
+    AnnounceMode.ALWAYS -> "Always"
+}
+
+/** An Android settings screen; some phones leave one out, then nothing happens. */
+private fun open(context: Context, intent: Intent) {
+    runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
 private fun themeLabel(mode: ThemeMode): String = when (mode) {

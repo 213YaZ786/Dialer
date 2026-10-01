@@ -18,7 +18,7 @@ val appModule = module {
     single { SettingsStore(androidContext()) }
     // On the main thread: Telecom calls back there, and a Call is only
     // touched from it.
-    single { CallStore(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) }
+    single { CallStore(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate), get()) }
     single { PhoneBook(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) }
     single { CallHistory(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) }
     single { DialRequests() }

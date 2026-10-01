@@ -13,6 +13,10 @@ import kotlinx.serialization.json.Json
 @Serializable
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** When the caller's name is read out while the phone rings. */
+@Serializable
+enum class AnnounceMode { OFF, HEADPHONES, ALWAYS }
+
 @Serializable
 data class Settings(
     /**
@@ -31,7 +35,19 @@ data class Settings(
     /** Index of the tab shown last, so the app reopens where it was left. */
     val lastTab: Int = 0,
     /** The first launch page was closed. */
-    val welcomeSeen: Boolean = false
+    val welcomeSeen: Boolean = false,
+    /** Numbers not in the contacts ring without a sound; the call still shows and can be answered. */
+    val silenceUnknown: Boolean = false,
+    /** Calls with a hidden number are turned away; they still show in Recents. */
+    val blockHidden: Boolean = false,
+    /** Turning the phone face down stops the ringing. */
+    val flipToSilence: Boolean = true,
+    /** The caller's name read out while the phone rings. */
+    val announce: AnnounceMode = AnnounceMode.OFF,
+    /** One firm buzz when the person called picks up. */
+    val vibrateOnAnswer: Boolean = true,
+    /** Held keys 2 to 9 of the dialpad call these numbers. */
+    val speedDial: Map<Int, String> = emptyMap()
 )
 
 /**

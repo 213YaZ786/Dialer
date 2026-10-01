@@ -21,6 +21,9 @@
          deletes the calls the user removes. Granted with the phone app role. -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
+    <!-- Lets Telecom hand the missed call notification to Dialer, which then
+         offers Call back and Message. Granted with the phone app role. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- One buzz when the person called picks up, felt at the ear or in a pocket. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Turns the screen off against the ear during a call. -->
@@ -102,7 +105,27 @@
             </intent-filter>
         </service>
 
-        <!-- Decline and Hang up in the call notifications. -->
+        <!-- Missed calls: Telecom gives the notification to the phone app. -->
+        <receiver
+            android:name=".core.call.MissedCallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Looks at incoming calls before they ring: hidden numbers and
+             unknown callers, as the user chose. Bound by Telecom only. -->
+        <service
+            android:name=".core.call.Screening"
+            android:exported="true"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+        </service>
+
+        <!-- Decline and Hang up in the call notifications, Call back on a missed call. -->
         <receiver
             android:name=".core.call.CallActionReceiver"
             android:exported="false" />

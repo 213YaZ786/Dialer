@@ -1,6 +1,7 @@
 package com.dialer.app.core.call
 
 import android.content.Context
+import com.dialer.app.data.settings.SettingsStore
 import android.net.Uri
 import android.os.Build
 import android.os.VibrationAttributes
@@ -95,7 +96,7 @@ data class CallsState(
  * ask for actions here; the service does what needs its own powers (audio
  * routes, mute) through [Controls], set while it is bound.
  */
-class CallStore(private val context: Context, private val scope: CoroutineScope) {
+class CallStore(private val context: Context, private val scope: CoroutineScope, private val settings: SettingsStore) {
 
     /** What only the bound InCallService can do. */
     interface Controls {
@@ -222,7 +223,8 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
         if (live.none { it.phase == CallPhase.RINGING }) _silenced.value = false
         // The phone is often at the ear or in a pocket while it rings out:
         // one firm buzz says the other side picked up.
-        live.filter { it.outgoing && it.phase == CallPhase.ACTIVE && answered.add(it.id) }.forEach { _ -> buzz() }
+        live.filter { it.outgoing && it.phase == CallPhase.ACTIVE && answered.add(it.id) }
+            .forEach { _ -> if (settings.current.vibrateOnAnswer) buzz() }
     }
 
     private fun info(id: Int, call: Call): CallInfo {

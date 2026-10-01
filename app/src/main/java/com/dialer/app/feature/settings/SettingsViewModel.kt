@@ -2,6 +2,7 @@ package com.dialer.app.feature.settings
 
 import androidx.lifecycle.ViewModel
 import com.dialer.app.core.update.UpdateMode
+import com.dialer.app.data.settings.AnnounceMode
 import com.dialer.app.data.settings.Settings
 import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.data.settings.ThemeMode
@@ -16,4 +17,9 @@ class SettingsViewModel(private val store: SettingsStore) : ViewModel() {
     fun setGlass(on: Boolean) = store.update { it.copy(glass = on) }
     fun setTextScale(scale: Float) = store.update { it.copy(textScale = scale) }
     fun setUpdates(mode: UpdateMode) = store.update { it.copy(updates = mode) }
+    fun setSilenceUnknown(on: Boolean) = store.update { it.copy(silenceUnknown = on) }
+    fun setBlockHidden(on: Boolean) = store.update { it.copy(blockHidden = on) }
+    fun setFlipToSilence(on: Boolean) = store.update { it.copy(flipToSilence = on) }
+    fun setAnnounce(mode: AnnounceMode) = store.update { it.copy(announce = mode) }
+    fun setVibrateOnAnswer(on: Boolean) = store.update { it.copy(vibrateOnAnswer = on) }
 }

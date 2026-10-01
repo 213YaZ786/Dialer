@@ -10,6 +10,7 @@ import android.telecom.CallEndpoint
 import android.telecom.CallEndpointException
 import android.telecom.InCallService
 import androidx.annotation.RequiresApi
+import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.feature.call.CallActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,10 @@ import org.koin.core.component.inject
 class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
 
     private val store: CallStore by inject()
+    private val settings: SettingsStore by inject()
+    private lateinit var flip: FlipToSilence
+    private lateinit var announcer: CallerAnnouncer
+    private var announcedId = -1
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var notifier: CallNotifier
     private var watching: Job? = null
@@ -45,13 +50,21 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
         super.onCreate()
         notifier = CallNotifier(this)
         store.controls = this
+        flip = FlipToSilence(this) { store.silence() }
+        announcer = CallerAnnouncer(this)
         watching = scope.launch {
             combine(store.state, store.screenShown) { state, shown -> state to shown }
                 .collect { (state, shown) -> show(state, shown) }
         }
+        scope.launch {
+            combine(store.state, store.silenced) { state, silenced -> state to silenced }
+                .collect { (state, silenced) -> ringing(state, silenced) }
+        }
     }
 
     override fun onDestroy() {
+        flip.stop()
+        announcer.release()
         if (store.controls === this) store.controls = null
         scope.cancel()
         super.onDestroy()
@@ -71,6 +84,25 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
 
     private fun openScreen() {
         startActivity(Intent(this, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /**
+     * While a call rings and has not been silenced: the phone listens for
+     * being turned face down, and reads out who is calling, once per call.
+     */
+    private fun ringing(state: CallsState, silenced: Boolean) {
+        val call = state.calls.firstOrNull { it.phase == CallPhase.RINGING }
+        if (call == null || silenced) {
+            flip.stop()
+            announcer.stop()
+            return
+        }
+        val prefs = settings.current
+        if (prefs.flipToSilence) flip.start()
+        if (announcedId != call.id) {
+            announcedId = call.id
+            announcer.announce(prefs.announce, call.name, call.number)
+        }
     }
 
     /** One notification follows the calls: incoming, then ongoing, then gone. */

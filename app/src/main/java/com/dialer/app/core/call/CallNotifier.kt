@@ -117,7 +117,10 @@ class CallNotifier(private val context: Context) {
         const val CHANNEL_ONGOING = "ongoing_calls"
         const val ACTION_DECLINE = "com.dialer.app.DECLINE"
         const val ACTION_HANG_UP = "com.dialer.app.HANG_UP"
+        const val ACTION_CALL_BACK = "com.dialer.app.CALL_BACK"
+        const val ACTION_CLEAR_MISSED = "com.dialer.app.CLEAR_MISSED"
         const val EXTRA_CALL = "call"
+        const val EXTRA_NUMBER = "number"
         private const val OPEN_REQUEST = 1000
         private const val ANSWER_REQUEST = 2000
     }
