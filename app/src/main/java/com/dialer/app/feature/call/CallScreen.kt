@@ -1,6 +1,10 @@
 package com.dialer.app.feature.call
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -76,9 +80,6 @@ import com.dialer.app.ui.icon.DialerIcons
 import com.dialer.app.ui.theme.zone
 import kotlinx.coroutines.delay
 
-/** Answer green and hang up red: the colours every phone uses, kept whatever the wallpaper. */
-private val AnswerGreen = Color(0xFF1E8E3E)
-private val HangUpRed = Color(0xFFC5221F)
 
 @Composable
 fun CallScreen(
@@ -89,6 +90,18 @@ fun CallScreen(
 ) {
     val call = state.primary ?: return
     val compact = keypadOpen && call.phase != CallPhase.ENDED
+
+    // The wave of glass let go by Answer or Decline, spread over the whole
+    // window. Answering lets it settle away into the call; declining keeps
+    // it until the screen closes.
+    var wave by remember(call.id) { mutableStateOf<GlassWave?>(null) }
+    val waveProgress = remember(call.id) { Animatable(0f) }
+    val waveAlpha = remember(call.id) { Animatable(1f) }
+    LaunchedEffect(wave) {
+        val w = wave ?: return@LaunchedEffect
+        waveProgress.animateTo(1f, tween(620, easing = FastOutSlowInEasing))
+        if (w.color == AnswerGreen) waveAlpha.animateTo(0f, tween(520))
+    }
     // At least the screen's height, so the buttons sit at the bottom, and
     // scrolling when two calls and the keypad need more: Hang up is never
     // pushed out of reach.
@@ -132,7 +145,11 @@ fun CallScreen(
                 label = "call panel"
             ) { panel ->
                 when (panel) {
-                    Panel.RINGING -> Ringing(onAnswer = { actions.answer(call.id) }, onDecline = { actions.decline(call.id) })
+                    Panel.RINGING -> IncomingChoice(
+                        onAnswer = { actions.answer(call.id) },
+                        onDecline = { actions.decline(call.id) },
+                        onWave = { wave = it }
+                    )
                     Panel.SIM -> SimChooser(call, actions)
                     Panel.KEYPAD -> InCallKeypad(
                         onTone = { key -> actions.tone(call.id, key) },
@@ -146,6 +163,9 @@ fun CallScreen(
         }
         Spacer(Modifier.height(24.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+    wave?.let { w ->
+        Canvas(Modifier.matchParentSize()) { drawGlassWave(w, waveProgress.value, waveAlpha.value) }
     }
     }
 }
@@ -255,14 +275,6 @@ private fun OtherCall(call: CallInfo, onSwap: (() -> Unit)?, onMerge: (() -> Uni
     }
 }
 
-@Composable
-private fun Ringing(onAnswer: () -> Unit, onDecline: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        BigButton(DialerIcons.CallEnd, "Decline", HangUpRed, Color.White, onClick = onDecline)
-        BigButton(DialerIcons.Call, "Answer", AnswerGreen, Color.White, onClick = onAnswer)
-    }
-}
-
 /** The SIMs Telecom offers for this call, when no default is set. */
 @Composable
 private fun SimChooser(call: CallInfo, actions: CallStore) {
@@ -282,7 +294,7 @@ private fun SimChooser(call: CallInfo, actions: CallStore) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        BigButton(DialerIcons.CallEnd, "Cancel", HangUpRed, Color.White) {
+        BigButton(DialerIcons.CallEnd, "Cancel", HangUpRed) {
             actions.hangUp(call.id)
         }
     }
@@ -324,7 +336,7 @@ private fun Controls(state: CallsState, call: CallInfo, actions: CallStore, onKe
             }
         }
         Spacer(Modifier.height(28.dp))
-        BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed, Color.White) {
+        BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed) {
             actions.hangUp(call.id)
         }
     }
@@ -411,7 +423,7 @@ private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: 
         Spacer(Modifier.height(28.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             Spacer(Modifier.size(80.dp))
-            BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed, Color.White, onClick = onHangUp)
+            BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed, onClick = onHangUp)
             ToggleButton(DialerIcons.Dialpad, "Hide", on = true, onClick = onHide)
         }
     }
@@ -484,39 +496,8 @@ private fun ToggleButton(icon: ImageVector, label: String, on: Boolean, enabled:
     }
 }
 
-/**
- * Answer, decline and hang up: glass tinted deep in their colour, the size a
- * thumb finds without looking. The tint goes into the glass itself, so the
- * lens and the rim stay.
- */
+/** Hang up and cancel: the same deep glass as the incoming call's buttons. */
 @Composable
-private fun BigButton(icon: ImageVector, label: String, fill: Color, ink: Color, size: Dp = 76.dp, onClick: () -> Unit) {
-    val haptics = rememberHaptics()
-    val glass = LocalGlass.current
-    val tinted = rememberTinted(glass, fill.copy(alpha = 0.86f))
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        val base = Modifier.size(size).clip(CircleShape)
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = (if (tinted != null) base.glassZone(CircleShape, tinted, lens = 1f) else base.background(fill))
-                .clickable(role = Role.Button, onClickLabel = label) {
-                    haptics.firm()
-                    onClick()
-                }
-        ) {
-            Icon(icon, contentDescription = label, tint = ink, modifier = Modifier.size(32.dp))
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall)
-    }
-}
-
-/** The same glass as [look], tinted with [tint] instead of the zone's own fill. */
-@Composable
-private fun rememberTinted(look: GlassLook?, tint: Color?): GlassLook? = remember(look, tint) {
-    if (look == null || tint == null) {
-        null
-    } else {
-        GlassLook(look.dark, look.ground, look.halos, zoneTint = tint, floatTint = tint, accentTint = look.accentTint)
-    }
+private fun BigButton(icon: ImageVector, label: String, fill: Color, size: Dp = 80.dp, onClick: () -> Unit) {
+    GlassCallButton(icon = icon, label = label, color = fill, size = size, glow = 0.35f, onClick = onClick)
 }
