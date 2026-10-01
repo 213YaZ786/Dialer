@@ -5,6 +5,15 @@ import android.content.Intent
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import com.dialer.app.data.settings.AnnounceMode
+import com.dialer.app.core.network.CellProtection
+import com.dialer.app.core.network.CellWatch
+import com.dialer.app.core.network.Protocol
+import com.dialer.app.ui.component.protectionColor
+import org.koin.compose.koinInject
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -116,6 +125,33 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 title = "Blocked numbers",
                 summary = "The list Android keeps for every app",
                 onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
+            )
+        }
+
+        Section("Network security") {
+            val cell: CellWatch = koinInject()
+            val sims by cell.sims.collectAsState()
+            if (sims.isEmpty()) {
+                SettingRow(title = "No SIM", summary = "Insert a SIM to see how its network protects your calls.", onClick = null)
+            }
+            sims.forEach { sim ->
+                val protection = sim.protection
+                SettingRow(
+                    title = "${sim.name}: ${protection.label}",
+                    summary = buildString {
+                        append("Calls on ${sim.voice.label}")
+                        if (sim.data != Protocol.NONE && sim.data != sim.voice) append(", data on ${sim.data.label}")
+                        append(". ")
+                        append(CellProtection.meaning(protection))
+                    },
+                    onClick = null,
+                    trailing = { Box(Modifier.size(12.dp).background(protectionColor(protection), CircleShape)) }
+                )
+            }
+            SettingRow(
+                title = "Turn off 2G",
+                summary = "In the SIM's settings, \"Allow 2G\". Keeps fake antennas from forcing your phone onto it.",
+                onClick = { openFirst(context, "android.settings.CELLULAR_NETWORK_SECURITY", android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS, android.provider.Settings.ACTION_WIRELESS_SETTINGS) }
             )
         }
 
@@ -334,6 +370,13 @@ private fun announceLabel(mode: AnnounceMode): String = when (mode) {
     AnnounceMode.OFF -> "Off"
     AnnounceMode.HEADPHONES -> "With headphones only"
     AnnounceMode.ALWAYS -> "Always"
+}
+
+/** The first of these Android screens the phone has: newer ones first, the general one last. */
+private fun openFirst(context: Context, vararg actions: String) {
+    for (action in actions) {
+        if (runCatching { context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
+    }
 }
 
 /** An Android settings screen; some phones leave one out, then nothing happens. */

@@ -88,6 +88,10 @@ import com.dialer.app.core.call.CallInfo
 import com.dialer.app.core.call.CallPhase
 import com.dialer.app.core.call.CallStore
 import com.dialer.app.core.call.CallsState
+import com.dialer.app.core.network.CellProtection
+import com.dialer.app.core.network.CellWatch
+import com.dialer.app.core.network.Protocol
+import com.dialer.app.ui.component.NetworkChip
 import com.dialer.app.core.call.Participant
 import com.dialer.app.core.dial.T9
 import com.dialer.app.data.contacts.PhoneBook
@@ -169,6 +173,16 @@ fun CallScreen(
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
         StatusPill(call)
+        // The network the call goes over, red on 2G before anything is said.
+        if (call.phase != CallPhase.ENDED && !compact) {
+            val cell: CellWatch = koinInject()
+            val sims by cell.sims.collectAsState()
+            val protocol = if (call.wifi) Protocol.WIFI else sims.firstOrNull { it.isDefaultVoice }?.forCalls ?: sims.firstOrNull()?.forCalls
+            if (protocol != null && protocol != Protocol.NONE) {
+                Spacer(Modifier.height(10.dp))
+                NetworkChip(protocol, CellProtection.protectionOf(protocol), hd = call.hd)
+            }
+        }
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
         Caller(call, photo, compact = compact)
         if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {

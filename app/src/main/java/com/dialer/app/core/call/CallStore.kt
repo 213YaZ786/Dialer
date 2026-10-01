@@ -52,7 +52,11 @@ data class CallInfo(
     val canReplyByText: Boolean = false,
     val replies: List<String> = emptyList(),
     /** Placed from this phone, not received: it vibrates once when answered. */
-    val outgoing: Boolean = false
+    val outgoing: Boolean = false,
+    /** Over Wi-Fi calling rather than the mobile network. */
+    val wifi: Boolean = false,
+    /** High definition voice (VoLTE, VoNR, Wi-Fi calling). */
+    val hd: Boolean = false
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -257,6 +261,8 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             canReplyByText = phase == CallPhase.RINGING && details.can(Call.Details.CAPABILITY_RESPOND_VIA_TEXT),
             replies = call.cannedTextResponses.orEmpty().ifEmpty { DEFAULT_REPLIES },
             outgoing = details.callDirection == Call.Details.DIRECTION_OUTGOING,
+            wifi = details.hasProperty(Call.Details.PROPERTY_WIFI),
+            hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             participants = call.children.mapNotNull { child ->
                 val childId = idOf(child) ?: return@mapNotNull null
                 val d = child.details

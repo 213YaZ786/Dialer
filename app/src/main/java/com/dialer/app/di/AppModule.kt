@@ -2,6 +2,7 @@ package com.dialer.app.di
 
 import com.dialer.app.core.call.CallStore
 import com.dialer.app.core.dial.DialRequests
+import com.dialer.app.core.network.CellWatch
 import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.settings.SettingsStore
@@ -21,6 +22,7 @@ val appModule = module {
     single { CallStore(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate), get()) }
     single { PhoneBook(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) }
     single { CallHistory(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) }
+    single { CellWatch(androidContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) }
     single { DialRequests() }
     viewModelOf(::SettingsViewModel)
 }

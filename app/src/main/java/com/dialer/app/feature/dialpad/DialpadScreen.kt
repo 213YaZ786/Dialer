@@ -61,6 +61,10 @@ import androidx.compose.ui.unit.sp
 import com.dialer.app.core.call.Dialing
 import com.dialer.app.core.dial.KeyTones
 import com.dialer.app.core.dial.T9
+import com.dialer.app.core.network.CellProtection
+import com.dialer.app.core.network.CellWatch
+import com.dialer.app.core.network.Protocol
+import com.dialer.app.ui.component.NetworkChip
 import com.dialer.app.core.dial.Numbers
 import com.dialer.app.core.dial.People
 import com.dialer.app.core.dial.PhoneEntry
@@ -210,8 +214,15 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
         wide = maxWidth > 760.dp && maxWidth > maxHeight
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 BannerAction(icon = DialerIcons.ArrowBack, label = "Close", onClick = onClose)
+                Spacer(Modifier.weight(1f))
+                // The network the call would go over, before it is placed.
+                val cell: CellWatch = koinInject()
+                val sims by cell.sims.collectAsState()
+                sims.firstOrNull { it.isDefaultVoice }?.forCalls?.takeIf { it != Protocol.NONE }?.let { protocol ->
+                    NetworkChip(protocol, CellProtection.protectionOf(protocol))
+                }
             }
             if (wide) {
                 Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
