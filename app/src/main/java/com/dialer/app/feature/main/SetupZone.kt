@@ -33,22 +33,40 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.dialer.app.ui.component.BoldButton
 import com.dialer.app.ui.component.ZoneSurface
 
+/** What Dialer needs before it can take calls, in the order it is asked. */
+internal enum class SetupStep(val title: String, val message: String, val action: String) {
+    ROLE(
+        "Make Dialer your phone app",
+        "Calls, the numbers you dial and the phone links of other apps then come to Dialer.",
+        "Choose Dialer"
+    ),
+    NOTIFICATIONS(
+        "Allow call notifications",
+        "An incoming call shows as a notification, and so does the call in progress.",
+        "Allow"
+    ),
+    FULL_SCREEN(
+        "Show calls on the lock screen",
+        "So an incoming call fills the screen even when the phone is locked.",
+        "Open settings"
+    )
+}
+
 /**
- * What Dialer needs before it can take calls, one step at a time, shown
- * until all are done: being the phone app, posting call notifications,
- * and opening over the lock screen for an incoming call. Read again each
- * time the app comes back, since each can be changed in Android at any time.
+ * The step still missing, or null when Dialer can take calls, read again
+ * each time the app comes back, since each can be changed in Android at
+ * any time; and [run] to start a step.
  */
+internal class Setup(val step: SetupStep?, val run: (SetupStep) -> Unit)
+
 @Composable
-fun SetupZone(modifier: Modifier = Modifier) {
+internal fun rememberSetup(): Setup {
     val context = LocalContext.current
     var checks by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         checks++
         onPauseOrDispose { }
     }
-    val step = remember(checks) { nextStep(context) } ?: return
-
     val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { checks++ }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         // Refused now or before: Android will not ask again, its own page is
@@ -56,6 +74,34 @@ fun SetupZone(modifier: Modifier = Modifier) {
         if (!granted) openNotificationSettings(context)
         checks++
     }
+    val step = remember(checks) { nextStep(context) }
+    return Setup(step) { wanted ->
+        when (wanted) {
+            SetupStep.ROLE -> role.launch(
+                context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_DIALER)
+            )
+            SetupStep.NOTIFICATIONS ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    openNotificationSettings(context)
+                }
+            SetupStep.FULL_SCREEN -> context.startActivity(
+                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}"))
+            )
+        }
+    }
+}
+
+/**
+ * The step still missing, shown on the main screen until Dialer can take
+ * calls: when the first launch page was skipped, or something was turned
+ * off in Android since.
+ */
+@Composable
+fun SetupZone(modifier: Modifier = Modifier) {
+    val setup = rememberSetup()
+    val step = setup.step ?: return
 
     ZoneSurface(
         shape = RoundedCornerShape(24.dp),
@@ -74,52 +120,19 @@ fun SetupZone(modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center
             )
             Row(Modifier.padding(top = 4.dp)) {
-                BoldButton(filled = true, onClick = {
-                    when (step) {
-                        Step.ROLE -> role.launch(
-                            context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_DIALER)
-                        )
-                        Step.NOTIFICATIONS ->
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                openNotificationSettings(context)
-                            }
-                        Step.FULL_SCREEN -> context.startActivity(
-                            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}"))
-                        )
-                    }
-                }) { Text(step.action) }
+                BoldButton(filled = true, onClick = { setup.run(step) }) { Text(step.action) }
             }
         }
     }
 }
 
-private enum class Step(val title: String, val message: String, val action: String) {
-    ROLE(
-        "Make Dialer your phone app",
-        "Calls, the numbers you dial and the phone links of other apps then come to Dialer.",
-        "Choose Dialer"
-    ),
-    NOTIFICATIONS(
-        "Allow call notifications",
-        "An incoming call shows as a notification, and so does the call in progress.",
-        "Allow"
-    ),
-    FULL_SCREEN(
-        "Show calls on the lock screen",
-        "So an incoming call fills the screen even when the phone is locked.",
-        "Open settings"
-    )
-}
-
-private fun nextStep(context: Context): Step? {
+private fun nextStep(context: Context): SetupStep? {
     val roles = context.getSystemService(RoleManager::class.java)
-    if (roles.isRoleAvailable(RoleManager.ROLE_DIALER) && !roles.isRoleHeld(RoleManager.ROLE_DIALER)) return Step.ROLE
+    if (roles.isRoleAvailable(RoleManager.ROLE_DIALER) && !roles.isRoleHeld(RoleManager.ROLE_DIALER)) return SetupStep.ROLE
     val notifications = context.getSystemService(NotificationManager::class.java)
-    if (!notifications.areNotificationsEnabled()) return Step.NOTIFICATIONS
+    if (!notifications.areNotificationsEnabled()) return SetupStep.NOTIFICATIONS
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !notifications.canUseFullScreenIntent()) {
-        return Step.FULL_SCREEN
+        return SetupStep.FULL_SCREEN
     }
     return null
 }

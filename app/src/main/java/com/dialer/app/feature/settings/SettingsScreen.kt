@@ -261,5 +261,5 @@ private fun themeLabel(mode: ThemeMode): String = when (mode) {
 private fun updatesLabel(mode: UpdateMode): String = when (mode) {
     UpdateMode.OFF -> "Off"
     UpdateMode.NOTIFY -> "Notify me"
-    UpdateMode.INSTALL -> "Install"
+    UpdateMode.INSTALL -> "Install automatically"
 }

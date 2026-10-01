@@ -19,6 +19,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import com.dialer.app.ui.glass.glassGround
+import com.dialer.app.feature.main.WelcomeScreen
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -115,9 +120,18 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
     val pager = rememberPagerState(initialPage = initialPage, pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
 
-    // Once when the app opens; debug builds are a different app and skip it.
+    // The first launch page, until it is closed. Saveable, so turning the
+    // device keeps it open.
+    var showWelcome by rememberSaveable { mutableStateOf(!store.current.welcomeSeen) }
+    fun closeWelcome() {
+        showWelcome = false
+        if (!store.current.welcomeSeen) store.update { it.copy(welcomeSeen = true) }
+    }
+
+    // Once when the app opens, never over the first launch page; debug
+    // builds are a different app and skip it.
     val settings by store.settings.collectAsState()
-    if (!BuildConfig.DEBUG) UpdatePrompt(settings.updates, BuildConfig.VERSION_NAME)
+    if (!showWelcome && !BuildConfig.DEBUG) UpdatePrompt(settings.updates, BuildConfig.VERSION_NAME)
 
     LaunchedEffect(pager.settledPage) {
         val page = pager.settledPage
@@ -151,6 +165,16 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
                 go(0)
             } catch (cancelled: CancellationException) {
                 backProgress = 0f
+                throw cancelled
+            }
+        }
+
+        // Declared after the tab one, so back closes the page first.
+        PredictiveBackHandler(enabled = showWelcome) { events ->
+            try {
+                events.collect { }
+                closeWelcome()
+            } catch (cancelled: CancellationException) {
                 throw cancelled
             }
         }
@@ -228,6 +252,18 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
                         modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
                     )
                 }
+            }
+        }
+
+        // Above the tabs and the dock, opaque, with the page's ground and its
+        // ambient light. A Surface also stops touches reaching the tabs.
+        if (showWelcome) {
+            Surface(
+                Modifier.fillMaxSize().glassGround(LocalGlass.current, MaterialTheme.colorScheme.background),
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onBackground
+            ) {
+                Readable { WelcomeScreen(onStart = ::closeWelcome) }
             }
         }
     }

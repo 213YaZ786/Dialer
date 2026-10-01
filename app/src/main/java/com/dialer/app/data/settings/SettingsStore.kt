@@ -15,8 +15,12 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 @Serializable
 data class Settings(
-    /** What happens when a newer version is out, checked once when the app opens. */
-    val updates: UpdateMode = UpdateMode.NOTIFY,
+    /**
+     * What happens when a newer version is out, checked once when the app
+     * opens. Installing by default: the first launch page says so, and that
+     * this one request is the app's only use of the internet.
+     */
+    val updates: UpdateMode = UpdateMode.INSTALL,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** True black instead of dark grey in dark mode. */
     val pureBlack: Boolean = false,
@@ -25,7 +29,9 @@ data class Settings(
     /** Multiplier on every text style, one of the steps in ui.theme.TEXT_SCALES. */
     val textScale: Float = 1f,
     /** Index of the tab shown last, so the app reopens where it was left. */
-    val lastTab: Int = 0
+    val lastTab: Int = 0,
+    /** The first launch page was closed. */
+    val welcomeSeen: Boolean = false
 )
 
 /**

@@ -263,6 +263,22 @@ object DialerIcons {
         )
     }
 
+    /** Done, in place. */
+    val CheckCircle: ImageVector by lazy {
+        build(
+            "CheckCircle",
+            "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+        )
+    }
+
+    /** The app's own updates. */
+    val Update: ImageVector by lazy {
+        build(
+            "Update",
+            "M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14zm-1-6h-3V8h-2v5H8l4 4 4-4z"
+        )
+    }
+
     /** Settings, the same tuning sliders as the other apps. */
     val Settings: ImageVector by lazy {
         build(
