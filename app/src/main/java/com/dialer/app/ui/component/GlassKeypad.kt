@@ -1,6 +1,12 @@
 package com.dialer.app.ui.component
 
 import androidx.compose.foundation.background
+import kotlinx.coroutines.delay
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -57,10 +63,11 @@ fun GlassKeypad(
     onLongPress: (Char) -> Boolean = { false },
     voicemail: Boolean = false
 ) {
+    var index = 0
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf("123", "456", "789", "*0#").forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                row.forEach { key -> GlassKey(key, keySize, onPress, onRelease, onLongPress, voicemail && key == '1') }
+                row.forEach { key -> GlassKey(key, keySize, onPress, onRelease, onLongPress, voicemail && key == '1', order = index++) }
             }
         }
     }
@@ -73,15 +80,29 @@ private fun GlassKey(
     onPress: (Char) -> Unit,
     onRelease: () -> Unit,
     onLongPress: (Char) -> Boolean,
-    voicemail: Boolean
+    voicemail: Boolean,
+    order: Int
 ) {
+    // The keys come in one after the other, from the top left, like a
+    // wave of drops settling.
+    val rise = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(order * 22L)
+        rise.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 380f))
+    }
     val haptics = rememberHaptics()
     val glass = LocalGlass.current
     val longPress = LocalViewConfiguration.current.longPressTimeoutMillis
     val base = Modifier.size(size).clip(CircleShape)
     Box(
         contentAlignment = Alignment.Center,
-        modifier = (if (glass != null) base.glassZone(CircleShape, glass, lens = 1f) else base.background(MaterialTheme.colorScheme.zone))
+        modifier = Modifier.graphicsLayer {
+            val p = rise.value
+            alpha = p.coerceIn(0f, 1f)
+            val s = 0.6f + 0.4f * p
+            scaleX = s
+            scaleY = s
+        }.then(if (glass != null) base.glassZone(CircleShape, glass, lens = 1f) else base.background(MaterialTheme.colorScheme.zone))
             .semantics {
                 role = Role.Button
                 contentDescription = key.toString()

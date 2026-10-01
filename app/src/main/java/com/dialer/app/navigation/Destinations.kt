@@ -14,6 +14,9 @@ object Routes {
     const val MAIN = "main"
     const val SETTINGS = "settings"
     const val NUMBER = "number?n={n}"
+    const val CONTACT = "contact/{id}"
+
+    fun contact(id: Long) = "contact/$id"
 
     /** A number's page; empty for a hidden number. */
     fun number(number: String) = "number?n=" + android.net.Uri.encode(number)

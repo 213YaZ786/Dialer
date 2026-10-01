@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <!-- Finds contacts as a number is typed. Read only, nothing leaves the phone. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Marks a contact as a favourite (the star), nothing else is written. -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <!-- Recents: reads the call history, marks missed calls as seen and
          deletes the calls the user removes. Granted with the phone app role. -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />

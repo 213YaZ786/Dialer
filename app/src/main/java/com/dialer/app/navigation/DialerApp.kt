@@ -60,8 +60,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dialer.app.BuildConfig
 import com.dialer.app.data.settings.SettingsStore
-import com.dialer.app.feature.main.ContactsScreen
-import com.dialer.app.feature.main.FavoritesScreen
+import com.dialer.app.feature.contacts.ContactScreen
+import com.dialer.app.feature.contacts.ContactsScreen
+import com.dialer.app.feature.favorites.FavoritesScreen
 import com.dialer.app.feature.recents.NumberScreen
 import com.dialer.app.feature.recents.RecentsScreen
 import com.dialer.app.core.calllog.CallKind
@@ -116,7 +117,17 @@ private fun DialerNavHost(navController: NavHostController) {
         composable(Routes.MAIN) {
             MainTabs(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenNumber = { number -> navController.navigate(Routes.number(number)) }
+                onOpenNumber = { number -> navController.navigate(Routes.number(number)) },
+                onOpenContact = { id -> navController.navigate(Routes.contact(id)) }
+            )
+        }
+        composable(
+            Routes.CONTACT,
+            arguments = listOf(navArgument("id") { type = NavType.LongType })
+        ) { entry ->
+            ContactScreen(
+                contactId = entry.arguments?.getLong("id") ?: -1L,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(
@@ -146,7 +157,7 @@ private fun DialerNavHost(navController: NavHostController) {
  * Recents or Contacts returns to Favorites before leaving the app.
  */
 @Composable
-private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
+private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit, onOpenContact: (Long) -> Unit) {
     val tabs = TopDestination.entries
     val store: SettingsStore = koinInject()
     // Read once: the app reopens on the tab it was left on. After that the
@@ -269,13 +280,13 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
             ) { page ->
                 ReadableScroll {
                     when (tabs[page]) {
-                        TopDestination.FAVORITES -> FavoritesScreen(onOpenSettings = onOpenSettings)
+                        TopDestination.FAVORITES -> FavoritesScreen(onOpenSettings = onOpenSettings, onOpenContact = onOpenContact, onOpenNumber = onOpenNumber)
                         TopDestination.RECENTS -> RecentsScreen(
                             visible = pager.settledPage == page && dialpad == null && !showWelcome,
                             onOpenSettings = onOpenSettings,
                             onOpenNumber = onOpenNumber
                         )
-                        TopDestination.CONTACTS -> ContactsScreen(onOpenSettings = onOpenSettings)
+                        TopDestination.CONTACTS -> ContactsScreen(onOpenSettings = onOpenSettings, onOpenContact = onOpenContact)
                     }
                 }
             }

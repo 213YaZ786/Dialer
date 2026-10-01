@@ -31,6 +31,22 @@ object NumberActions {
         Intent(Intent.ACTION_VIEW, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, contactId.toString()))
     )
 
+    /** A favourite or not, saved on the contact itself, so every app agrees. */
+    fun star(context: Context, contactId: Long, on: Boolean): Boolean = runCatching {
+        context.contentResolver.update(
+            Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, contactId.toString()),
+            ContentValues().apply { put(ContactsContract.Contacts.STARRED, if (on) 1 else 0) },
+            null, null
+        ) > 0
+    }.getOrDefault(false)
+
+    fun newContact(context: Context) = open(context, Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI))
+
+    fun editContact(context: Context, contactId: Long) = open(
+        context,
+        Intent(Intent.ACTION_EDIT, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, contactId.toString()))
+    )
+
     fun copy(context: Context, number: String) {
         context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Phone number", number))
     }

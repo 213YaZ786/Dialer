@@ -46,6 +46,8 @@ import com.dialer.app.core.calllog.CallKind
 import com.dialer.app.core.dial.DialRequests
 import com.dialer.app.core.dial.NumberActions
 import com.dialer.app.core.dial.Numbers
+import com.dialer.app.core.dial.People
+import com.dialer.app.ui.component.SearchPill
 import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.contacts.PhoneIndex
@@ -89,8 +91,21 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
     val contacts by book.entries.collectAsState()
     val index = remember(contacts) { PhoneIndex(contacts) }
     var missedOnly by rememberSaveable { mutableStateOf(false) }
-    val sections = remember(entries, missedOnly) {
-        CallGrouping.sections(if (missedOnly) entries.filter { it.kind == CallKind.MISSED } else entries)
+    var query by rememberSaveable { mutableStateOf("") }
+    val sections = remember(entries, missedOnly, query, index) {
+        val q = People.plain(query.trim())
+        val digits = query.filter(Char::isDigit)
+        CallGrouping.sections(
+            entries.filter { call ->
+                (!missedOnly || call.kind == CallKind.MISSED) && (
+                    q.isEmpty() ||
+                        (digits.length >= 2 && call.key.contains(digits)) ||
+                        People.plain(index.find(call.key)?.name ?: call.cachedName.orEmpty()).let { name ->
+                            name.startsWith(q) || name.split(' ', '-').any { it.startsWith(q) }
+                        }
+                    )
+            }
+        )
     }
 
     // Seen once the tab has been in front a moment: the dots then shrink
@@ -119,11 +134,11 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                 modifier = Modifier.fillMaxSize()
             )
             else -> {
-                Filters(missedOnly, onChange = { missedOnly = it })
+                Filters(missedOnly, onChange = { missedOnly = it }, query = query, onQuery = { query = it })
                 if (loaded && sections.isEmpty()) {
                     EmptyZone(
-                        title = "No missed calls",
-                        message = "Every call was answered.",
+                        title = if (query.isNotBlank()) "No calls found" else "No missed calls",
+                        message = if (query.isNotBlank()) "No name or number matches \"$query\"." else "Every call was answered.",
                         icon = DialerIcons.Missed,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -158,12 +173,14 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
 
 /** All calls, or only the missed ones: two pills under the banner. */
 @Composable
-private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit) {
+private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: String, onQuery: (String) -> Unit) {
     val haptics = rememberHaptics()
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
+        SearchPill(query, onQuery, hint = "Search calls", modifier = Modifier.widthIn(max = 420.dp).weight(1f, fill = false).fillMaxWidth())
         listOf(false to "All", true to "Missed").forEach { (value, label) ->
             ZoneSurface(
                 shape = CircleShape,

@@ -61,6 +61,12 @@ import androidx.compose.ui.unit.sp
 import com.dialer.app.core.call.Dialing
 import com.dialer.app.core.dial.KeyTones
 import com.dialer.app.core.dial.T9
+import com.dialer.app.core.dial.Numbers
+import com.dialer.app.core.dial.People
+import com.dialer.app.core.dial.PhoneEntry
+import com.dialer.app.data.calllog.CallHistory
+import com.dialer.app.data.contacts.PhoneIndex
+import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.core.dial.T9Match
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.feature.call.AnswerGreen
@@ -100,7 +106,24 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
     }
     LaunchedEffect(contactsAllowed) { if (contactsAllowed) book.refresh() }
     val entries by book.entries.collectAsState()
-    val matches = remember(number, entries) { T9.search(number, entries) }
+    // Numbers called or calling lately that are not saved: found too, as
+    // "Recent call", the number from yesterday's delivery is two digits away.
+    val history: CallHistory = koinInject()
+    LaunchedEffect(Unit) { history.refresh() }
+    val calls by history.entries.collectAsState()
+    val recent = remember(calls, entries) {
+        val index = PhoneIndex(entries)
+        calls.asSequence().filter { !it.hidden && index.find(it.key) == null }
+            .distinctBy { it.key.removePrefix("+").takeLast(9) }
+            .take(100)
+            .mapIndexed { i, c -> PhoneEntry(-(i + 1L), Numbers.format(context, c.number), c.number, T9.clean(c.number), null, false) }
+            .toList()
+    }
+    val matches = remember(number, entries, recent) { T9.search(number, entries + recent) }
+
+    // Held 2 to 9: the number given to that key, or the choice of one.
+    val settings: SettingsStore = koinInject()
+    var assigning by remember { mutableStateOf<Int?>(null) }
 
     // Waiting for the call permission, with the call it was asked for.
     var pendingCall by remember { mutableStateOf<(() -> Boolean)?>(null) }
@@ -165,6 +188,12 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
                         number = ""
                         voicemail()
                     }
+                    key in '2'..'9' && number == key.toString() -> {
+                        number = ""
+                        val digit = key - '0'
+                        val target = settings.current.speedDial[digit]
+                        if (target != null) place { Dialing.call(context, target) } else assigning = digit
+                    }
                     else -> return@Keys false
                 }
                 true
@@ -198,6 +227,19 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
+
+    assigning?.let { digit ->
+        SpeedDialDialog(
+            digit = digit,
+            people = People.of(entries).sortedByDescending { it.starred },
+            onPick = { picked ->
+                settings.update { it.copy(speedDial = it.speedDial + (digit to picked)) }
+                haptics.done()
+                assigning = null
+            },
+            onDismiss = { assigning = null }
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -225,7 +267,7 @@ private fun Keys(
         // anything is typed, the voicemail button stands in its place.
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().height(56.dp).combinedClickable(
+            modifier = Modifier.fillMaxWidth().height(76.dp).combinedClickable(
                 interactionSource = null,
                 indication = null,
                 onClick = {},
@@ -243,6 +285,7 @@ private fun Keys(
                     Text("Voicemail")
                 }
             } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     shown,
                     fontSize = when {
@@ -256,6 +299,17 @@ private fun Keys(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 )
+                // Emergency numbers say so, in red, before they are dialled.
+                val emergency = remember(number) { isEmergency(context, number) }
+                androidx.compose.animation.AnimatedVisibility(visible = emergency) {
+                    Text(
+                        "Emergency call",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                }
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -394,13 +448,21 @@ private fun MatchRow(match: T9Match, typed: String, onCall: () -> Unit) {
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 val accent = MaterialTheme.colorScheme.primary
                 Text(
-                    if (match.inName) highlightName(match.entry.name, typed, accent) else AnnotatedString(match.entry.name),
+                    when {
+                        match.entry.contactId < 0 -> highlightNumber(match.entry.name, typed, accent)
+                        match.inName -> highlightName(match.entry.name, typed, accent)
+                        else -> AnnotatedString(match.entry.name)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    if (match.inName) AnnotatedString(match.entry.number) else highlightNumber(match.entry.number, typed, accent),
+                    when {
+                        match.entry.contactId < 0 -> AnnotatedString("Recent call")
+                        match.inName -> AnnotatedString(match.entry.number)
+                        else -> highlightNumber(match.entry.number, typed, accent)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
@@ -449,4 +511,13 @@ private fun highlightNumber(number: String, typed: String, accent: Color): Annot
             addStyle(SpanStyle(color = accent, fontWeight = FontWeight.Bold), positions[at], positions[at + query.length - 1] + 1)
         }
     }
+}
+
+private val KnownEmergency = setOf("112", "911", "999", "000", "15", "17", "18", "114", "115", "119", "110", "100", "101", "102", "108", "190", "193")
+
+/** The phone's own list when it gives one, else the usual numbers. */
+private fun isEmergency(context: Context, number: String): Boolean {
+    if (number.length < 2 || number.length > 4) return false
+    return runCatching { context.getSystemService(TelephonyManager::class.java).isEmergencyNumber(number) }.getOrNull()
+        ?: (number in KnownEmergency)
 }

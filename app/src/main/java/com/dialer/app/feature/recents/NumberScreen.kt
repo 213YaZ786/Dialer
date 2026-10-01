@@ -53,6 +53,7 @@ import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.ui.component.BannerAction
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.QuietButton
+import com.dialer.app.ui.component.RoundAction
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
@@ -118,25 +119,25 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             if (!hidden) {
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                    Action(DialerIcons.Call, "Call", AnswerGreen) {
+                    RoundAction(DialerIcons.Call, "Call", AnswerGreen) {
                         haptics.firm()
                         if (!Dialing.call(context, number)) {
                             dial.open(number)
                             onBack()
                         }
                     }
-                    Action(DialerIcons.Message, "Message") { NumberActions.message(context, number) }
+                    RoundAction(DialerIcons.Message, "Message") { NumberActions.message(context, number) }
                     if (contact != null) {
-                        Action(DialerIcons.Person, "Contact") { NumberActions.openContact(context, contact.contactId) }
+                        RoundAction(DialerIcons.Person, "Contact") { NumberActions.openContact(context, contact.contactId) }
                     } else {
-                        Action(DialerIcons.PersonAdd, "Add") { NumberActions.addContact(context, number) }
+                        RoundAction(DialerIcons.PersonAdd, "Add") { NumberActions.addContact(context, number) }
                     }
-                    Action(DialerIcons.Copy, "Copy") {
+                    RoundAction(DialerIcons.Copy, "Copy") {
                         haptics.tick()
                         NumberActions.copy(context, number)
                     }
                     if (NumberActions.canBlock(context)) {
-                        Action(DialerIcons.Block, if (blocked) "Unblock" else "Block") {
+                        RoundAction(DialerIcons.Block, if (blocked) "Unblock" else "Block") {
                             if (blocked) {
                                 NumberActions.unblock(context, number)
                                 blocked = NumberActions.isBlocked(context, number)
@@ -211,19 +212,5 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
         )
-    }
-}
-
-/** A round pane of glass with its icon, and its name under it. */
-@Composable
-private fun Action(icon: ImageVector, label: String, tint: Color? = null, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        ZoneSurface(shape = CircleShape, onClick = onClick, modifier = Modifier.size(56.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = label, tint = tint ?: MaterialTheme.colorScheme.primary)
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }
