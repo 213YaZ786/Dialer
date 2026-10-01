@@ -68,6 +68,13 @@ import com.dialer.app.core.call.CallInfo
 import com.dialer.app.core.call.CallPhase
 import com.dialer.app.core.call.CallStore
 import com.dialer.app.core.call.CallsState
+import com.dialer.app.core.call.Participant
+import com.dialer.app.core.dial.T9
+import com.dialer.app.data.contacts.PhoneBook
+import com.dialer.app.data.contacts.PhoneIndex
+import com.dialer.app.ui.component.ContactAvatar
+import org.koin.compose.koinInject
+import androidx.compose.runtime.collectAsState
 import com.dialer.app.ui.component.BoldButton
 import com.dialer.app.ui.component.GlassKeypad
 import com.dialer.app.ui.component.QuietButton
@@ -121,6 +128,10 @@ fun CallScreen(
         StatusPill(call)
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
         Caller(call, compact = compact)
+        if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {
+            Spacer(Modifier.height(16.dp))
+            Participants(call.participants, onSplit = actions::split, onHangUp = actions::hangUp)
+        }
         state.secondary?.let { other ->
             Spacer(Modifier.height(16.dp))
             // Joining or switching only makes sense once both calls are taken.
@@ -221,25 +232,19 @@ private fun Caller(call: CallInfo, compact: Boolean) {
         return
     }
     val size = 120.dp
-    ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
-        Box(contentAlignment = Alignment.Center) {
-            val initial = call.name?.firstOrNull { it.isLetter() }?.uppercaseChar()
-            if (initial != null) {
-                Text(
-                    initial.toString(),
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                Icon(
-                    DialerIcons.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(56.dp)
-                )
+    if (call.isConference) {
+        ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(DialerIcons.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
             }
         }
+    } else {
+        // The contact's photo when the number is saved with one.
+        val book: PhoneBook = koinInject()
+        LaunchedEffect(Unit) { book.refresh() }
+        val contacts by book.entries.collectAsState()
+        val photo = remember(contacts, call.number) { PhoneIndex(contacts).find(T9.clean(call.number))?.photo }
+        ContactAvatar(call.name, photo, size)
     }
     Spacer(Modifier.height(16.dp))
     Text(
@@ -252,6 +257,47 @@ private fun Caller(call: CallInfo, compact: Boolean) {
     if (call.name != null && !call.isConference) {
         Spacer(Modifier.height(6.dp))
         Text(call.number, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The people of a conference, one line each: Private takes one out to talk
+ * to them alone while the others wait, the red phone lets one go.
+ */
+@Composable
+private fun Participants(people: List<Participant>, onSplit: (Int) -> Unit, onHangUp: (Int) -> Unit) {
+    val haptics = rememberHaptics()
+    ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
+        Column(Modifier.padding(vertical = 6.dp)) {
+            people.forEach { person ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+                ) {
+                    Text(person.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (person.canSplit) {
+                        QuietButton(onClick = {
+                            haptics.tick()
+                            onSplit(person.id)
+                        }, modifier = Modifier.padding(start = 8.dp)) { Text("Private") }
+                    }
+                    if (person.canHangUp) {
+                        ZoneSurface(
+                            shape = CircleShape,
+                            onClick = {
+                                haptics.firm()
+                                onHangUp(person.id)
+                            },
+                            modifier = Modifier.padding(start = 8.dp).size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(DialerIcons.CallEnd, contentDescription = "Hang up on ${person.title}", tint = HangUpRed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

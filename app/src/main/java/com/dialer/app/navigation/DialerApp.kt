@@ -62,7 +62,13 @@ import com.dialer.app.BuildConfig
 import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.feature.main.ContactsScreen
 import com.dialer.app.feature.main.FavoritesScreen
-import com.dialer.app.feature.main.RecentsScreen
+import com.dialer.app.feature.recents.NumberScreen
+import com.dialer.app.feature.recents.RecentsScreen
+import com.dialer.app.core.calllog.CallKind
+import com.dialer.app.data.calllog.CallHistory
+import android.net.Uri
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.dialer.app.feature.settings.SettingsScreen
 import com.dialer.app.ui.component.DockClearance
 import com.dialer.app.ui.component.DockItem
@@ -108,7 +114,19 @@ private fun DialerNavHost(navController: NavHostController) {
         modifier = Modifier.fillMaxSize()
     ) {
         composable(Routes.MAIN) {
-            MainTabs(onOpenSettings = { navController.navigate(Routes.SETTINGS) })
+            MainTabs(
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenNumber = { number -> navController.navigate(Routes.number(number)) }
+            )
+        }
+        composable(
+            Routes.NUMBER,
+            arguments = listOf(navArgument("n") { type = NavType.StringType; defaultValue = "" })
+        ) { entry ->
+            NumberScreen(
+                number = entry.arguments?.getString("n").orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Routes.SETTINGS) {
             ReadableScroll {
@@ -128,7 +146,7 @@ private fun DialerNavHost(navController: NavHostController) {
  * Recents or Contacts returns to Favorites before leaving the app.
  */
 @Composable
-private fun MainTabs(onOpenSettings: () -> Unit) {
+private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
     val tabs = TopDestination.entries
     val store: SettingsStore = koinInject()
     // Read once: the app reopens on the tab it was left on. After that the
@@ -154,6 +172,23 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
         pendingDial?.let {
             dialpad = it
             dial.consume()
+        }
+    }
+
+    // A dot on Recents while a missed call waits to be seen.
+    val history: CallHistory = koinInject()
+    LaunchedEffect(Unit) { history.refresh() }
+    val calls by history.entries.collectAsState()
+    val unseenMissed = calls.any { it.isNew && it.kind == CallKind.MISSED }
+
+    // The missed call notification and the phone's "call history" links
+    // open Recents.
+    val showRecents by dial.recents.collectAsState()
+    LaunchedEffect(showRecents) {
+        if (showRecents) {
+            dialpad = null
+            pager.scrollToPage(TopDestination.RECENTS.ordinal)
+            dial.recentsShown()
         }
     }
 
@@ -235,7 +270,11 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
                 ReadableScroll {
                     when (tabs[page]) {
                         TopDestination.FAVORITES -> FavoritesScreen(onOpenSettings = onOpenSettings)
-                        TopDestination.RECENTS -> RecentsScreen(onOpenSettings = onOpenSettings)
+                        TopDestination.RECENTS -> RecentsScreen(
+                            visible = pager.settledPage == page && dialpad == null && !showWelcome,
+                            onOpenSettings = onOpenSettings,
+                            onOpenNumber = onOpenNumber
+                        )
                         TopDestination.CONTACTS -> ContactsScreen(onOpenSettings = onOpenSettings)
                     }
                 }
@@ -251,7 +290,7 @@ private fun MainTabs(onOpenSettings: () -> Unit) {
         val tabsBackdrop = rememberGlassBackdrop()
         val tabsSource = if (look != null) Modifier.glassSource(tabsBackdrop, look) else Modifier
         val dockBackdrop = tabsBackdrop.takeIf { look != null }
-        val items = tabs.map { DockItem(it.icon, it.label) }
+        val items = tabs.map { DockItem(it.icon, it.label, dot = it == TopDestination.RECENTS && unseenMissed) }
         val position = pager.currentPage + pager.currentPageOffsetFraction
 
         if (side) {

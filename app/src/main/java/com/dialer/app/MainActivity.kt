@@ -2,6 +2,7 @@ package com.dialer.app
 
 import android.content.Intent
 import android.os.Bundle
+import android.provider.CallLog
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     private fun receive(intent: Intent?) {
         when (intent?.action) {
+            Intent.ACTION_VIEW if intent.type == CallLog.Calls.CONTENT_TYPE -> dial.showRecents()
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> {
                 val number = intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart.orEmpty()
                 dial.open(number)

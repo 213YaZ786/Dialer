@@ -13,4 +13,8 @@ enum class TopDestination(val label: String, val icon: ImageVector) {
 object Routes {
     const val MAIN = "main"
     const val SETTINGS = "settings"
+    const val NUMBER = "number?n={n}"
+
+    /** A number's page; empty for a hidden number. */
+    fun number(number: String) = "number?n=" + android.net.Uri.encode(number)
 }

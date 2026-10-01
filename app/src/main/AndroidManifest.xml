@@ -17,6 +17,10 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <!-- Finds contacts as a number is typed. Read only, nothing leaves the phone. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Recents: reads the call history, marks missed calls as seen and
+         deletes the calls the user removes. Granted with the phone app role. -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <!-- Turns the screen off against the ear during a call. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -56,6 +60,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tel" />
+            </intent-filter>
+            <!-- "Call history": the system's missed call notification and other apps. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.dir/calls" />
             </intent-filter>
         </activity>
 

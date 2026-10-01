@@ -20,4 +20,16 @@ class DialRequests {
     fun consume() {
         _pending.value = null
     }
+
+    /** Recents to the front: the missed call notification, a "call history" link. */
+    private val _recents = MutableStateFlow(false)
+    val recents: StateFlow<Boolean> = _recents.asStateFlow()
+
+    fun showRecents() {
+        _recents.value = true
+    }
+
+    fun recentsShown() {
+        _recents.value = false
+    }
 }

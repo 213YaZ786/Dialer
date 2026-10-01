@@ -41,11 +41,16 @@ data class CallInfo(
     val canSwap: Boolean,
     /** Why it ended, in the network's own words when it gave any. */
     val endedReason: String?,
-    val sims: List<SimChoice>
+    val sims: List<SimChoice>,
+    /** The people of a conference, each its own call inside it. */
+    val participants: List<Participant> = emptyList()
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
 }
+
+/** One person in a conference: they can be talked to alone, or let go. */
+data class Participant(val id: Int, val title: String, val canSplit: Boolean, val canHangUp: Boolean)
 
 /** Where the sound of the call goes. */
 data class AudioRoute(val kind: Kind, val label: String) {
@@ -152,6 +157,9 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
     /** Keypad tones while a key is held, for voice menus. */
     fun tone(id: Int, key: Char?) = calls[id]?.let { if (key == null) it.stopDtmfTone() else it.playDtmfTone(key) }
 
+    /** Takes one person out of the conference to talk to them alone; the others wait on hold. */
+    fun split(id: Int) = calls[id]?.splitFromConference()
+
     /** Joins the live call with the other one into a conference. */
     fun merge(id: Int) {
         val call = calls[id] ?: return
@@ -205,7 +213,17 @@ class CallStore(private val context: Context, private val scope: CoroutineScope)
             canMerge = call.conferenceableCalls.isNotEmpty() || details.can(Call.Details.CAPABILITY_MERGE_CONFERENCE),
             canSwap = details.can(Call.Details.CAPABILITY_SWAP_CONFERENCE) || calls.size > 1,
             endedReason = details.disconnectCause?.label?.toString()?.takeIf { it.isNotBlank() },
-            sims = if (phase == CallPhase.CHOOSE_SIM) simsOffered(details) else emptyList()
+            sims = if (phase == CallPhase.CHOOSE_SIM) simsOffered(details) else emptyList(),
+            participants = call.children.mapNotNull { child ->
+                val childId = idOf(child) ?: return@mapNotNull null
+                val d = child.details
+                Participant(
+                    id = childId,
+                    title = d.contactDisplayName?.toString()?.takeIf { it.isNotBlank() } ?: numberOf(d),
+                    canSplit = d.can(Call.Details.CAPABILITY_SEPARATE_FROM_CONFERENCE),
+                    canHangUp = d.can(Call.Details.CAPABILITY_DISCONNECT_FROM_CONFERENCE)
+                )
+            }
         )
     }
 

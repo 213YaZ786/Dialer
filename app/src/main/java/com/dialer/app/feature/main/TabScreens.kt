@@ -22,18 +22,6 @@ fun FavoritesScreen(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-fun RecentsScreen(onOpenSettings: () -> Unit) {
-    TabFrame(title = "Recents", onOpenSettings = onOpenSettings) {
-        EmptyZone(
-            title = "No calls yet",
-            message = "Calls you make and receive show here, newest first.",
-            icon = DialerIcons.Recents,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-@Composable
 fun ContactsScreen(onOpenSettings: () -> Unit) {
     TabFrame(title = "Contacts", onOpenSettings = onOpenSettings) {
         EmptyZone(
