@@ -56,6 +56,7 @@ import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.feature.main.TabFrame
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.EmptyZone
+import com.dialer.app.ui.component.LoadingMark
 import com.dialer.app.ui.component.NewDot
 import com.dialer.app.ui.component.PillItem
 import com.dialer.app.ui.component.PillMenu
@@ -128,7 +129,8 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                 onAction = { ask.launch(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG)) },
                 modifier = Modifier.fillMaxSize()
             )
-            loaded && entries.isEmpty() -> EmptyZone(
+            !loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingMark(size = 72.dp) }
+            entries.isEmpty() -> EmptyZone(
                 title = "No calls yet",
                 message = "Calls you make and receive show here, newest first.",
                 icon = DialerIcons.Recents,

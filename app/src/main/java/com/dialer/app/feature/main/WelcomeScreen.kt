@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.dialer.app.core.update.Updates
 import com.dialer.app.ui.component.BoldButton
+import com.dialer.app.ui.component.LoadingMark
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.icon.DialerIcons
 
@@ -80,11 +81,8 @@ fun WelcomeScreen(onStart: () -> Unit) {
     ) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Spacer(Modifier.height(40.dp))
-        ZoneSurface(shape = CircleShape, modifier = Modifier.size(112.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(DialerIcons.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(52.dp))
-            }
-        }
+        // The app's own mark, large and ringing, as on the other apps' first page.
+        LoadingMark(size = 160.dp)
         Spacer(Modifier.height(20.dp))
         Text("Welcome to Dialer", style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))

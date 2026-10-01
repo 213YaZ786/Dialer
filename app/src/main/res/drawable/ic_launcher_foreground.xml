@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dialer's launcher glyph: a glossy disc with a white handset in relief.
+     The disc's grey body is multiplied by a tone of the wallpaper's accent,
+     its white rim lights it, untinted, and the handset lies on top as drawn. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+            android:src="@drawable/dial_body"
+            android:tint="@color/ic_launcher_disc"
+            android:tintMode="multiply" />
+    </item>
+    <item android:drawable="@drawable/dial_shine" />
+    <item android:drawable="@drawable/dial_handset" />
+</layer-list>
