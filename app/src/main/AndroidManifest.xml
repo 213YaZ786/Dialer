@@ -5,8 +5,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- The note that the app updated itself. Calls will use it too. -->
+    <!-- The incoming call and the call in progress are notifications; so is the note after an update. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- An incoming call fills the screen, even locked. Android 14 keeps it for calling and alarm apps. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- The call keeps running with no screen open: a foreground service of the phone call type,
+         which Android only grants to the phone app. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <!-- Turns the screen off against the ear during a call. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".DialerApplication"
@@ -31,7 +39,57 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- The dial intents. Android requires both of a phone app: the phone
+                 button with no number, and a number to dial from a link or an app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tel" />
+            </intent-filter>
         </activity>
+
+        <!-- The call screen, in a task of its own so it never brings the rest of
+             the app along, and out of the recent apps: the call notification
+             brings it back. -->
+        <activity
+            android:name=".feature.call.CallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.dialer.app.call"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode"
+            android:theme="@style/Theme.Dialer" />
+
+        <!-- Bound by Telecom while there are calls, because Dialer is the phone app.
+             Telecom rings and vibrates itself (RINGING false), so the contact's
+             ringtone, Do Not Disturb and the ringer switch work as the system sets them. -->
+        <service
+            android:name=".core.call.DialerInCallService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:foregroundServiceType="phoneCall">
+            <meta-data
+                android:name="android.telecom.IN_CALL_SERVICE_UI"
+                android:value="true" />
+            <meta-data
+                android:name="android.telecom.IN_CALL_SERVICE_RINGING"
+                android:value="false" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
+        <!-- Decline and Hang up in the call notifications. -->
+        <receiver
+            android:name=".core.call.CallActionReceiver"
+            android:exported="false" />
 
         <!-- After an update the app installed itself: a notification to open it again. -->
         <receiver
