@@ -34,6 +34,9 @@ class CallActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
+        // No other app's floating window over the call: nothing can lay a
+        // false button over Answer or Hang up.
+        window.setHideOverlayWindows(true)
         answerFrom(intent)
 
         proximity = getSystemService(PowerManager::class.java)

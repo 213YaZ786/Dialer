@@ -80,7 +80,8 @@ fun IncomingChoice(
     onWave: (GlassWave) -> Unit,
     onMessage: (() -> Unit)? = null,
     onSilence: (() -> Unit)? = null,
-    silenced: Boolean = false
+    silenced: Boolean = false,
+    onEndAndAnswer: (() -> Unit)? = null
 ) {
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
@@ -135,6 +136,16 @@ fun IncomingChoice(
         if (onMessage != null) {
             CallControl(DialerIcons.Message, "Message", on = false, order = 0, onClick = onMessage)
         }
+        if (onEndAndAnswer != null) {
+            // With a call going on, Answer holds it; this ends it instead.
+            CallControl(DialerIcons.CallEnd, "End & answer", on = false, order = 2, onClick = {
+                if (chosen == null) {
+                    chosen = true
+                    onWave(GlassWave(AnswerGreen, answerAt))
+                    onEndAndAnswer()
+                }
+            })
+        }
         if (onSilence != null) {
             CallControl(
                 if (silenced) DialerIcons.VolumeOff else DialerIcons.Speaker,
@@ -164,7 +175,7 @@ fun IncomingChoice(
         )
         GlassCallButton(
             icon = DialerIcons.Call,
-            label = "Answer",
+            label = if (onEndAndAnswer != null) "Hold & answer" else "Answer",
             color = AnswerGreen,
             size = 88.dp,
             swell = answerSwell.value * (1f + 0.04f * breath),

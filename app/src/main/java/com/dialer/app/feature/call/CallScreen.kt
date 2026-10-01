@@ -224,7 +224,10 @@ fun CallScreen(
                         onWave = { wave = it },
                         onMessage = { replying = true }.takeIf { call.canReplyByText },
                         onSilence = actions::silence,
-                        silenced = silenced
+                        silenced = silenced,
+                        onEndAndAnswer = { actions.endAndAnswer(call.id) }.takeIf {
+                            state.calls.any { it.id != call.id && it.phase != CallPhase.ENDED && it.phase != CallPhase.RINGING }
+                        }
                     )
                     Panel.REPLY -> Replies(
                         replies = call.replies,

@@ -28,6 +28,11 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- One buzz when the person called picks up, felt at the ear or in a pocket. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Hides other apps' floating windows over the call screen, so nothing can
+         lay a false button over Answer or Hang up. Granted at install. -->
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+    <!-- Knows when Android's Advanced Protection is on, to be stricter then. -->
+    <uses-permission android:name="android.permission.QUERY_ADVANCED_PROTECTION_MODE" />
     <!-- Turns the screen off against the ear during a call. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

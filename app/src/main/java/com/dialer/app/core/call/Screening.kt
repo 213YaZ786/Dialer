@@ -5,6 +5,7 @@ import android.telecom.Connection
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
 import com.dialer.app.core.dial.ContactLookup
+import com.dialer.app.core.system.AdvancedProtection
 import com.dialer.app.data.settings.SettingsStore
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -28,16 +29,17 @@ class Screening : CallScreeningService(), KoinComponent {
             return
         }
         val prefs = settings.current
+        val strict = AdvancedProtection.isOn(this)
         val hidden = details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED ||
             details.handle?.schemeSpecificPart.isNullOrBlank()
         val spoofed = details.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED
         val response = when {
-            spoofed && prefs.blockSpoofed -> CallResponse.Builder()
+            spoofed && (prefs.blockSpoofed || strict) -> CallResponse.Builder()
                 .setDisallowCall(true)
                 .setRejectCall(true)
                 .setSkipNotification(true)
                 .build()
-            hidden && prefs.blockHidden -> CallResponse.Builder()
+            hidden && (prefs.blockHidden || strict) -> CallResponse.Builder()
                 .setDisallowCall(true)
                 .setRejectCall(true)
                 .setSkipNotification(true)

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import com.dialer.app.data.settings.AnnounceMode
+import com.dialer.app.core.system.AdvancedProtection
 import com.dialer.app.core.network.CellProtection
 import com.dialer.app.core.network.CellWatch
 import com.dialer.app.core.network.Protocol
@@ -40,6 +41,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,16 +100,21 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 checked = settings.silenceUnknown,
                 onChange = viewModel::setSilenceUnknown
             )
+            // Android's Advanced Protection decides these two when it is on.
+            val strict = remember { AdvancedProtection.isOn(context) }
+            val byAndroid = "On while Android's Advanced Protection is on."
             SwitchRow(
                 title = "Block faked numbers",
-                summary = "Calls your carrier finds are not really from the number shown are turned away. They still show in Recents.",
-                checked = settings.blockSpoofed,
+                summary = if (strict) byAndroid else "Calls your carrier finds are not really from the number shown are turned away. They still show in Recents.",
+                checked = settings.blockSpoofed || strict,
+                enabled = !strict,
                 onChange = viewModel::setBlockSpoofed
             )
             SwitchRow(
                 title = "Block hidden numbers",
-                summary = "Calls that hide their number are turned away. They still show in Recents.",
-                checked = settings.blockHidden,
+                summary = if (strict) byAndroid else "Calls that hide their number are turned away. They still show in Recents.",
+                checked = settings.blockHidden || strict,
+                enabled = !strict,
                 onChange = viewModel::setBlockHidden
             )
             SwitchRow(
@@ -328,7 +335,7 @@ private fun SettingRow(
 }
 
 @Composable
-private fun SwitchRow(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(title: String, summary: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val haptics = rememberHaptics()
     val change = { on: Boolean ->
         haptics.toggle(on)
@@ -338,8 +345,8 @@ private fun SwitchRow(title: String, summary: String, checked: Boolean, onChange
         title = title,
         summary = summary,
         quiet = true,
-        onClick = { change(!checked) },
-        trailing = { Switch(checked = checked, onCheckedChange = change) }
+        onClick = if (enabled) ({ change(!checked) }) else null,
+        trailing = { Switch(checked = checked, onCheckedChange = change, enabled = enabled) }
     )
 }
 

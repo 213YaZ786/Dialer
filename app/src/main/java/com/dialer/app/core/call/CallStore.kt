@@ -168,6 +168,20 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     }
 
     fun answer(id: Int) = calls[id]?.answer(0) // 0: audio only
+
+    /**
+     * A second call rings during one: the first is hung up, and the new one
+     * answered once it has gone, so Telecom does not hold it on the way.
+     */
+    fun endAndAnswer(id: Int) {
+        val others = calls.filter { (other, call) -> other != id && call.parent == null && call.details.state != Call.STATE_RINGING }
+        others.values.forEach { it.disconnect() }
+        scope.launch {
+            val until = System.currentTimeMillis() + 2_000
+            while (others.keys.any { it in calls } && System.currentTimeMillis() < until) delay(50)
+            calls[id]?.answer(0)
+        }
+    }
     fun decline(id: Int) = calls[id]?.reject(false, null)
 
     /** Declines and sends [text] to the caller; Telecom sends it, no SMS access needed here. */
