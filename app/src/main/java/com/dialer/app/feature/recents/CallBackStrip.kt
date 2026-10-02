@@ -8,17 +8,15 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,7 +45,7 @@ import org.koin.compose.koinInject
 
 /**
  * The people still waiting for a call back, side by side above the
- * calls: a tap calls them back, a long press opens their calls.
+ * calls on one or two lines: a tap calls them back, a long press opens their calls.
  */
 @Composable
 fun CallBackStrip(waiting: List<CallBack>, index: PhoneIndex, width: Dp, onOpen: (String) -> Unit) {
@@ -58,9 +56,18 @@ fun CallBackStrip(waiting: List<CallBack>, index: PhoneIndex, width: Dp, onOpen:
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 8.dp)
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(horizontal = 2.dp)) {
-            items(waiting, key = { it.last.id }) { waiting ->
-                Waiting(waiting, index, onOpen)
+        // Side by side, the next ones on a second line, never scrolled
+        // sideways; past two lines they stay in the list below.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val gap = 10.dp
+            val columns = ((maxWidth + gap) / (120.dp + gap)).toInt().coerceIn(2, 5)
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                waiting.take(columns * 2).chunked(columns).forEach { line ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        line.forEach { Waiting(it, index, onOpen, Modifier.weight(1f)) }
+                        repeat(columns - line.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
             }
         }
     }
@@ -68,7 +75,7 @@ fun CallBackStrip(waiting: List<CallBack>, index: PhoneIndex, width: Dp, onOpen:
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Waiting(waiting: CallBack, index: PhoneIndex, onOpen: (String) -> Unit) {
+private fun Waiting(waiting: CallBack, index: PhoneIndex, onOpen: (String) -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val dial: DialRequests = koinInject()
@@ -81,8 +88,7 @@ private fun Waiting(waiting: CallBack, index: PhoneIndex, onOpen: (String) -> Un
     val shape = RoundedCornerShape(24.dp)
     ZoneSurface(
         shape = shape,
-        modifier = Modifier
-            .width(124.dp)
+        modifier = modifier
             .graphicsLayer {
                 scaleX = sink
                 scaleY = sink
@@ -103,12 +109,12 @@ private fun Waiting(waiting: CallBack, index: PhoneIndex, onOpen: (String) -> Un
                 }
             )
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)) {
             Box {
-                ContactAvatar(contact?.name ?: call.cachedName, contact?.photo, 56.dp)
+                ContactAvatar(contact?.name ?: call.cachedName, contact?.photo, 44.dp)
                 KindBadge(CallKind.MISSED, Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), unseen = call.isNew)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(6.dp))
             Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
             Text(
                 agoLabel(call.date) + if (waiting.missed > 1) " · ×${waiting.missed}" else "",
