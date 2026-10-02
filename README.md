@@ -9,6 +9,8 @@ A phone app for Android. No account, no tracking, no ads.
 - SOS on the dialpad: hold it to call your country's emergency number.
 - People still waiting for a call back, and the rhythm of your calls
   with each person.
+- Where a number from abroad is and the time there, worked out on the
+  phone; at night there, the time says so.
 - Shows how well the network protects each call (5G, 4G, 2G), and
   warns you when a call goes onto 2G.
 - The call stays in sight at the top of the screen over other apps:
