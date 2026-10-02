@@ -2,32 +2,35 @@ package com.dialer.app.core.call
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.graphics.PixelFormat
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
+import android.widget.FrameLayout
 import android.view.WindowManager
+import androidx.activity.ComponentDialog
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
+import com.dialer.app.R
 import com.dialer.app.core.dial.T9
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.contacts.PhoneIndex
 import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.feature.call.CallIsland
+import com.dialer.app.feature.call.IslandCorner
 import com.dialer.app.feature.call.openCallScreen
 import com.dialer.app.ui.theme.DialerTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -45,17 +48,32 @@ class IslandWindow(
     private val settings: SettingsStore
 ) {
     private val windows = context.getSystemService(WindowManager::class.java)
-    private var view: ComposeView? = null
-    private var owner: Owner? = null
+    private var dialog: ComponentDialog? = null
     private var watch: Job? = null
+
+    /** Android blurs what lies behind the island (off in battery saver, or when blur is turned off). */
+    private val blurred = MutableStateFlow(windows.isCrossWindowBlurEnabled)
+    private val blurListener = java.util.function.Consumer<Boolean> { on ->
+        blurred.value = on
+        dialog?.window?.setBackgroundBlurRadius(if (on) blurRadius() else 0)
+    }
+
+    /** True while the island closes back into the camera, before its window goes. */
+    private val leaving = MutableStateFlow(false)
 
     fun start(scope: CoroutineScope) {
         if (watch != null) return
+        windows.addCrossWindowBlurEnabledListener(context.mainExecutor, blurListener)
         watch = scope.launch {
             combine(store.state, store.screenShown) { state, shown -> state to shown }.collect { (state, shown) ->
                 val call = state.primary?.takeIf { it.phase != CallPhase.ENDED }
                 val wanted = call != null && !shown && allowed() && unlocked()
-                if (wanted) show() else hide()
+                when {
+                    wanted -> show()
+                    // Back to the call screen: gone at once, the screen takes its place.
+                    shown -> hide()
+                    else -> leaving.value = true
+                }
                 store.islandShown(wanted && call?.phase == CallPhase.RINGING)
             }
         }
@@ -64,6 +82,7 @@ class IslandWindow(
     fun stop() {
         watch?.cancel()
         watch = null
+        runCatching { windows.removeCrossWindowBlurEnabledListener(blurListener) }
         hide()
         store.islandShown(false)
     }
@@ -77,71 +96,102 @@ class IslandWindow(
         context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked != true &&
             context.getSystemService(PowerManager::class.java)?.isInteractive == true
 
+    private fun px(dp: Float) = (dp * context.resources.displayMetrics.density).toInt()
+
+    private fun blurRadius() = px(26f)
+
     private fun show() {
-        if (view != null) return
-        val lifecycle = Owner().also { owner = it }
-        val compose = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(lifecycle)
-            setViewTreeSavedStateRegistryOwner(lifecycle)
+        leaving.value = false
+        if (dialog != null) return
+        // A dialog's window, not a bare view: only a window can ask Android
+        // to blur what lies behind it, clipped to the island's corners.
+        val island = ComponentDialog(context, R.style.Theme_Dialer_Island)
+        val content = ComposeView(island.context).apply {
             setContent {
                 val prefs by settings.settings.collectAsState()
                 DialerTheme(pureBlack = prefs.pureBlack, textScale = prefs.textScale) {
                     val state by store.state.collectAsState()
                     val contacts by book.entries.collectAsState()
-                    val call = state.primary ?: return@DialerTheme
+                    val glass by blurred.collectAsState()
+                    val going by leaving.collectAsState()
+                    // The call stays in sight while the island closes after it ended.
+                    var last by remember { mutableStateOf(state.primary) }
+                    state.primary?.let { last = it }
+                    val call = last ?: return@DialerTheme
                     val photo = remember(contacts, call.number) { PhoneIndex(contacts).find(T9.clean(call.number))?.photo }
-                    CallIsland(state, call, photo, store, onOpenScreen = { openCallScreen(context) })
+                    CallIsland(
+                        state, call, photo, store,
+                        onOpenScreen = { openCallScreen(context) },
+                        room = LocalConfiguration.current.screenWidthDp.dp,
+                        overlay = true,
+                        blurred = glass,
+                        leaving = going,
+                        onGone = { if (leaving.value) hide() },
+                        onGlass = { clear -> glass(clear) }
+                    )
                 }
             }
         }
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
+        island.setContentView(Unbounded(island.context).apply { addView(content) })
+        island.setCancelable(false)
+        val window = island.window ?: return
+        window.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        )
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        // Clear, with the island's corners: the blur behind takes them from it.
+        window.setBackgroundDrawable(GradientDrawable().apply {
+            setColor(Color.TRANSPARENT)
+            cornerRadius = px(IslandCorner.value).toFloat()
+        })
+        window.setBackgroundBlurRadius(if (blurred.value) 1 else 0)
+        window.attributes = window.attributes.apply {
+            width = WindowManager.LayoutParams.WRAP_CONTENT
+            height = WindowManager.LayoutParams.WRAP_CONTENT
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            // Just under the status bar: Android's own call chip and icons stay in sight.
+            // Just under the status bar: Android's own icons stay in sight.
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             val statusBar = runCatching {
                 windows.currentWindowMetrics.windowInsets.getInsets(android.view.WindowInsets.Type.statusBars()).top
             }.getOrDefault(0)
-            y = statusBar + (6 * context.resources.displayMetrics.density).toInt()
+            y = statusBar + px(6f)
             title = "Call island"
         }
         runCatching {
-            windows.addView(compose, params)
-            lifecycle.resume()
-            view = compose
-        }.onFailure { lifecycle.destroy() }
+            island.show()
+            dialog = island
+        }
+    }
+
+    /** The blur behind follows the glass as it clears in or out; never quite 0, which would drop it. */
+    private fun glass(clear: Float) {
+        if (!blurred.value) return
+        dialog?.window?.setBackgroundBlurRadius((blurRadius() * clear).toInt().coerceAtLeast(1))
     }
 
     private fun hide() {
-        view?.let { runCatching { windows.removeView(it) } }
-        view = null
-        owner?.destroy()
-        owner = null
+        leaving.value = false
+        dialog?.let { runCatching { it.dismiss() } }
+        dialog = null
     }
 
-    /** What a Compose view outside an activity needs: a lifecycle and a place for saved state. */
-    private class Owner : LifecycleOwner, SavedStateRegistryOwner {
-        private val registry = LifecycleRegistry(this)
-        private val saved = SavedStateRegistryController.create(this)
-        override val lifecycle: Lifecycle get() = registry
-        override val savedStateRegistry: SavedStateRegistry get() = saved.savedStateRegistry
-
-        init {
-            saved.performRestore(null)
-            registry.currentState = Lifecycle.State.CREATED
-        }
-
-        fun resume() {
-            registry.currentState = Lifecycle.State.RESUMED
-        }
-
-        fun destroy() {
-            registry.currentState = Lifecycle.State.DESTROYED
+    /**
+     * Lets the island take the width it asks: Android first offers a
+     * dialog's window a narrow width and keeps it unless told it is too
+     * small, which a Compose view never says by itself.
+     */
+    private class Unbounded(context: Context) : FrameLayout(context) {
+        override fun onMeasure(widthSpec: Int, heightSpec: Int) {
+            val child = getChildAt(0) ?: return super.onMeasure(widthSpec, heightSpec)
+            val free = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+            child.measure(free, free)
+            setMeasuredDimension(
+                View.resolveSizeAndState(child.measuredWidth, widthSpec, 0),
+                View.resolveSizeAndState(child.measuredHeight, heightSpec, 0)
+            )
         }
     }
 }

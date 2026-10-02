@@ -79,6 +79,8 @@ fun ReturnToCallPill(call: CallInfo) {
     val book: com.dialer.app.data.contacts.PhoneBook = koinInject()
     val contacts by book.entries.collectAsState()
     val photo = remember(contacts, call.number) { com.dialer.app.data.contacts.PhoneIndex(contacts).find(com.dialer.app.core.dial.T9.clean(call.number))?.photo }
-    CallIsland(state, call, photo, store, onOpenScreen = { openCallScreen(context) })
+    androidx.compose.foundation.layout.BoxWithConstraints(contentAlignment = Alignment.Center) {
+        CallIsland(state, call, photo, store, onOpenScreen = { openCallScreen(context) }, room = maxWidth)
+    }
 }
 
