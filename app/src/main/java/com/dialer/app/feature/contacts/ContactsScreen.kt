@@ -1,5 +1,8 @@
 package com.dialer.app.feature.contacts
 
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -119,29 +122,56 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 icon = DialerIcons.Search,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                shown.groupBy { initialOf(it.name) }.forEach { (letter, group) ->
-                    item(key = "letter/$letter") {
-                        Text(
-                            letter,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(start = 8.dp, top = 10.dp)
-                        )
+            else -> Box(Modifier.fillMaxSize()) {
+                val groups = remember(shown) { shown.groupBy { initialOf(it.name) } }
+                // A long list gets the letters at its edge to jump through it.
+                val rail = query.isBlank() && shown.size >= RAIL_FROM
+                val list = rememberLazyListState()
+                val scope = rememberCoroutineScope()
+                LazyColumn(
+                    state = list,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = if (rail) 40.dp else 16.dp, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    groups.forEach { (letter, group) ->
+                        item(key = "letter/$letter") {
+                            Text(
+                                letter,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(start = 8.dp, top = 10.dp)
+                            )
+                        }
+                        items(group, key = { "person/${it.id}" }) { person ->
+                            PersonLine(person, onOpen = { onOpenNumber(person.number) })
+                        }
                     }
-                    items(group, key = { "person/${it.id}" }) { person ->
-                        PersonLine(person, onOpen = { onOpenNumber(person.number) })
-                    }
+                }
+                if (rail) {
+                    LetterRail(
+                        letters = groups.keys.toList(),
+                        onLetter = { letter ->
+                            var at = 0
+                            for ((l, group) in groups) {
+                                if (l == letter) break
+                                at += 1 + group.size
+                            }
+                            scope.launch { list.scrollToItem(at) }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding(), end = 6.dp)
+                    )
                 }
             }
         }
     }
 }
+
+/** From this many contacts, the letters stand at the edge of the list. */
+private const val RAIL_FROM = 12
 
 /** The letter a name files under; digits and signs under #. */
 private fun initialOf(name: String): String =
