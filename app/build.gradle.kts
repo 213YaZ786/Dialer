@@ -15,8 +15,8 @@ android {
         applicationId = "com.dialer.app"
         minSdk = 31
         targetSdk = 37
-        versionCode = 17
-        versionName = "0.9.0"
+        versionCode = 18
+        versionName = "0.10.0"
     }
 
     signingConfigs {

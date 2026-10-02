@@ -10,8 +10,8 @@ A phone app for Android. No account, no tracking, no ads.
 - People still waiting for a call back, and the rhythm of your calls
   with each person.
 - Shows how well the network protects each call (5G, 4G, 2G).
-- End-to-end encrypted calls with people who use SMS, on the same call
-  screen and in Recents (with SMS installed).
+- End-to-end encrypted voice and video calls with people who use SMS,
+  on the same call screen and in Recents (with SMS installed).
 - Light and dark themes in your wallpaper's colours.
 
 ## Install
