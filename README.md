@@ -1,31 +1,24 @@
 # Dialer
 
-A phone app for Android with no account, no tracking and no ads.
+A phone app for Android. No account, no tracking, no ads.
 
-Dialer is being built. This first version has the app's look and its
-settings; calls, recent calls and contacts arrive in the next versions.
+- Calls, dialpad with contact search, recents, contacts, favorites and
+  speed dial.
+- Silence unknown callers, block hidden or faked numbers.
+- Shows how well the network protects each call (5G, 4G, 2G).
+- Light and dark themes in your wallpaper's colours.
 
 ## Install
 
-Download the latest APK from the
-[Releases](https://github.com/213YaZ786/Dialer/releases) page and install
-it. Android 12 or newer is required.
+Download the APK from [Releases](https://github.com/213YaZ786/Dialer/releases)
+and install it, then set Dialer as your phone app when it asks.
+Android 12 or newer.
 
 ## Privacy
 
-- Nothing you do in the app leaves your phone.
-- The only connection is one request to GitHub when the app opens, to see
-  whether a newer version is out. You can turn it off in Settings.
+Your calls and contacts stay on your phone. The only connection is a
+check for a new version on GitHub, which you can turn off in Settings.
 
-## For developers
+## Licence
 
-Kotlin and Jetpack Compose, single module. Build with Android Studio or:
-
-```
-gradle :app:assembleDebug
-```
-
-CI builds on every push. For a signed release, add the repository secrets
-`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`.
-
-MIT licensed. Icons from Google's Material Icons, Apache License 2.0.
+MIT. Icons from Google's Material Icons, Apache License 2.0.
