@@ -194,6 +194,16 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
         }
     }
 
+    // Another app asked for a number's page.
+    val numberPage by dial.numberPage.collectAsState()
+    LaunchedEffect(numberPage) {
+        numberPage?.let {
+            dialpad = null
+            dial.numberShown()
+            onOpenNumber(it)
+        }
+    }
+
     // A dot on Recents while a missed call waits to be seen.
     val history: CallHistory = koinInject()
     LaunchedEffect(Unit) { history.refresh() }

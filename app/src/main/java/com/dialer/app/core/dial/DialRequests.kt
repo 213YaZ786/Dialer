@@ -33,7 +33,26 @@ class DialRequests {
         _recents.value = false
     }
 
+    /** A number's page to the front, asked by the contacts or messaging app. */
+    private val _numberPage = MutableStateFlow<String?>(null)
+    val numberPage: StateFlow<String?> = _numberPage.asStateFlow()
+
+    fun showNumber(number: String) {
+        if (number.isNotEmpty()) _numberPage.value = number
+    }
+
+    fun numberShown() {
+        _numberPage.value = null
+    }
+
     companion object {
+        /**
+         * The calls with a number, asked by another app (the contacts app's
+         * Calls or Block, the messaging app's calls): it only shows the
+         * page, the user acts there.
+         */
+        const val ACTION_SHOW_NUMBER = "com.dialer.app.action.SHOW_NUMBER"
+
         private const val MAX_NUMBER = 64
 
         /**

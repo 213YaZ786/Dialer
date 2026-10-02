@@ -40,8 +40,6 @@ object NumberActions {
         ) > 0
     }.getOrDefault(false)
 
-    fun newContact(context: Context) = open(context, Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI))
-
     fun copy(context: Context, number: String) {
         context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Phone number", number))
     }

@@ -75,6 +75,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tel" />
             </intent-filter>
+            <!-- The calls with a number, from the contacts or messaging app: shows
+                 the page, never acts. -->
+            <intent-filter>
+                <action android:name="com.dialer.app.action.SHOW_NUMBER" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="tel" />
+            </intent-filter>
             <!-- "Call history": the system's missed call notification and other apps. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

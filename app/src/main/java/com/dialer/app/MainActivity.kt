@@ -56,6 +56,8 @@ class MainActivity : ComponentActivity() {
     private fun receive(intent: Intent?) {
         when (intent?.action) {
             Intent.ACTION_VIEW if intent.type == CallLog.Calls.CONTENT_TYPE -> dial.showRecents()
+            DialRequests.ACTION_SHOW_NUMBER ->
+                dial.showNumber(DialRequests.fromLink(intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart))
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> {
                 // A link only fills the dialpad, never calls nor runs a code
                 // by itself: the user reads it and presses Call. Kept to what

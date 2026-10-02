@@ -52,7 +52,6 @@ import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.feature.main.TabFrame
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.EmptyZone
-import com.dialer.app.ui.component.FloatingPane
 import com.dialer.app.ui.component.PillItem
 import com.dialer.app.ui.component.PillMenu
 import com.dialer.app.ui.component.PillMotion
@@ -92,12 +91,6 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                     horizontalArrangement = Arrangement.Center
                 ) {
                     SearchPill(query, { query = it }, hint = "Search ${people.size} contacts", modifier = Modifier.widthIn(max = 560.dp).weight(1f, fill = false).fillMaxWidth(), floating = true)
-                    Spacer(Modifier.width(10.dp))
-                    FloatingPane(shape = CircleShape, onClick = { NumberActions.newContact(context) }, modifier = Modifier.size(52.dp)) {
-                        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-                            Icon(DialerIcons.PersonAdd, contentDescription = "New contact", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
                 }
             }
         }
@@ -118,8 +111,6 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 title = "No contacts yet",
                 message = "The contacts saved on this phone show here.",
                 icon = DialerIcons.Person,
-                actionLabel = "New contact",
-                onAction = { NumberActions.newContact(context) },
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
             shown.isEmpty() -> EmptyZone(
