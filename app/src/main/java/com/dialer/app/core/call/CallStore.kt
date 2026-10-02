@@ -61,7 +61,9 @@ data class CallInfo(
     /** What the network says of the caller's number (STIR/SHAKEN): checked, failed, or not known. */
     val numberCheck: NumberCheck = NumberCheck.NONE,
     /** Over the messaging app's end-to-end encrypted line (a self-managed call), not the phone network. */
-    val encrypted: Boolean = false
+    val encrypted: Boolean = false,
+    /** A video call: the other side's picture and one's own. */
+    val video: Boolean = false
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -199,6 +201,27 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     val silenced: StateFlow<Boolean> = _silenced.asStateFlow()
     fun hangUp(id: Int) = calls[id]?.disconnect()
     fun hold(id: Int, on: Boolean) = calls[id]?.let { if (on) it.hold() else it.unhold() }
+
+    /** A video call's channel to the line that carries it, for its pictures and camera. */
+    fun videoCall(id: Int): android.telecom.InCallService.VideoCall? = calls[id]?.videoCall
+
+    /** The camera of a video call: on or off, front or back. */
+    data class Camera(val on: Boolean = true, val front: Boolean = true)
+    private val _camera = MutableStateFlow(Camera())
+    val camera: StateFlow<Camera> = _camera.asStateFlow()
+
+    fun camera(id: Int, choice: Camera) {
+        _camera.value = choice
+        val cameraId = if (!choice.on) null else cameraIdFacing(choice.front)
+        runCatching { videoCall(id)?.setCamera(cameraId) }
+    }
+
+    private fun cameraIdFacing(front: Boolean): String? = runCatching {
+        val cm = context.getSystemService(android.hardware.camera2.CameraManager::class.java)
+        val want = if (front) android.hardware.camera2.CameraCharacteristics.LENS_FACING_FRONT else android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK
+        cm.cameraIdList.firstOrNull { cm.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.LENS_FACING) == want }
+            ?: cm.cameraIdList.firstOrNull()
+    }.getOrNull()
     fun mute(on: Boolean) = controls?.applyMute(on)
     fun route(route: AudioRoute) = controls?.applyRoute(route)
     fun chooseSim(id: Int, sim: SimChoice) = calls[id]?.phoneAccountSelected(sim.handle, false)
@@ -286,6 +309,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             wifi = details.hasProperty(Call.Details.PROPERTY_WIFI),
             hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             encrypted = EncryptedCalls.isEncrypted(call),
+            video = android.telecom.VideoProfile.isVideo(details.videoState) && call.videoCall != null,
             numberCheck = if (details.callDirection != Call.Details.DIRECTION_INCOMING) NumberCheck.NONE else when (details.callerNumberVerificationStatus) {
                 Connection.VERIFICATION_STATUS_PASSED -> NumberCheck.VERIFIED
                 Connection.VERIFICATION_STATUS_FAILED -> NumberCheck.FAILED

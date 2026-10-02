@@ -163,7 +163,8 @@ fun CallScreen(
     // scrolling when two calls and the keypad need more: Hang up is never
     // pushed out of reach.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-    CallingCard(photo)
+    // A video call: the pictures behind the glass; otherwise the photo, blurred.
+    if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions) else CallingCard(photo)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -190,7 +191,15 @@ fun CallScreen(
             }
         }
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
-        Caller(call, photo, compact = compact)
+        // A video call: the picture speaks for itself, the caller stays small,
+        // on a pane of glass so it reads over any picture.
+        if (call.video && call.phase == CallPhase.ACTIVE) {
+            ZoneSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)) {
+                Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true) }
+            }
+        } else {
+            Caller(call, photo, compact = compact)
+        }
         if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {
             Spacer(Modifier.height(16.dp))
             Participants(call.participants, onSplit = actions::split, onHangUp = actions::hangUp)

@@ -397,6 +397,36 @@ object AppIcons {
         )
     }
 
+    /** A video call. Material Icons, Apache-2.0. */
+    val Videocam: ImageVector by lazy {
+        build(
+            "Videocam",
+            "M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 " +
+                "4v-11l-4 4z"
+        )
+    }
+
+    /** The camera turned off in a call. Material Icons, Apache-2.0. */
+    val VideocamOff: ImageVector by lazy {
+        build(
+            "VideocamOff",
+            "M21 6.5l-4 4V7c0-.55-.45-1-1-1H9.82L21 17.18V6.5zM3.27 2L2 3.27 4.73 6H4c-.55 0-1 .45-1 1v" +
+                "10c0 .55.45 1 1 1h12c.21 0 .39-.08.54-.18L19.73 21 21 19.73 3.27 2z"
+        )
+    }
+
+    /** Front or back camera. Material Icons, Apache-2.0. */
+    val CameraSwitch: ImageVector by lazy {
+        build(
+            "CameraSwitch",
+            "M16,7h-1l-1-1h-4L9,7H8C6.9,7,6,7.9,6,9v6c0,1.1,0.9,2,2,2h8c1.1,0,2-0.9,2-2V" +
+                "9C18,7.9,17.1,7,16,7z M12,14 c-1.1,0-2-0.9-2-2c0-1.1,0.9-2,2-2s2,0.9,2,2C14,13.1,13.1,14,1" +
+                "2,14zM8.57,0.51l4.48,4.48V2.04c4.72,0.47,8.48,4.23,8.95,8.95c0,0,2,0,2,0C23.34,3.02,15.49-" +
+                "1.59,8.57,0.51zM10.95,21.96C6.23,21.49,2.47,17.73,2,13.01c0,0-2,0-2,0c0.66,7.97,8.51,12.58" +
+                ",15.43,10.48l-4.48-4.48V21.96z"
+        )
+    }
+
     private fun build(name: String, pathData: String): ImageVector =
         ImageVector.Builder(
             name = name,

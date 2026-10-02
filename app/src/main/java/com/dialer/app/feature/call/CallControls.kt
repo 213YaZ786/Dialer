@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -119,8 +120,19 @@ fun CallControls(
                 enabled = call.canMute,
                 order = 0
             ) { actions.mute(!state.muted) }
-            // Tones mean nothing on an encrypted line: no keypad there.
-            CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted, order = 1, onClick = onKeypad)
+            if (call.video) {
+                // A video call: the camera in the keypad's place.
+                val camera by actions.camera.collectAsState()
+                CallControl(
+                    icon = if (camera.on) AppIcons.Videocam else AppIcons.VideocamOff,
+                    label = if (camera.on) "Camera off" else "Camera on",
+                    on = !camera.on,
+                    order = 1
+                ) { actions.camera(call.id, camera.copy(on = !camera.on)) }
+            } else {
+                // Tones mean nothing on an encrypted line: no keypad there.
+                CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted, order = 1, onClick = onKeypad)
+            }
             // Sound: a tap switches between the ear and the speaker; with a
             // headset or Bluetooth device about, or held, it offers them all.
             CallControl(
@@ -153,7 +165,12 @@ fun CallControls(
         }
         Spacer(Modifier.height(ControlGap))
         Row(horizontalArrangement = Arrangement.spacedBy(ControlGap), verticalAlignment = Alignment.Top) {
-            CallControl(
+            if (call.video) {
+                val camera by actions.camera.collectAsState()
+                CallControl(AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3) {
+                    actions.camera(call.id, camera.copy(front = !camera.front))
+                }
+            } else CallControl(
                 icon = if (held) AppIcons.Play else AppIcons.Hold,
                 label = if (held) "Resume" else "Hold",
                 on = held,
