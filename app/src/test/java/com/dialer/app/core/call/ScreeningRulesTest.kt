@@ -46,6 +46,14 @@ class ScreeningRulesTest {
     }
 
     @Test
+    fun anUnknownNumberCallingAgainRings() {
+        assertEquals(Verdict.ALLOW, ScreeningRules.verdict(false, false, true, false, silenceUnknown = true, strict = false, calledAgain = { true }) { false })
+        assertEquals(Verdict.SILENCE, ScreeningRules.verdict(false, false, true, false, silenceUnknown = true, strict = false, calledAgain = { false }) { false })
+        // A faked number does not get through by insisting.
+        assertEquals(Verdict.REJECT, ScreeningRules.verdict(false, true, true, false, silenceUnknown = true, strict = false, calledAgain = { true }) { false })
+    }
+
+    @Test
     fun theContactsAreOnlyReadWhenNeeded() {
         var asked = false
         ScreeningRules.verdict(false, false, true, false, silenceUnknown = false, strict = false) { asked = true; false }

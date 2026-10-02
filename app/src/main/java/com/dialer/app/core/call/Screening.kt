@@ -42,7 +42,8 @@ class Screening : CallScreeningService(), KoinComponent {
             salesCall = prefs.blockSalesCalls && !hidden &&
                 SalesCalls.isSalesCall(details.handle.schemeSpecificPart, getSystemService(TelephonyManager::class.java)?.networkCountryIso),
             strict = AdvancedProtection.isOn(this),
-            isContact = { ContactLookup.isContact(this, details.handle.schemeSpecificPart) }
+            isContact = { ContactLookup.isContact(this, details.handle.schemeSpecificPart) },
+            calledAgain = { calledLately(details.handle.schemeSpecificPart) }
         )
         val response = when (verdict) {
             Verdict.REJECT -> CallResponse.Builder()
@@ -57,10 +58,28 @@ class Screening : CallScreeningService(), KoinComponent {
     }
 }
 
+/** The same number called within the last minutes: someone who insists may need you. */
+private fun android.content.Context.calledLately(number: String): Boolean = runCatching {
+    val since = System.currentTimeMillis() - ScreeningRules.AGAIN_MS
+    val digits = com.dialer.app.core.dial.T9.clean(number).takeLast(9)
+    if (digits.length < 6) return@runCatching false
+    contentResolver.query(
+        android.provider.CallLog.Calls.CONTENT_URI, arrayOf(android.provider.CallLog.Calls.NUMBER),
+        "${android.provider.CallLog.Calls.DATE} > ?", arrayOf(since.toString()), null
+    )?.use { c ->
+        var found = false
+        while (!found && c.moveToNext()) found = com.dialer.app.core.dial.T9.clean(c.getString(0).orEmpty()).takeLast(9) == digits
+        found
+    } ?: false
+}.getOrDefault(false)
+
 enum class Verdict { ALLOW, SILENCE, REJECT }
 
 /** What happens to an incoming call, from what is known of it and the user's choices. */
 object ScreeningRules {
+    /** How soon a second call from an unknown number rings through. */
+    const val AGAIN_MS = 3 * 60 * 1000L
+
     /**
      * A faked number, then a hidden one, are turned away when the user
      * chose so or Android's Advanced Protection is on; [salesCall] (the user
@@ -76,13 +95,15 @@ object ScreeningRules {
         silenceUnknown: Boolean,
         strict: Boolean,
         salesCall: Boolean = false,
+        calledAgain: () -> Boolean = { false },
         isContact: () -> Boolean
     ): Verdict = when {
         spoofed && (blockSpoofed || strict) -> Verdict.REJECT
         hidden && (blockHidden || strict) -> Verdict.REJECT
         // A number in a sales range, unless the user saved it.
         salesCall && !isContact() -> Verdict.REJECT
-        !hidden && silenceUnknown && !isContact() -> Verdict.SILENCE
+        // Not saved, silent, unless they call again within minutes: then it rings.
+        !hidden && silenceUnknown && !isContact() && !calledAgain() -> Verdict.SILENCE
         else -> Verdict.ALLOW
     }
 }
