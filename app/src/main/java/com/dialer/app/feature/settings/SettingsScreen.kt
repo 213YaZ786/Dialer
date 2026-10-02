@@ -1,5 +1,8 @@
 package com.dialer.app.feature.settings
 
+import com.dialer.app.ui.component.FloatingAction
+import com.dialer.app.ui.component.FloatingFrame
+import com.dialer.app.ui.component.FloatingTop
 import android.content.Context
 import android.content.Intent
 import android.telecom.TelecomManager
@@ -27,9 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -60,8 +61,6 @@ import com.dialer.app.core.update.UpdateMode
 import com.dialer.app.core.update.Updates
 import com.dialer.app.data.settings.ThemeMode
 import com.dialer.app.navigation.LocalReadableInset
-import com.dialer.app.ui.component.BannerAction
-import com.dialer.app.ui.component.ScreenBanner
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
@@ -81,172 +80,173 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
 
     // Scrolls at full width, rows pushed in by the readable inset, so the
     // margins of a tablet scroll like the rest. See ReadableScroll.
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = LocalReadableInset.current)
-    ) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        ScreenBanner(
-            title = "Settings",
-            leading = { BannerAction(icon = DialerIcons.ArrowBack, label = "Back", onClick = onBack) }
-        )
+    FloatingFrame(
+        bottom = 0.dp,
+        top = { FloatingTop("Settings", leading = { FloatingAction(DialerIcons.ArrowBack, "Back", onBack) }) }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = LocalReadableInset.current)
+        ) {
+            Spacer(Modifier.height(padding.calculateTopPadding()))
 
-        Section("Calls") {
-            SwitchRow(
-                title = "Silence unknown callers",
-                summary = "Numbers not in your contacts ring without a sound. The call still shows and you can answer.",
-                checked = settings.silenceUnknown,
-                onChange = viewModel::setSilenceUnknown
-            )
-            // Android's Advanced Protection decides these two when it is on.
-            val strict = remember { AdvancedProtection.isOn(context) }
-            val byAndroid = "On while Android's Advanced Protection is on."
-            SwitchRow(
-                title = "Block faked numbers",
-                summary = if (strict) byAndroid else "Calls your carrier finds are not really from the number shown are turned away. They still show in Recents.",
-                checked = settings.blockSpoofed || strict,
-                enabled = !strict,
-                onChange = viewModel::setBlockSpoofed
-            )
-            SwitchRow(
-                title = "Block hidden numbers",
-                summary = if (strict) byAndroid else "Calls that hide their number are turned away. They still show in Recents.",
-                checked = settings.blockHidden || strict,
-                enabled = !strict,
-                onChange = viewModel::setBlockHidden
-            )
-            SwitchRow(
-                title = "Flip to silence",
-                summary = "Turn the phone face down to stop the ringing.",
-                checked = settings.flipToSilence,
-                onChange = viewModel::setFlipToSilence
-            )
-            SettingRow(
-                title = "Announce the caller",
-                summary = announceLabel(settings.announce),
-                onClick = { dialog = OpenDialog.ANNOUNCE }
-            )
-            SwitchRow(
-                title = "Vibrate when answered",
-                summary = "One buzz when the person you call picks up.",
-                checked = settings.vibrateOnAnswer,
-                onChange = viewModel::setVibrateOnAnswer
-            )
-            SettingRow(
-                title = "Blocked numbers",
-                summary = "The list Android keeps for every app",
-                onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
-            )
-        }
-
-        Section("Network security") {
-            val cell: CellWatch = koinInject()
-            val sims by cell.sims.collectAsState()
-            if (sims.isEmpty()) {
-                SettingRow(title = "No SIM", summary = "Insert a SIM to see how its network protects your calls.", onClick = null)
-            }
-            sims.forEach { sim ->
-                val protection = sim.protection
+            Section("Calls") {
+                SwitchRow(
+                    title = "Silence unknown callers",
+                    summary = "Numbers not in your contacts ring without a sound. The call still shows and you can answer.",
+                    checked = settings.silenceUnknown,
+                    onChange = viewModel::setSilenceUnknown
+                )
+                // Android's Advanced Protection decides these two when it is on.
+                val strict = remember { AdvancedProtection.isOn(context) }
+                val byAndroid = "On while Android's Advanced Protection is on."
+                SwitchRow(
+                    title = "Block faked numbers",
+                    summary = if (strict) byAndroid else "Calls your carrier finds are not really from the number shown are turned away. They still show in Recents.",
+                    checked = settings.blockSpoofed || strict,
+                    enabled = !strict,
+                    onChange = viewModel::setBlockSpoofed
+                )
+                SwitchRow(
+                    title = "Block hidden numbers",
+                    summary = if (strict) byAndroid else "Calls that hide their number are turned away. They still show in Recents.",
+                    checked = settings.blockHidden || strict,
+                    enabled = !strict,
+                    onChange = viewModel::setBlockHidden
+                )
+                SwitchRow(
+                    title = "Flip to silence",
+                    summary = "Turn the phone face down to stop the ringing.",
+                    checked = settings.flipToSilence,
+                    onChange = viewModel::setFlipToSilence
+                )
                 SettingRow(
-                    title = "${sim.name}: ${protection.label}",
-                    summary = buildString {
-                        append("Calls on ${sim.voice.label}")
-                        if (sim.data != Protocol.NONE && sim.data != sim.voice) append(", data on ${sim.data.label}")
-                        append(". ")
-                        append(CellProtection.meaning(protection))
-                    },
-                    onClick = null,
-                    trailing = { Box(Modifier.size(12.dp).background(protectionColor(protection), CircleShape)) }
+                    title = "Announce the caller",
+                    summary = announceLabel(settings.announce),
+                    onClick = { dialog = OpenDialog.ANNOUNCE }
+                )
+                SwitchRow(
+                    title = "Vibrate when answered",
+                    summary = "One buzz when the person you call picks up.",
+                    checked = settings.vibrateOnAnswer,
+                    onChange = viewModel::setVibrateOnAnswer
+                )
+                SettingRow(
+                    title = "Blocked numbers",
+                    summary = "The list Android keeps for every app",
+                    onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
                 )
             }
-            SettingRow(
-                title = "Turn off 2G",
-                summary = "In the SIM's settings, \"Allow 2G\". Keeps fake antennas from forcing your phone onto it.",
-                onClick = { openFirst(context, "android.settings.CELLULAR_NETWORK_SECURITY", android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS, android.provider.Settings.ACTION_WIRELESS_SETTINGS) }
-            )
-        }
 
-        Section("Phone") {
-            SettingRow(
-                title = "Call forwarding, call waiting, caller ID",
-                summary = "Your carrier's settings",
-                onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) }
-            )
-            SettingRow(
-                title = "SIMs and calling accounts",
-                summary = "Which SIM calls, Wi-Fi calling",
-                onClick = { open(context, Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
-            )
-            SettingRow(
-                title = "Voicemail",
-                summary = "Number and notifications",
-                onClick = { open(context, Intent(TelephonyManager.ACTION_CONFIGURE_VOICEMAIL)) }
-            )
-            SettingRow(
-                title = "Ringtone and vibration",
-                summary = "Android's sound settings",
-                onClick = { open(context, Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)) }
-            )
-            SettingRow(
-                title = "Accessibility",
-                summary = "Hearing aids, real-time text",
-                onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS)) }
-            )
-        }
+            Section("Network security") {
+                val cell: CellWatch = koinInject()
+                val sims by cell.sims.collectAsState()
+                if (sims.isEmpty()) {
+                    SettingRow(title = "No SIM", summary = "Insert a SIM to see how its network protects your calls.", onClick = null)
+                }
+                sims.forEach { sim ->
+                    val protection = sim.protection
+                    SettingRow(
+                        title = "${sim.name}: ${protection.label}",
+                        summary = buildString {
+                            append("Calls on ${sim.voice.label}")
+                            if (sim.data != Protocol.NONE && sim.data != sim.voice) append(", data on ${sim.data.label}")
+                            append(". ")
+                            append(CellProtection.meaning(protection))
+                        },
+                        onClick = null,
+                        trailing = { Box(Modifier.size(12.dp).background(protectionColor(protection), CircleShape)) }
+                    )
+                }
+                SettingRow(
+                    title = "Turn off 2G",
+                    summary = "In the SIM's settings, \"Allow 2G\". Keeps fake antennas from forcing your phone onto it.",
+                    onClick = { openFirst(context, "android.settings.CELLULAR_NETWORK_SECURITY", android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS, android.provider.Settings.ACTION_WIRELESS_SETTINGS) }
+                )
+            }
 
-        Section("Appearance") {
-            SettingRow(
-                title = "Theme",
-                summary = themeLabel(settings.themeMode),
-                onClick = { dialog = OpenDialog.THEME }
-            )
-            SwitchRow(
-                title = "Pure black",
-                summary = "Deeper blacks in dark mode. Easier on the battery with OLED screens.",
-                checked = settings.pureBlack,
-                onChange = viewModel::setPureBlack
-            )
-            SwitchRow(
-                title = "Hide in recent apps",
-                summary = "Dialer's picture in the recent apps stays blank, so your calls and contacts are not seen there.",
-                checked = settings.hideInRecents,
-                onChange = viewModel::setHideInRecents
-            )
-            SwitchRow(
-                title = "Glass effects",
-                summary = "Zones and floating buttons in liquid glass, over a soft light in your wallpaper's colours.",
-                checked = settings.glass,
-                onChange = viewModel::setGlass
-            )
-            SettingRow(
-                title = "Text size",
-                summary = textScaleLabel(settings.textScale) + ", on top of Android's font size",
-                onClick = { dialog = OpenDialog.TEXT_SIZE }
-            )
-        }
+            Section("Phone") {
+                SettingRow(
+                    title = "Call forwarding, call waiting, caller ID",
+                    summary = "Your carrier's settings",
+                    onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) }
+                )
+                SettingRow(
+                    title = "SIMs and calling accounts",
+                    summary = "Which SIM calls, Wi-Fi calling",
+                    onClick = { open(context, Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
+                )
+                SettingRow(
+                    title = "Voicemail",
+                    summary = "Number and notifications",
+                    onClick = { open(context, Intent(TelephonyManager.ACTION_CONFIGURE_VOICEMAIL)) }
+                )
+                SettingRow(
+                    title = "Ringtone and vibration",
+                    summary = "Android's sound settings",
+                    onClick = { open(context, Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)) }
+                )
+                SettingRow(
+                    title = "Accessibility",
+                    summary = "Hearing aids, real-time text",
+                    onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS)) }
+                )
+            }
 
-        Section("About") {
-            SettingRow(
-                title = "Updates",
-                summary = updatesLabel(settings.updates),
-                onClick = { dialog = OpenDialog.UPDATES }
-            )
-            SettingRow(
-                title = "Dialer ${BuildConfig.VERSION_NAME}",
-                summary = "A phone app with no account, no tracking and no ads.",
-                onClick = null
-            )
-            SettingRow(
-                title = "Source code",
-                summary = "github.com/213YaZ786/Dialer",
-                onClick = { uriHandler.openUri("https://github.com/213YaZ786/Dialer") }
-            )
-        }
+            Section("Appearance") {
+                SettingRow(
+                    title = "Theme",
+                    summary = themeLabel(settings.themeMode),
+                    onClick = { dialog = OpenDialog.THEME }
+                )
+                SwitchRow(
+                    title = "Pure black",
+                    summary = "Deeper blacks in dark mode. Easier on the battery with OLED screens.",
+                    checked = settings.pureBlack,
+                    onChange = viewModel::setPureBlack
+                )
+                SwitchRow(
+                    title = "Hide in recent apps",
+                    summary = "Dialer's picture in the recent apps stays blank, so your calls and contacts are not seen there.",
+                    checked = settings.hideInRecents,
+                    onChange = viewModel::setHideInRecents
+                )
+                SwitchRow(
+                    title = "Glass effects",
+                    summary = "Zones and floating buttons in liquid glass, over a soft light in your wallpaper's colours.",
+                    checked = settings.glass,
+                    onChange = viewModel::setGlass
+                )
+                SettingRow(
+                    title = "Text size",
+                    summary = textScaleLabel(settings.textScale) + ", on top of Android's font size",
+                    onClick = { dialog = OpenDialog.TEXT_SIZE }
+                )
+            }
 
-        Spacer(Modifier.height(24.dp))
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            Section("About") {
+                SettingRow(
+                    title = "Updates",
+                    summary = updatesLabel(settings.updates),
+                    onClick = { dialog = OpenDialog.UPDATES }
+                )
+                SettingRow(
+                    title = "Dialer ${BuildConfig.VERSION_NAME}",
+                    summary = "A phone app with no account, no tracking and no ads.",
+                    onClick = null
+                )
+                SettingRow(
+                    title = "Source code",
+                    summary = "github.com/213YaZ786/Dialer",
+                    onClick = { uriHandler.openUri("https://github.com/213YaZ786/Dialer") }
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
     }
 
     when (dialog) {

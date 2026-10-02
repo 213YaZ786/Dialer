@@ -1,14 +1,36 @@
 package com.dialer.app.ui.component
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import com.dialer.app.navigation.LocalReadableInset
+import com.dialer.app.ui.glass.glassSource
+import com.dialer.app.ui.glass.rememberGlassBackdrop
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dialer.app.ui.glass.LocalGlass
@@ -60,35 +81,102 @@ fun FloatingPane(
 }
 
 /**
- * A screen's banner floating over its list: the name in the middle, one
- * round action on each side, the list passing under it in glass. Same
- * layout as the shared ScreenBanner, which is a zone of the page instead.
+ * The top of a screen whose content fills the whole window: no bar, only
+ * standalone panes of glass floating over it, a round action on each side
+ * and the screen's name in a small pill between them. What scrolls passes
+ * under them and between them.
  */
 @Composable
-fun FloatingBanner(
-    title: String,
+fun FloatingTop(
+    title: String?,
     modifier: Modifier = Modifier,
-    subtitle: String? = null,
     leading: @Composable (() -> Unit)? = null,
-    trailing: @Composable (() -> Unit)? = null
+    trailing: @Composable (() -> Unit)? = null,
+    center: @Composable (() -> Unit)? = null
 ) {
-    FloatingPane(
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
+    Row(
+        modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) { leading?.invoke() }
-            Column(
-                Modifier.weight(1f).padding(horizontal = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-                Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                subtitle?.let {
-                    Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                }
+        // Both slots keep their room, so the name stays centred.
+        Box(Modifier.size(TopActionSize), contentAlignment = Alignment.Center) { leading?.invoke() }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            when {
+                center != null -> center()
+                title != null -> TitlePill(title)
             }
-            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) { trailing?.invoke() }
+        }
+        Box(Modifier.size(TopActionSize), contentAlignment = Alignment.Center) { trailing?.invoke() }
+    }
+}
+
+/** A screen's name on a small pill of glass. */
+@Composable
+fun TitlePill(title: String) {
+    FloatingPane(shape = CircleShape) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+        )
+    }
+}
+
+/** A round pane of glass on its own, for a screen's action at the top. */
+@Composable
+fun FloatingAction(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Color.Unspecified) {
+    val haptics = rememberHaptics()
+    FloatingPane(
+        shape = CircleShape,
+        onClick = {
+            haptics.tick()
+            onClick()
+        },
+        modifier = Modifier.size(TopActionSize).semantics { contentDescription = label }
+    ) {
+        Box(Modifier.size(TopActionSize), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = tint.takeOrElse { MaterialTheme.colorScheme.primary }, modifier = Modifier.size(22.dp))
         }
     }
 }
+
+/**
+ * A screen drawn on the whole window, top to bottom, with [top] floating
+ * over it in glass: the content is recorded so the panes bend it. [content]
+ * gets the padding that keeps its first and last lines clear of the panes
+ * and of the bottom by [bottom] when scrolled to either end.
+ */
+@Composable
+fun FloatingFrame(
+    bottom: Dp,
+    top: @Composable ColumnScope.() -> Unit,
+    content: @Composable (PaddingValues) -> Unit
+) {
+    val density = LocalDensity.current
+    val look = LocalGlass.current
+    val backdrop = rememberGlassBackdrop()
+    var header by remember { mutableStateOf(0.dp) }
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().then(if (look != null) Modifier.glassSource(backdrop, look) else Modifier)) {
+            content(PaddingValues(top = header, bottom = bottom))
+        }
+        CompositionLocalProvider(LocalGlassBackdrop provides backdrop.takeIf { look != null }) {
+            Column(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = LocalReadableInset.current)
+                    .onSizeChanged { header = with(density) { it.height.toDp() } }
+            ) {
+                // The content runs under the status bar, the panes start below it.
+                Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                top()
+            }
+        }
+    }
+}
+
+/** The round actions at the top of a screen. */
+val TopActionSize = 48.dp

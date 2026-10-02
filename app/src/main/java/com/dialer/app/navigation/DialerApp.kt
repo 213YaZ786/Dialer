@@ -7,7 +7,6 @@ import com.dialer.app.ui.glass.glassFloating
 import com.dialer.app.feature.dialpad.DialpadScreen
 import com.dialer.app.feature.call.ReturnToCall
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.animation.core.animateDpAsState
 import com.dialer.app.core.dial.DialRequests
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
@@ -385,10 +384,9 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
             }
         }
 
-        // Over everything while a call goes on, below the page's banner or
-        // level with the dialpad's Close: back to the call in one tap.
-        val callTop by animateDpAsState(if (dialpad != null) 12.dp else 84.dp, tween(NAV_MS), label = "callTop")
-        ReturnToCall(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = callTop))
+        // On the dialpad, level with its Close, while a call goes on: back to
+        // the call in one tap. On the tabs it takes the name's place.
+        if (dialpad != null) ReturnToCall(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp))
     }
 }
 

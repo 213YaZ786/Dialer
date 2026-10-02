@@ -1,7 +1,9 @@
 package com.dialer.app.feature.recents
 
+import com.dialer.app.ui.component.FloatingAction
+import com.dialer.app.ui.component.FloatingFrame
+import com.dialer.app.ui.component.FloatingTop
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,8 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,7 +48,6 @@ import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.contacts.PhoneIndex
 import com.dialer.app.feature.call.AnswerGreen
-import com.dialer.app.ui.component.BannerAction
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.QuietButton
 import com.dialer.app.ui.component.RoundAction
@@ -89,106 +86,108 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
     var confirmBlock by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            BannerAction(icon = DialerIcons.ArrowBack, label = "Back", onClick = onBack)
-        }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 16.dp)
-        ) {
-            ContactAvatar(contact?.name, contact?.photo, 112.dp)
-            Spacer(Modifier.height(16.dp))
-            Text(
-                contact?.name ?: shown,
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
-            )
-            val under = listOfNotNull(shown.takeIf { contact != null }, location).joinToString(" · ")
-            if (under.isNotEmpty()) {
-                Text(under, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            }
-            if (blocked) {
-                Spacer(Modifier.height(8.dp))
-                ZoneSurface(shape = CircleShape) {
-                    Text("Blocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
-                }
-            }
-
-            if (!hidden) {
-                Spacer(Modifier.height(24.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                    RoundAction(DialerIcons.Call, "Call", AnswerGreen) {
-                        haptics.firm()
-                        if (!Dialing.call(context, number)) {
-                            dial.open(number)
-                            onBack()
-                        }
-                    }
-                    RoundAction(DialerIcons.Message, "Message") { NumberActions.message(context, number) }
-                    if (contact != null) {
-                        RoundAction(DialerIcons.Person, "Contact") { NumberActions.openContact(context, contact.contactId) }
-                    } else {
-                        RoundAction(DialerIcons.PersonAdd, "Add") { NumberActions.addContact(context, number) }
-                    }
-                    RoundAction(DialerIcons.Copy, "Copy") {
-                        haptics.tick()
-                        NumberActions.copy(context, number)
-                    }
-                    if (NumberActions.canBlock(context)) {
-                        RoundAction(DialerIcons.Block, if (blocked) "Unblock" else "Block") {
-                            if (blocked) {
-                                NumberActions.unblock(context, number)
-                                blocked = NumberActions.isBlocked(context, number)
-                            } else {
-                                confirmBlock = true
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (calls.isNotEmpty()) {
-                Spacer(Modifier.height(28.dp))
-                Text(
-                    "History",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 8.dp)
-                )
-                ZoneSurface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(vertical = 6.dp)) {
-                        calls.forEachIndexed { i, call ->
-                            if (i > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                                KindBadge(call.kind, size = 32.dp)
-                                Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                                    Text(kindLabel(call.kind), style = MaterialTheme.typography.bodyLarge)
-                                    if (call.duration > 0) {
-                                        Text(durationLabel(call.duration), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                                val day = Instant.ofEpochMilli(call.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                                Text(
-                                    "${dayLabel(day)}, ${timeLabel(context, call.date)}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
+    FloatingFrame(
+        bottom = 0.dp,
+        top = { FloatingTop(null, leading = { FloatingAction(DialerIcons.ArrowBack, "Back", onBack) }) }
+    ) { padding ->
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(padding.calculateTopPadding()))
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 16.dp)
+            ) {
+                ContactAvatar(contact?.name, contact?.photo, 112.dp)
                 Spacer(Modifier.height(16.dp))
-                QuietButton(onClick = { confirmDelete = true }) {
-                    Icon(DialerIcons.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Delete this history")
+                Text(
+                    contact?.name ?: shown,
+                    style = MaterialTheme.typography.headlineMedium,
+                    textAlign = TextAlign.Center
+                )
+                val under = listOfNotNull(shown.takeIf { contact != null }, location).joinToString(" · ")
+                if (under.isNotEmpty()) {
+                    Text(under, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
+                if (blocked) {
+                    Spacer(Modifier.height(8.dp))
+                    ZoneSurface(shape = CircleShape) {
+                        Text("Blocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+                    }
+                }
+
+                if (!hidden) {
+                    Spacer(Modifier.height(24.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+                        RoundAction(DialerIcons.Call, "Call", AnswerGreen) {
+                            haptics.firm()
+                            if (!Dialing.call(context, number)) {
+                                dial.open(number)
+                                onBack()
+                            }
+                        }
+                        RoundAction(DialerIcons.Message, "Message") { NumberActions.message(context, number) }
+                        if (contact != null) {
+                            RoundAction(DialerIcons.Person, "Contact") { NumberActions.openContact(context, contact.contactId) }
+                        } else {
+                            RoundAction(DialerIcons.PersonAdd, "Add") { NumberActions.addContact(context, number) }
+                        }
+                        RoundAction(DialerIcons.Copy, "Copy") {
+                            haptics.tick()
+                            NumberActions.copy(context, number)
+                        }
+                        if (NumberActions.canBlock(context)) {
+                            RoundAction(DialerIcons.Block, if (blocked) "Unblock" else "Block") {
+                                if (blocked) {
+                                    NumberActions.unblock(context, number)
+                                    blocked = NumberActions.isBlocked(context, number)
+                                } else {
+                                    confirmBlock = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (calls.isNotEmpty()) {
+                    Spacer(Modifier.height(28.dp))
+                    Text(
+                        "History",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 8.dp)
+                    )
+                    ZoneSurface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            calls.forEachIndexed { i, call ->
+                                if (i > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                    KindBadge(call.kind, size = 32.dp)
+                                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                                        Text(kindLabel(call.kind), style = MaterialTheme.typography.bodyLarge)
+                                        if (call.duration > 0) {
+                                            Text(durationLabel(call.duration), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    val day = Instant.ofEpochMilli(call.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                                    Text(
+                                        "${dayLabel(day)}, ${timeLabel(context, call.date)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    QuietButton(onClick = { confirmDelete = true }) {
+                        Icon(DialerIcons.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete this history")
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 
     if (confirmBlock) {

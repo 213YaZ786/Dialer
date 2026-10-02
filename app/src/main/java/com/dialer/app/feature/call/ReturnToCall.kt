@@ -44,9 +44,7 @@ import org.koin.compose.koinInject
  */
 @Composable
 fun ReturnToCall(modifier: Modifier = Modifier) {
-    val store: CallStore = koinInject()
-    val state by store.state.collectAsState()
-    val call = state.primary?.takeIf { it.phase != CallPhase.ENDED && it.phase != CallPhase.RINGING }
+    val call = ongoingCall()
     AnimatedVisibility(
         visible = call != null,
         enter = scaleIn(initialScale = 0.8f) + fadeIn(),
@@ -58,6 +56,17 @@ fun ReturnToCall(modifier: Modifier = Modifier) {
         last?.let { Pill(it) }
     }
 }
+
+/** The call going on, taken or dialling, or null. */
+@Composable
+fun ongoingCall(): CallInfo? {
+    val store: CallStore = koinInject()
+    val state by store.state.collectAsState()
+    return state.primary?.takeIf { it.phase != CallPhase.ENDED && it.phase != CallPhase.RINGING }
+}
+
+@Composable
+fun ReturnToCallPill(call: CallInfo) = Pill(call)
 
 @Composable
 private fun Pill(call: CallInfo) {
