@@ -204,6 +204,7 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
             },
             onPaste = { pasted -> number = pasted },
             onVoicemail = { voicemail() },
+            onSos = { emergency -> place { Dialing.call(context, emergency) } },
             onDelete = { number = number.dropLast(1) },
             onClear = { number = "" },
             onCall = { call(number) }
@@ -262,6 +263,7 @@ private fun Keys(
     onHeld: (Char) -> Boolean,
     onPaste: (String) -> Unit,
     onVoicemail: () -> Unit,
+    onSos: (String) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
     onCall: () -> Unit
@@ -275,7 +277,7 @@ private fun Keys(
     val shown = remember(number) { PhoneNumberUtils.formatNumber(number, iso) ?: number }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 440.dp)) {
         // The number; held, it takes a number copied elsewhere. Before
-        // anything is typed, the voicemail button stands in its place.
+        // anything is typed, Voicemail and SOS stand in its place.
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxWidth().height(76.dp).combinedClickable(
@@ -287,13 +289,16 @@ private fun Keys(
             )
         ) {
             if (number.isEmpty()) {
-                QuietButton(onClick = {
-                    haptics.tick()
-                    onVoicemail()
-                }) {
-                    Icon(DialerIcons.Voicemail, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Voicemail")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    QuietButton(onClick = {
+                        haptics.tick()
+                        onVoicemail()
+                    }) {
+                        Icon(DialerIcons.Voicemail, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Voicemail")
+                    }
+                    SosButton(onCall = onSos)
                 }
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
