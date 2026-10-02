@@ -88,6 +88,10 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
+    // Where a number is from and the time there, offline: Google's libphonenumber
+    // and its geocoder (Apache-2.0), with their own data, no network.
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.40")
+    implementation("com.googlecode.libphonenumber:geocoder:3.40")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)

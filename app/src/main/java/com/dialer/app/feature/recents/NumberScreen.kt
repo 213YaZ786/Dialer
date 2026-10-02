@@ -81,7 +81,6 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
     }
     val contact = remember(contacts, key) { if (hidden) null else PhoneIndex(contacts).find(key) }
     val shown = if (hidden) "Private number" else Numbers.format(context, number)
-    val location = calls.firstNotNullOfOrNull { it.location }
 
     var blocked by remember(number) { mutableStateOf(!hidden && NumberActions.isBlocked(context, number)) }
     var confirmBlock by remember { mutableStateOf(false) }
@@ -108,10 +107,11 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                     textAlign = TextAlign.Center,
                     maxLines = 2
                 )
-                val under = listOfNotNull(shown.takeIf { contact != null }, location).joinToString(" · ")
-                if (under.isNotEmpty()) {
-                    Text(under, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                if (contact != null) {
+                    Text(shown, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
+                // Where the number is from and the time there, from the number itself.
+                if (!hidden) com.dialer.app.ui.component.PlaceLine(number, known = contact != null, modifier = Modifier.padding(top = 4.dp))
                 if (blocked) {
                     Spacer(Modifier.height(8.dp))
                     ZoneSurface(shape = CircleShape) {

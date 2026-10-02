@@ -317,6 +317,8 @@ private fun Keys(
                 )
                 // Emergency numbers say so, in red, before they are dialled.
                 val emergency = remember(number) { isEmergency(context, number) }
+                // Where it rings, and the time there when it is not the same.
+                if (!emergency) com.dialer.app.ui.component.PlaceLine(number, known = false, small = true, modifier = Modifier.padding(top = 2.dp))
                 androidx.compose.animation.AnimatedVisibility(visible = emergency) {
                     Text(
                         "Emergency call",

@@ -441,11 +441,21 @@ private fun Ringing(call: CallInfo, photo: String?, twoG: Boolean, onDecline: (O
                     Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
                     Spacer(Modifier.width(4.dp))
                 }
+                // A call from abroad says from where, and the time there.
+                val from = com.dialer.app.ui.component.placeWords(com.dialer.app.ui.component.rememberPlace(call.number), known = call.name != null)
+                    ?.takeIf { it.name != null || it.time != null }
+                // The time first: cut short, the place goes, never the hour.
+                if (from?.night == true) {
+                    Icon(AppIcons.Night, contentDescription = "Night there", tint = com.dialer.app.ui.component.NightAmber, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(3.dp))
+                }
                 Text(
-                    if (call.encrypted) (if (call.video) "Encrypted video" else "Encrypted") else if (call.video) "Video" else "Mobile",
+                    from?.let { listOfNotNull(it.time?.removeSuffix(" there"), it.name).joinToString(" · ") }
+                        ?: if (call.encrypted) (if (call.video) "Encrypted video" else "Encrypted") else if (call.video) "Video" else "Mobile",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    color = if (from?.night == true) com.dialer.app.ui.component.NightAmber else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (twoG) TwoG()
             }

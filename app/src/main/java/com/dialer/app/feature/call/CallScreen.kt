@@ -415,6 +415,8 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
         Spacer(Modifier.height(6.dp))
         Text(call.number, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    // Where the caller is and the time there: abroad, or a landline's city for a stranger.
+    if (!call.isConference) com.dialer.app.ui.component.PlaceLine(call.number, known = call.name != null, modifier = Modifier.padding(top = 6.dp))
     // What the network says of the number: checked, or likely faked.
     when (call.numberCheck) {
         NumberCheck.VERIFIED -> {
