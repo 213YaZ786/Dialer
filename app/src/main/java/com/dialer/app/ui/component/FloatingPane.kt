@@ -2,6 +2,7 @@ package com.dialer.app.ui.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ColumnScope
@@ -146,12 +147,14 @@ fun FloatingAction(icon: ImageVector, label: String, onClick: () -> Unit, tint: 
  * A screen drawn on the whole window, top to bottom, with [top] floating
  * over it in glass: the content is recorded so the panes bend it. [content]
  * gets the padding that keeps its first and last lines clear of the panes
- * and of the bottom by [bottom] when scrolled to either end.
+ * and of the bottom by [bottom] when scrolled to either end. [overlay]
+ * floats over the content too, bending it.
  */
 @Composable
 fun FloatingFrame(
     bottom: Dp,
     top: @Composable ColumnScope.() -> Unit,
+    overlay: @Composable BoxScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ) {
     val density = LocalDensity.current
@@ -159,6 +162,7 @@ fun FloatingFrame(
     val backdrop = rememberGlassBackdrop()
     var header by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
+        val frame = this
         Box(Modifier.fillMaxSize().then(if (look != null) Modifier.glassSource(backdrop, look) else Modifier)) {
             content(PaddingValues(top = header, bottom = bottom))
         }
@@ -174,6 +178,8 @@ fun FloatingFrame(
                 Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                 top()
             }
+            // What else floats over the content in glass, a message being written.
+            frame.overlay()
         }
     }
 }

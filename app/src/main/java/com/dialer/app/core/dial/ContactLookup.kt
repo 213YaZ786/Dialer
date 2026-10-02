@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.PhoneLookup
 import androidx.core.content.ContextCompat
 
@@ -22,6 +23,25 @@ object ContactLookup {
             context.contentResolver.query(uri, arrayOf(PhoneLookup.DISPLAY_NAME), null, null, null)?.use { c ->
                 if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null
             }
+        }.getOrNull() ?: byLastDigits(context, number)
+    }
+
+    /**
+     * Android matches numbers as the network's country writes them, so 06 12…
+     * misses +33 6 12… abroad: the same last nine digits, as the lists of
+     * the app compare them, then decide.
+     */
+    private fun byLastDigits(context: Context, number: String): String? {
+        val digits = number.filter(Char::isDigit)
+        if (digits.length < 9) return null
+        return runCatching {
+            context.contentResolver.query(
+                Phone.CONTENT_URI,
+                arrayOf(Phone.DISPLAY_NAME),
+                "${Phone.NORMALIZED_NUMBER} LIKE ?",
+                arrayOf("%" + digits.takeLast(9)),
+                null
+            )?.use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null }
         }.getOrNull()
     }
 
