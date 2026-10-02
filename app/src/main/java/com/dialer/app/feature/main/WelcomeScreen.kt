@@ -98,7 +98,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
         WelcomeZone(
             icon = DialerIcons.Call,
             title = step?.title ?: "Dialer is your phone app",
-            message = step?.message ?: "Calls, the numbers you dial and the phone links of other apps come to Dialer.",
+            message = step?.message ?: "Calls and phone links open in Dialer.",
             done = step == null,
             action = step?.action,
             onAction = { step?.let(setup.run) }
@@ -107,9 +107,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
         WelcomeZone(
             icon = DialerIcons.Update,
             title = "Automatic updates",
-            message = "When a new version is out, Dialer downloads it and Android asks you to install it. " +
-                "This is the only use of the internet: one request to GitHub when the app opens. " +
-                "You can change it in Settings.",
+            message = "Dialer installs its new versions. Its only connection is this check on GitHub.",
             done = canInstall,
             action = "Allow updates".takeIf { !canInstall },
             onAction = { Updates.allowInstalls(context) }

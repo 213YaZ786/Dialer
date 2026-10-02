@@ -95,7 +95,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             Section("Calls") {
                 SwitchRow(
                     title = "Silence unknown callers",
-                    summary = "Numbers not in your contacts ring without a sound. The call still shows and you can answer.",
+                    summary = "Numbers not in your contacts ring without sound.",
                     checked = settings.silenceUnknown,
                     onChange = viewModel::setSilenceUnknown
                 )
@@ -104,14 +104,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 val byAndroid = "On while Android's Advanced Protection is on."
                 SwitchRow(
                     title = "Block faked numbers",
-                    summary = if (strict) byAndroid else "Calls your carrier finds are not really from the number shown are turned away. They still show in Recents.",
+                    summary = if (strict) byAndroid else "Calls your carrier finds faked are rejected.",
                     checked = settings.blockSpoofed || strict,
                     enabled = !strict,
                     onChange = viewModel::setBlockSpoofed
                 )
                 SwitchRow(
                     title = "Block hidden numbers",
-                    summary = if (strict) byAndroid else "Calls that hide their number are turned away. They still show in Recents.",
+                    summary = if (strict) byAndroid else "Calls without a number are rejected.",
                     checked = settings.blockHidden || strict,
                     enabled = !strict,
                     onChange = viewModel::setBlockHidden
@@ -129,7 +129,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 )
                 SwitchRow(
                     title = "Vibrate when answered",
-                    summary = "One buzz when the person you call picks up.",
+                    summary = "One buzz when the other person answers.",
                     checked = settings.vibrateOnAnswer,
                     onChange = viewModel::setVibrateOnAnswer
                 )
@@ -144,7 +144,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 val cell: CellWatch = koinInject()
                 val sims by cell.sims.collectAsState()
                 if (sims.isEmpty()) {
-                    SettingRow(title = "No SIM", summary = "Insert a SIM to see how its network protects your calls.", onClick = null)
+                    SettingRow(title = "No SIM", summary = "Insert a SIM to see how well its network protects calls.", onClick = null)
                 }
                 sims.forEach { sim ->
                     val protection = sim.protection
@@ -162,7 +162,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 }
                 SettingRow(
                     title = "Turn off 2G",
-                    summary = "In the SIM's settings, \"Allow 2G\". Keeps fake antennas from forcing your phone onto it.",
+                    summary = "Keeps fake antennas from pushing your phone onto 2G.",
                     onClick = { openFirst(context, "android.settings.CELLULAR_NETWORK_SECURITY", android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS, android.provider.Settings.ACTION_WIRELESS_SETTINGS) }
                 )
             }
@@ -203,19 +203,19 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 )
                 SwitchRow(
                     title = "Pure black",
-                    summary = "Deeper blacks in dark mode. Easier on the battery with OLED screens.",
+                    summary = "Black background in dark mode.",
                     checked = settings.pureBlack,
                     onChange = viewModel::setPureBlack
                 )
                 SwitchRow(
                     title = "Hide in recent apps",
-                    summary = "Dialer's picture in the recent apps stays blank, so your calls and contacts are not seen there.",
+                    summary = "Dialer's preview stays blank in recent apps.",
                     checked = settings.hideInRecents,
                     onChange = viewModel::setHideInRecents
                 )
                 SwitchRow(
                     title = "Glass effects",
-                    summary = "Zones and floating buttons in liquid glass, over a soft light in your wallpaper's colours.",
+                    summary = "Buttons and panes in liquid glass.",
                     checked = settings.glass,
                     onChange = viewModel::setGlass
                 )

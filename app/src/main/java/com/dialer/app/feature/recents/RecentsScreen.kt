@@ -141,7 +141,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
             !loaded -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { LoadingMark(size = 72.dp) }
             entries.isEmpty() -> EmptyZone(
                 title = "No calls yet",
-                message = "Calls you make and receive show here, newest first.",
+                message = "Your calls show here.",
                 icon = DialerIcons.Recents,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
@@ -314,7 +314,7 @@ fun BlockDialog(who: String, onDismiss: () -> Unit, onBlock: () -> Unit) {
         onDismissRequest = onDismiss,
         icon = { Icon(DialerIcons.Block, contentDescription = null) },
         title = { Text("Block $who?") },
-        text = { Text("Calls and texts from this number will no longer reach you. You can unblock it at any time.") },
+        text = { Text("Calls and texts from this number will no longer reach you.") },
         confirmButton = { TextButton(onClick = onBlock) { Text("Block") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )

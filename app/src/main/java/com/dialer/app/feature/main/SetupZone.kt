@@ -37,17 +37,17 @@ import com.dialer.app.ui.component.ZoneSurface
 internal enum class SetupStep(val title: String, val message: String, val action: String) {
     ROLE(
         "Make Dialer your phone app",
-        "Calls, the numbers you dial and the phone links of other apps then come to Dialer.",
+        "To make and receive calls with it.",
         "Choose Dialer"
     ),
     NOTIFICATIONS(
         "Allow call notifications",
-        "An incoming call shows as a notification, and so does the call in progress.",
+        "Incoming calls and the call in progress.",
         "Allow"
     ),
     FULL_SCREEN(
         "Show calls on the lock screen",
-        "So an incoming call fills the screen even when the phone is locked.",
+        "Incoming calls fill the screen when the phone is locked.",
         "Open settings"
     )
 }

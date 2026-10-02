@@ -92,7 +92,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
         if (favorites.isEmpty() && frequents.isEmpty()) {
             EmptyZone(
                 title = "No favorites yet",
-                message = "Star a contact to call them from here in one tap. The people you call most show here too.",
+                message = "Star a contact to call them in one tap.",
                 icon = DialerIcons.Star,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )

@@ -60,12 +60,12 @@ object CellProtection {
         Protocol.NONE -> Protection.UNKNOWN
     }
 
-    /** What a person needs to know about [protection], in one or two sentences. */
+    /** What a person needs to know about [protection], in one sentence. */
     fun meaning(protection: Protection): String = when (protection) {
-        Protection.PROTECTED -> "The best there is: calls are encrypted and your SIM's identity is hidden from fake antennas."
-        Protection.STANDARD -> "Calls are encrypted. A fake antenna could still learn your SIM's identity, as on almost every phone today."
-        Protection.OLD -> "An old network with weaker protection. Fine for a call, better avoided for anything sensitive."
-        Protection.UNPROTECTED -> "2G encryption can be broken with cheap equipment: a call on it can be listened to. Turning off 2G avoids it."
+        Protection.PROTECTED -> "Calls are encrypted and your SIM's identity is hidden."
+        Protection.STANDARD -> "Calls are encrypted."
+        Protection.OLD -> "An old network with weaker protection."
+        Protection.UNPROTECTED -> "A call on 2G can be listened to. Turn off 2G to avoid it."
         Protection.UNKNOWN -> "No mobile network right now."
     }
 }
