@@ -25,4 +25,5 @@ class SettingsViewModel(private val store: SettingsStore) : ViewModel() {
     fun setFlipToSilence(on: Boolean) = store.update { it.copy(flipToSilence = on) }
     fun setAnnounce(mode: AnnounceMode) = store.update { it.copy(announce = mode) }
     fun setVibrateOnAnswer(on: Boolean) = store.update { it.copy(vibrateOnAnswer = on) }
+    fun replayGuide() = store.update { it.copy(welcomeSeen = false, dialpadHintSeen = false) }
 }

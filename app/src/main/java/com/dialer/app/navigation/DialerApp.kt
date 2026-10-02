@@ -80,6 +80,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -234,6 +241,8 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
     // Once when the app opens, never over the first launch page; debug
     // builds are a different app and skip it.
     val settings by store.settings.collectAsState()
+    // Settings > Guide asks for the welcome pages again, then the show.
+    LaunchedEffect(settings.welcomeSeen) { if (!settings.welcomeSeen) showWelcome = true }
     if (!showWelcome && !BuildConfig.DEBUG) UpdatePrompt(settings.updates, BuildConfig.VERSION_NAME)
 
     LaunchedEffect(pager.settledPage) {
@@ -391,7 +400,8 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
         }
 
         if (hint) {
-            HintPill(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (side) 48.dp else DockClearance + 96.dp))
+            // Up top, out of the button's way: what the show means.
+            HintCard(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 96.dp, start = 24.dp, end = 24.dp))
             // Over everything while it plays: any tap ends it.
             Box(
                 Modifier.fillMaxSize().pointerInput(Unit) {
@@ -596,18 +606,28 @@ private fun HintDim(on: Boolean) {
     }
 }
 
-/** What the show means, in a pill of glass under it. */
+/** What the show means, on a pane of glass: what moves, how, and how to close. */
 @Composable
-private fun HintPill(modifier: Modifier) {
+private fun HintCard(modifier: Modifier) {
     val look = LocalGlass.current
-    val shape = CircleShape
-    Box(
-        modifier
+    val shape = RoundedCornerShape(28.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .widthIn(max = 380.dp)
             .clip(shape)
             .then(if (look != null) Modifier.glassZone(shape, look, lens = 1f) else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
-        Text("Hold the dialpad button to move it", style = MaterialTheme.typography.titleSmall)
+        Text("The dialpad button moves", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Hold it, then slide it wherever your thumb likes it. A tap opens the dialpad.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(12.dp))
+        Text("Tap to close. Settings › Guide shows it again.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
 

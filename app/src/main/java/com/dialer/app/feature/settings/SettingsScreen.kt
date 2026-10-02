@@ -243,6 +243,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
 
             Section("About") {
                 SettingRow(
+                    title = "Guide",
+                    summary = "See the welcome pages and the dialpad button's show again",
+                    onClick = {
+                        viewModel.replayGuide()
+                        onBack()
+                    }
+                )
+                SettingRow(
                     title = "Updates",
                     summary = updatesLabel(settings.updates),
                     onClick = { dialog = OpenDialog.UPDATES }
