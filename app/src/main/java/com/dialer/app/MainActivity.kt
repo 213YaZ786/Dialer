@@ -60,13 +60,8 @@ class MainActivity : ComponentActivity() {
                 // A link only fills the dialpad, never calls nor runs a code
                 // by itself: the user reads it and presses Call. Kept to what
                 // can be dialled, and to a sane length.
-                val number = intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart.orEmpty()
-                dial.open(number.filter { it.isDigit() || it in "+*#,;" }.take(MAX_NUMBER))
+                dial.open(DialRequests.fromLink(intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart))
             }
         }
-    }
-
-    private companion object {
-        const val MAX_NUMBER = 64
     }
 }

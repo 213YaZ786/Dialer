@@ -32,4 +32,15 @@ class DialRequests {
     fun recentsShown() {
         _recents.value = false
     }
+
+    companion object {
+        private const val MAX_NUMBER = 64
+
+        /**
+         * A number from a link, kept to what can be dialled and to a sane
+         * length. It only fills the dialpad: the user reads it and presses Call.
+         */
+        fun fromLink(raw: String?): String =
+            raw.orEmpty().filter { it.isDigit() || it in "+*#,;" }.take(MAX_NUMBER)
+    }
 }

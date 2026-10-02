@@ -29,25 +29,52 @@ class Screening : CallScreeningService(), KoinComponent {
             return
         }
         val prefs = settings.current
-        val strict = AdvancedProtection.isOn(this)
         val hidden = details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED ||
             details.handle?.schemeSpecificPart.isNullOrBlank()
-        val spoofed = details.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED
-        val response = when {
-            spoofed && (prefs.blockSpoofed || strict) -> CallResponse.Builder()
+        val verdict = ScreeningRules.verdict(
+            hidden = hidden,
+            spoofed = details.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED,
+            blockSpoofed = prefs.blockSpoofed,
+            blockHidden = prefs.blockHidden,
+            silenceUnknown = prefs.silenceUnknown,
+            strict = AdvancedProtection.isOn(this),
+            isContact = { ContactLookup.isContact(this, details.handle.schemeSpecificPart) }
+        )
+        val response = when (verdict) {
+            Verdict.REJECT -> CallResponse.Builder()
                 .setDisallowCall(true)
                 .setRejectCall(true)
                 .setSkipNotification(true)
                 .build()
-            hidden && (prefs.blockHidden || strict) -> CallResponse.Builder()
-                .setDisallowCall(true)
-                .setRejectCall(true)
-                .setSkipNotification(true)
-                .build()
-            !hidden && prefs.silenceUnknown && !ContactLookup.isContact(this, details.handle.schemeSpecificPart) ->
-                CallResponse.Builder().setSilenceCall(true).build()
-            else -> allow
+            Verdict.SILENCE -> CallResponse.Builder().setSilenceCall(true).build()
+            Verdict.ALLOW -> allow
         }
         respondToCall(details, response)
+    }
+}
+
+enum class Verdict { ALLOW, SILENCE, REJECT }
+
+/** What happens to an incoming call, from what is known of it and the user's choices. */
+object ScreeningRules {
+    /**
+     * A faked number, then a hidden one, are turned away when the user
+     * chose so or Android's Advanced Protection is on; a number not in the
+     * contacts rings without sound when chosen. [isContact] is only asked
+     * when it matters.
+     */
+    fun verdict(
+        hidden: Boolean,
+        spoofed: Boolean,
+        blockSpoofed: Boolean,
+        blockHidden: Boolean,
+        silenceUnknown: Boolean,
+        strict: Boolean,
+        isContact: () -> Boolean
+    ): Verdict = when {
+        spoofed && (blockSpoofed || strict) -> Verdict.REJECT
+        hidden && (blockHidden || strict) -> Verdict.REJECT
+        !hidden && silenceUnknown && !isContact() -> Verdict.SILENCE
+        else -> Verdict.ALLOW
     }
 }
