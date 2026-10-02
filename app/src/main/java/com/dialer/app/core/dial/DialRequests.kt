@@ -51,7 +51,7 @@ class DialRequests {
          * Calls or Block, the messaging app's calls): it only shows the
          * page, the user acts there.
          */
-        const val ACTION_SHOW_NUMBER = "com.dialer.app.action.SHOW_NUMBER"
+        const val ACTION_SHOW_NUMBER = NumberActions.ACTION_SHOW_NUMBER
 
         private const val MAX_NUMBER = 64
 

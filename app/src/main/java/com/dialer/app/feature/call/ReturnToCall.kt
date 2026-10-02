@@ -34,7 +34,7 @@ import com.dialer.app.core.call.CallStore
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.LocalGlass
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import org.koin.compose.koinInject
 
 /**
@@ -89,7 +89,7 @@ private fun Pill(call: CallInfo) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 16.dp, end = 20.dp, top = 10.dp, bottom = 10.dp)
             ) {
-                Icon(DialerIcons.Call, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(20.dp))
+                Icon(AppIcons.Call, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Text(
                     "Return to call · " + when (call.phase) {

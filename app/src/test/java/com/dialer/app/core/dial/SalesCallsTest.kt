@@ -1,4 +1,4 @@
-package com.dialer.app.core.call
+package com.dialer.app.core.dial
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

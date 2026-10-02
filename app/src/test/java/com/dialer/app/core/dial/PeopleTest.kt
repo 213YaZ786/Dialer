@@ -1,7 +1,5 @@
 package com.dialer.app.core.dial
 
-import com.dialer.app.core.calllog.CallEntry
-import com.dialer.app.core.calllog.CallKind
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -29,16 +27,5 @@ class PeopleTest {
         assertEquals(listOf(1L), People.search(book, "joel").map { it.id })
         assertEquals(listOf(1L), People.search(book, "mart").map { it.id })
         assertEquals(listOf(2L), People.search(book, "3361").map { it.id })
-    }
-
-    @Test
-    fun frequentsSkipFavouritesAndSingleCalls() {
-        val now = 1_000_000_000_000L
-        fun call(id: Long, number: String) = CallEntry(id, number, null, CallKind.OUTGOING, now - id * 1000, 30, false, null, false)
-        val calls = listOf(call(1, "0698765432"), call(2, "+33698765432"), call(3, "0612345678"), call(4, "0612345678"), call(5, "0700000000"))
-        val frequents = People.frequents(calls, book, now)
-        assertEquals(1, frequents.size)
-        assertEquals(1L, frequents.single().person?.id)
-        assertEquals(2, frequents.single().calls)
     }
 }

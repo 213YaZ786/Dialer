@@ -12,7 +12,7 @@ import androidx.compose.material3.Text
 import com.dialer.app.ui.glass.glassZone
 import kotlinx.coroutines.delay
 import androidx.compose.animation.fadeIn
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import com.dialer.app.ui.glass.glassFloating
 import com.dialer.app.feature.dialpad.DialpadScreen
 import com.dialer.app.feature.call.ReturnToCall
@@ -535,7 +535,7 @@ private fun MovableDialpadButton(onClick: () -> Unit, above: Dp, demo: Boolean =
                     }
                 }
         ) {
-            Icon(DialerIcons.Dialpad, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Icon(AppIcons.Dialpad, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
         // The finger of the show, pressing the button and carrying it.
         show?.let { d ->

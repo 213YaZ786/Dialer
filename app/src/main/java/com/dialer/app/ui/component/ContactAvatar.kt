@@ -21,7 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -53,7 +53,7 @@ fun ContactAvatar(name: String?, photo: String?, size: Dp, modifier: Modifier = 
                     modifier = Modifier.size(size).clip(CircleShape)
                 )
                 letter != null -> Text(letter, fontSize = (size.value * 0.42f).sp, color = MaterialTheme.colorScheme.primary)
-                else -> Icon(DialerIcons.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * 0.5f))
+                else -> Icon(AppIcons.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * 0.5f))
             }
         }
     }

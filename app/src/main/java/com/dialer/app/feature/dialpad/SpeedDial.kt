@@ -32,7 +32,7 @@ import com.dialer.app.feature.contacts.StarGold
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.SearchPill
 import com.dialer.app.ui.component.ZoneAlertDialog
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 
 /**
  * Giving a key of the dialpad to someone: held from then on, it calls
@@ -67,7 +67,7 @@ fun SpeedDialDialog(digit: Int, people: List<Person>, onPick: (String) -> Unit, 
                         ) {
                             ContactAvatar(person.name, person.photo, 40.dp)
                             Text(person.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(start = 12.dp))
-                            if (person.starred) Icon(DialerIcons.Star, contentDescription = null, tint = StarGold, modifier = Modifier.size(18.dp))
+                            if (person.starred) Icon(AppIcons.Star, contentDescription = null, tint = StarGold, modifier = Modifier.size(18.dp))
                         }
                     }
                 }

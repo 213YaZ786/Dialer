@@ -73,10 +73,5 @@ object CallGrouping {
         return sameDigits(a.key, b.key)
     }
 
-    fun sameDigits(a: String, b: String): Boolean {
-        val x = a.removePrefix("+")
-        val y = b.removePrefix("+")
-        if (x == y) return x.isNotEmpty()
-        return x.length >= 9 && y.length >= 9 && x.takeLast(9) == y.takeLast(9)
-    }
+    fun sameDigits(a: String, b: String): Boolean = T9.sameDigits(a, b)
 }

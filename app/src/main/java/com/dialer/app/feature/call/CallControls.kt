@@ -81,7 +81,7 @@ import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.LocalGlass
 import com.dialer.app.ui.glass.glassZone
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import com.dialer.app.ui.theme.zone
 import kotlinx.coroutines.delay
 
@@ -113,13 +113,13 @@ fun CallControls(
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(ControlGap), verticalAlignment = Alignment.Top) {
             CallControl(
-                icon = if (state.muted) DialerIcons.MicOff else DialerIcons.Mic,
+                icon = if (state.muted) AppIcons.MicOff else AppIcons.Mic,
                 label = if (state.muted) "Unmute" else "Mute",
                 on = state.muted,
                 enabled = call.canMute,
                 order = 0
             ) { actions.mute(!state.muted) }
-            CallControl(DialerIcons.Dialpad, "Keypad", on = false, order = 1, onClick = onKeypad)
+            CallControl(AppIcons.Dialpad, "Keypad", on = false, order = 1, onClick = onKeypad)
             // Sound: a tap switches between the ear and the speaker; with a
             // headset or Bluetooth device about, or held, it offers them all.
             CallControl(
@@ -153,7 +153,7 @@ fun CallControls(
         Spacer(Modifier.height(ControlGap))
         Row(horizontalArrangement = Arrangement.spacedBy(ControlGap), verticalAlignment = Alignment.Top) {
             CallControl(
-                icon = if (held) DialerIcons.Play else DialerIcons.Hold,
+                icon = if (held) AppIcons.Play else AppIcons.Hold,
                 label = if (held) "Resume" else "Hold",
                 on = held,
                 enabled = call.canHold,
@@ -162,7 +162,7 @@ fun CallControls(
             // A second call: the dialpad opens, Telecom holds this one when
             // the new one goes out, and Merge joins them after.
             CallControl(
-                DialerIcons.AddCall,
+                AppIcons.AddCall,
                 "Add call",
                 on = false,
                 enabled = state.secondary == null,
@@ -174,7 +174,7 @@ fun CallControls(
         Spacer(Modifier.height(32.dp))
         Appear(order = 5) {
             GlassCallButton(
-                icon = DialerIcons.CallEnd,
+                icon = AppIcons.CallEnd,
                 label = "Hang up",
                 color = HangUpRed,
                 size = 80.dp,
@@ -338,9 +338,9 @@ private fun Modifier.soundWaves(color: Color): Modifier {
 private fun lerpColor(a: Color, b: Color, t: Float): Color = androidx.compose.ui.graphics.lerp(a, b, t.coerceIn(0f, 1f))
 
 fun routeIcon(kind: AudioRoute.Kind?): ImageVector = when (kind) {
-    AudioRoute.Kind.BLUETOOTH -> DialerIcons.Bluetooth
-    AudioRoute.Kind.WIRED -> DialerIcons.Headset
-    else -> DialerIcons.Speaker
+    AudioRoute.Kind.BLUETOOTH -> AppIcons.Bluetooth
+    AudioRoute.Kind.WIRED -> AppIcons.Headset
+    else -> AppIcons.Speaker
 }
 
 /**
@@ -380,7 +380,7 @@ private fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDism
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                                 Icon(
-                                    if (option.kind == AudioRoute.Kind.EARPIECE) DialerIcons.Smartphone else routeIcon(option.kind),
+                                    if (option.kind == AudioRoute.Kind.EARPIECE) AppIcons.Smartphone else routeIcon(option.kind),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -391,7 +391,7 @@ private fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDism
                                     maxLines = 1,
                                     modifier = Modifier.weight(1f).padding(start = 14.dp)
                                 )
-                                if (chosen) Icon(DialerIcons.CheckCircle, contentDescription = "In use", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                if (chosen) Icon(AppIcons.CheckCircle, contentDescription = "In use", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
                         }
                     }

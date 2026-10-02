@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dialer.app.ui.glass.LocalGlass
 import com.dialer.app.ui.glass.glassZone
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import com.dialer.app.ui.theme.zone
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -131,7 +131,7 @@ private fun GlassKey(
             }
             if (voicemail) {
                 Icon(
-                    DialerIcons.Voicemail,
+                    AppIcons.Voicemail,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)

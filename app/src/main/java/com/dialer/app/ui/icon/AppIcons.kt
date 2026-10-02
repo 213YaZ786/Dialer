@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
  * Material Icons, filled style, 24dp grid, Apache License 2.0
  * (github.com/google/material-design-icons).
  */
-object DialerIcons {
+object AppIcons {
 
     /** A favourite. */
     val Star: ImageVector by lazy {

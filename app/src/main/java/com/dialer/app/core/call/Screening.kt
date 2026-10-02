@@ -5,6 +5,7 @@ import android.telecom.Connection
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
+import com.dialer.app.core.dial.SalesCalls
 import com.dialer.app.core.dial.ContactLookup
 import com.dialer.app.core.system.AdvancedProtection
 import com.dialer.app.data.settings.SettingsStore

@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.dialer.app.core.calllog.CallKind
 import com.dialer.app.feature.call.AnswerGreen
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -44,12 +44,12 @@ fun kindLabel(kind: CallKind): String = when (kind) {
 }
 
 fun kindIcon(kind: CallKind): ImageVector = when (kind) {
-    CallKind.INCOMING -> DialerIcons.ArrowIn
-    CallKind.OUTGOING -> DialerIcons.ArrowOut
-    CallKind.MISSED -> DialerIcons.Missed
-    CallKind.REJECTED -> DialerIcons.CallEnd
-    CallKind.BLOCKED -> DialerIcons.Block
-    CallKind.VOICEMAIL -> DialerIcons.Voicemail
+    CallKind.INCOMING -> AppIcons.ArrowIn
+    CallKind.OUTGOING -> AppIcons.ArrowOut
+    CallKind.MISSED -> AppIcons.Missed
+    CallKind.REJECTED -> AppIcons.CallEnd
+    CallKind.BLOCKED -> AppIcons.Block
+    CallKind.VOICEMAIL -> AppIcons.Voicemail
 }
 
 /** The short word under a name: what the last call of the line was. */

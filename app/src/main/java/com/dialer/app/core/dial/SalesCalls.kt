@@ -1,4 +1,4 @@
-package com.dialer.app.core.call
+package com.dialer.app.core.dial
 
 /**
  * The number ranges a country's regulator keeps for sales calls, so a

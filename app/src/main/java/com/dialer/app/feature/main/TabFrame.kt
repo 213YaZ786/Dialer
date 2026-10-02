@@ -27,7 +27,7 @@ import com.dialer.app.ui.component.FloatingFrame
 import com.dialer.app.ui.component.FloatingTop
 import com.dialer.app.ui.component.LocalDockPadding
 import com.dialer.app.ui.component.TitlePill
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 
 /**
  * What every tab of the main screen shares. The tab's content takes the
@@ -50,7 +50,7 @@ fun TabFrame(
             val call = ongoingCall()
             FloatingTop(
                 title = title,
-                trailing = { FloatingAction(DialerIcons.Settings, "Settings", onOpenSettings) },
+                trailing = { FloatingAction(AppIcons.Settings, "Settings", onOpenSettings) },
                 center = {
                     AnimatedContent(
                         targetState = call != null,

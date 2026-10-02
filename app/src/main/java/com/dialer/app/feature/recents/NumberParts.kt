@@ -61,7 +61,7 @@ import com.dialer.app.feature.call.rememberTinted
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.LocalGlass
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -142,7 +142,7 @@ fun CallBar(label: String, enabled: Boolean, onClick: () -> Unit) {
                 .clickable(interactionSource = press, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
         ) {
             Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Icon(DialerIcons.Call, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(26.dp))
+                Icon(AppIcons.Call, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(26.dp))
                 Spacer(Modifier.width(12.dp))
                 Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }

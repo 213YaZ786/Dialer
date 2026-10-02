@@ -1,13 +1,13 @@
 package com.dialer.app.navigation
 
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 
 /** The three tabs of the main screen, in dock order. */
 enum class TopDestination(val label: String, val icon: ImageVector) {
-    FAVORITES("Favorites", DialerIcons.Star),
-    RECENTS("Recents", DialerIcons.Recents),
-    CONTACTS("Contacts", DialerIcons.Person)
+    FAVORITES("Favorites", AppIcons.Star),
+    RECENTS("Recents", AppIcons.Recents),
+    CONTACTS("Contacts", AppIcons.Person)
 }
 
 object Routes {

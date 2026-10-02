@@ -11,11 +11,26 @@ import android.provider.BlockedNumberContract.BlockedNumbers
 import android.provider.ContactsContract
 
 /**
- * What can be done with a number besides calling it. Messages and contacts
- * open the apps the user chose for them; blocking writes Android's own
- * list, which the phone app may do and which every app respects.
+ * What can be done with a number, by the app the user chose for it: the
+ * phone app calls, the messaging app writes, the contacts app keeps people.
+ * Blocking writes Android's own list, which the default phone and
+ * messaging apps may do and every app respects.
  */
 object NumberActions {
+
+    /** The phone app with [number] ready: the user presses Call there. */
+    fun dial(context: Context, number: String) = open(context, Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)))
+
+    /** Dialer's page of the calls with [number]: it only shows them. */
+    fun showCalls(context: Context, number: String) = open(context, callsIntent(number))
+
+    /** Whether Dialer is there to show the calls with a number. */
+    fun canShowCalls(context: Context): Boolean = callsIntent("0").resolveActivity(context.packageManager) != null
+
+    private fun callsIntent(number: String) = Intent(ACTION_SHOW_NUMBER, Uri.fromParts("tel", number, null))
+
+    /** The action Dialer answers with a number's page, whichever app asks. */
+    const val ACTION_SHOW_NUMBER = "com.dialer.app.action.SHOW_NUMBER"
 
     fun message(context: Context, number: String) = open(context, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)))
 

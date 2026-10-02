@@ -42,7 +42,7 @@ import com.dialer.app.core.update.Updates
 import com.dialer.app.ui.component.BoldButton
 import com.dialer.app.ui.component.LoadingMark
 import com.dialer.app.ui.component.ZoneSurface
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 
 /**
  * The one page shown at the first launch: what Dialer needs to be the phone
@@ -96,7 +96,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
 
         val step = setup.step
         WelcomeZone(
-            icon = DialerIcons.Call,
+            icon = AppIcons.Call,
             title = step?.title ?: "Dialer is your phone app",
             message = step?.message ?: "Calls and phone links open in Dialer.",
             done = step == null,
@@ -105,7 +105,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         WelcomeZone(
-            icon = DialerIcons.Update,
+            icon = AppIcons.Update,
             title = "Automatic updates",
             message = "Dialer installs its new versions. Its only connection is this check on GitHub.",
             done = canInstall,
@@ -137,7 +137,7 @@ private fun WelcomeZone(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (done) DialerIcons.CheckCircle else icon,
+                    if (done) AppIcons.CheckCircle else icon,
                     contentDescription = if (done) "Done" else null,
                     tint = MaterialTheme.colorScheme.primary
                 )

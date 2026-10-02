@@ -53,7 +53,7 @@ import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.GlassLook
 import com.dialer.app.ui.glass.LocalGlass
 import com.dialer.app.ui.glass.glassZone
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import kotlin.math.hypot
 import kotlinx.coroutines.launch
 
@@ -134,11 +134,11 @@ fun IncomingChoice(
         }
     ) {
         if (onMessage != null) {
-            CallControl(DialerIcons.Message, "Message", on = false, order = 0, onClick = onMessage)
+            CallControl(AppIcons.Message, "Message", on = false, order = 0, onClick = onMessage)
         }
         if (onEndAndAnswer != null) {
             // With a call going on, Answer holds it; this ends it instead.
-            CallControl(DialerIcons.CallEnd, "End & answer", on = false, order = 2, onClick = {
+            CallControl(AppIcons.CallEnd, "End & answer", on = false, order = 2, onClick = {
                 if (chosen == null) {
                     chosen = true
                     onWave(GlassWave(AnswerGreen, answerAt))
@@ -148,7 +148,7 @@ fun IncomingChoice(
         }
         if (onSilence != null) {
             CallControl(
-                if (silenced) DialerIcons.VolumeOff else DialerIcons.Speaker,
+                if (silenced) AppIcons.VolumeOff else AppIcons.Speaker,
                 if (silenced) "Silenced" else "Silence",
                 on = silenced,
                 enabled = !silenced,
@@ -163,7 +163,7 @@ fun IncomingChoice(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         GlassCallButton(
-            icon = DialerIcons.CallEnd,
+            icon = AppIcons.CallEnd,
             label = "Decline",
             color = HangUpRed,
             size = 88.dp,
@@ -174,7 +174,7 @@ fun IncomingChoice(
             onClick = { choose(false) }
         )
         GlassCallButton(
-            icon = DialerIcons.Call,
+            icon = AppIcons.Call,
             label = if (onEndAndAnswer != null) "Hold & answer" else "Answer",
             color = AnswerGreen,
             size = 88.dp,

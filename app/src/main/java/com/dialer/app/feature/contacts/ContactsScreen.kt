@@ -62,7 +62,7 @@ import com.dialer.app.ui.component.SearchPill
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.component.rememberPillMenu
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import org.koin.compose.koinInject
 
 /**
@@ -102,7 +102,7 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
             EmptyZone(
                 title = "Your contacts show here",
                 message = "Dialer reads them on this phone only.",
-                icon = DialerIcons.Person,
+                icon = AppIcons.Person,
                 actionLabel = "Allow contacts",
                 onAction = { ask.launch(Manifest.permission.READ_CONTACTS) },
                 modifier = Modifier.fillMaxSize().padding(padding)
@@ -113,13 +113,13 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
             people.isEmpty() -> EmptyZone(
                 title = "No contacts yet",
                 message = "The contacts saved on this phone show here.",
-                icon = DialerIcons.Person,
+                icon = AppIcons.Person,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
             shown.isEmpty() -> EmptyZone(
                 title = "No one found",
                 message = "No name or number matches \"$query\".",
-                icon = DialerIcons.Search,
+                icon = AppIcons.Search,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
             else -> Box(Modifier.fillMaxSize()) {
@@ -223,7 +223,7 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
                         Text(person.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         if (person.starred) {
                             Spacer(Modifier.width(6.dp))
-                            Icon(DialerIcons.Star, contentDescription = "Favorite", tint = StarGold, modifier = Modifier.size(16.dp))
+                            Icon(AppIcons.Star, contentDescription = "Favorite", tint = StarGold, modifier = Modifier.size(16.dp))
                         }
                     }
                     subtitle?.let {
@@ -232,7 +232,7 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
                 }
                 ZoneSurface(shape = CircleShape, onClick = ::call, modifier = Modifier.size(44.dp)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(DialerIcons.Call, contentDescription = "Call", tint = AnswerGreen)
+                        Icon(AppIcons.Call, contentDescription = "Call", tint = AnswerGreen)
                     }
                 }
             }
@@ -240,16 +240,16 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
         PillMenu(
             menu,
             listOfNotNull(
-                PillItem(DialerIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
-                PillItem(DialerIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
-                if (!saved) PillItem(DialerIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, person.number) } else null,
+                PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
+                PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
+                if (!saved) PillItem(AppIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, person.number) } else null,
                 if (saved) PillItem(
-                    if (person.starred) DialerIcons.StarOutline else DialerIcons.Star,
+                    if (person.starred) AppIcons.StarOutline else AppIcons.Star,
                     if (person.starred) "Remove from favorites" else "Add to favorites",
                     PillMotion.BOUNCE,
                     StarGold
                 ) { NumberActions.star(context, person.id, !person.starred) } else null,
-                if (saved) PillItem(DialerIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) } else null
+                if (saved) PillItem(AppIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) } else null
             )
         )
     }
@@ -271,7 +271,7 @@ fun NumberChooser(person: Person, onDismiss: () -> Unit, onPick: (String) -> Uni
                     ZoneSurface(shape = RoundedCornerShape(20.dp), onClick = { onPick(entry.number) }, modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
                             Text(Numbers.format(context, entry.number), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Icon(DialerIcons.Call, contentDescription = null, tint = AnswerGreen)
+                            Icon(AppIcons.Call, contentDescription = null, tint = AnswerGreen)
                         }
                     }
                 }

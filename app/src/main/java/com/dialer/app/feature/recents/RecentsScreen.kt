@@ -66,7 +66,7 @@ import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.component.rememberPillMenu
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import com.dialer.app.core.calllog.CallBacks
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
@@ -139,7 +139,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
             !allowed -> EmptyZone(
                 title = "Your calls show here",
                 message = "Dialer reads the call history on this phone only.",
-                icon = DialerIcons.Recents,
+                icon = AppIcons.Recents,
                 actionLabel = "Allow call history",
                 onAction = { ask.launch(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG)) },
                 modifier = Modifier.fillMaxSize().padding(padding)
@@ -148,7 +148,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
             entries.isEmpty() -> EmptyZone(
                 title = "No calls yet",
                 message = "Your calls show here.",
-                icon = DialerIcons.Recents,
+                icon = AppIcons.Recents,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
             else -> {
@@ -156,7 +156,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                     EmptyZone(
                         title = if (query.isNotBlank()) "No calls found" else "No missed calls",
                         message = if (query.isNotBlank()) "No name or number matches \"$query\"." else "Every call was answered.",
-                        icon = DialerIcons.Missed,
+                        icon = AppIcons.Missed,
                         modifier = Modifier.fillMaxSize().padding(padding)
                     )
                 } else {
@@ -283,7 +283,7 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
                 if (!call.hidden) {
                     ZoneSurface(shape = CircleShape, onClick = ::callBack, modifier = Modifier.size(44.dp)) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(DialerIcons.Call, contentDescription = "Call", tint = AnswerGreen)
+                            Icon(AppIcons.Call, contentDescription = "Call", tint = AnswerGreen)
                         }
                     }
                 }
@@ -293,17 +293,17 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
             menu,
             buildList {
                 if (!call.hidden) {
-                    add(PillItem(DialerIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { callBack() })
-                    add(PillItem(DialerIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, call.number) })
-                    add(PillItem(DialerIcons.Copy, "Copy number", PillMotion.BOUNCE) { NumberActions.copy(context, call.number) })
+                    add(PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { callBack() })
+                    add(PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, call.number) })
+                    add(PillItem(AppIcons.Copy, "Copy number", PillMotion.BOUNCE) { NumberActions.copy(context, call.number) })
                     if (contact == null) {
-                        add(PillItem(DialerIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, call.number) })
+                        add(PillItem(AppIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, call.number) })
                     }
                     if (NumberActions.canBlock(context)) {
-                        add(PillItem(DialerIcons.Block, "Block", PillMotion.WIGGLE) { confirmBlock = true })
+                        add(PillItem(AppIcons.Block, "Block", PillMotion.WIGGLE) { confirmBlock = true })
                     }
                 }
-                add(PillItem(DialerIcons.Delete, "Delete from history", PillMotion.DROP) { onDelete() })
+                add(PillItem(AppIcons.Delete, "Delete from history", PillMotion.DROP) { onDelete() })
             }
         )
     }
@@ -321,7 +321,7 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
 fun BlockDialog(who: String, onDismiss: () -> Unit, onBlock: () -> Unit) {
     ZoneAlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(DialerIcons.Block, contentDescription = null) },
+        icon = { Icon(AppIcons.Block, contentDescription = null) },
         title = { Text("Block $who?") },
         text = { Text("Calls and texts from this number will no longer reach you.") },
         confirmButton = { TextButton(onClick = onBlock) { Text("Block") } },

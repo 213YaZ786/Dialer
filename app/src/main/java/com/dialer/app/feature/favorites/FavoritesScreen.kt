@@ -1,5 +1,6 @@
 package com.dialer.app.feature.favorites
 
+import com.dialer.app.core.calllog.Frequents
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.width
@@ -65,7 +66,7 @@ import com.dialer.app.ui.component.PillMotion
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.component.rememberPillMenu
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import org.koin.compose.koinInject
 
 /**
@@ -86,7 +87,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
     val prefs by settings.settings.collectAsState()
     val people = remember(entries) { People.of(entries) }
     val favorites = remember(people) { people.filter { it.starred } }
-    val frequents = remember(calls, people) { People.frequents(calls, people, System.currentTimeMillis()) }
+    val frequents = remember(calls, people) { Frequents.of(calls, people, System.currentTimeMillis()) }
     val context = LocalContext.current
 
     TabFrame(title = "Favorites", onOpenSettings = onOpenSettings) { padding ->
@@ -94,7 +95,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
             EmptyZone(
                 title = "No favorites yet",
                 message = "Star a contact to call them in one tap.",
-                icon = DialerIcons.Star,
+                icon = AppIcons.Star,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
             return@TabFrame
@@ -248,11 +249,11 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
         PillMenu(
             menu,
             listOf(
-                PillItem(DialerIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
-                PillItem(DialerIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
-                PillItem(DialerIcons.Recents, "Calls", PillMotion.BOUNCE) { onOpen() },
-                PillItem(DialerIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) },
-                PillItem(DialerIcons.StarOutline, "Remove from favorites", PillMotion.DROP, StarGold) { NumberActions.star(context, person.id, false) }
+                PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
+                PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
+                PillItem(AppIcons.Recents, "Calls", PillMotion.BOUNCE) { onOpen() },
+                PillItem(AppIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) },
+                PillItem(AppIcons.StarOutline, "Remove from favorites", PillMotion.DROP, StarGold) { NumberActions.star(context, person.id, false) }
             )
         )
     }

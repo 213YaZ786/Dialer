@@ -110,7 +110,7 @@ import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.GlassLook
 import com.dialer.app.ui.glass.LocalGlass
 import com.dialer.app.ui.glass.glassZone
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import com.dialer.app.ui.theme.zone
 import kotlinx.coroutines.delay
 
@@ -384,7 +384,7 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
         if (call.isConference) {
             ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(DialerIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(56.dp))
+                    Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(56.dp))
                 }
             }
         } else {
@@ -408,7 +408,7 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
         NumberCheck.VERIFIED -> {
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(DialerIcons.CheckCircle, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(16.dp))
+                Icon(AppIcons.CheckCircle, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Number checked by your carrier", style = MaterialTheme.typography.labelLarge, color = AnswerGreen)
             }
@@ -493,7 +493,7 @@ private fun Participants(people: List<Participant>, onSplit: (Int) -> Unit, onHa
                             modifier = Modifier.padding(start = 8.dp).size(44.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(DialerIcons.CallEnd, contentDescription = "Hang up on ${person.title}", tint = HangUpRed)
+                                Icon(AppIcons.CallEnd, contentDescription = "Hang up on ${person.title}", tint = HangUpRed)
                             }
                         }
                     }
@@ -544,7 +544,7 @@ private fun SimChooser(call: CallInfo, actions: CallStore) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        BigButton(DialerIcons.CallEnd, "Cancel", HangUpRed) {
+        BigButton(AppIcons.CallEnd, "Cancel", HangUpRed) {
             actions.hangUp(call.id)
         }
     }
@@ -583,8 +583,8 @@ private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: 
         Spacer(Modifier.height(28.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             Spacer(Modifier.size(80.dp))
-            BigButton(DialerIcons.CallEnd, "Hang up", HangUpRed, onClick = onHangUp)
-            CallControl(DialerIcons.Dialpad, "Hide", on = true, onClick = onHide)
+            BigButton(AppIcons.CallEnd, "Hang up", HangUpRed, onClick = onHangUp)
+            CallControl(AppIcons.Dialpad, "Hide", on = true, onClick = onHide)
         }
     }
 }

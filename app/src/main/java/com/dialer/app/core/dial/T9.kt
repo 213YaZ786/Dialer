@@ -67,4 +67,12 @@ object T9 {
         val order = compareByDescending<T9Match> { it.entry.starred }.thenBy { it.entry.name.lowercase() }
         return (byName.sortedWith(order) + byNumber.sortedWith(order)).take(limit)
     }
+
+    /** Equal digits, or the same last nine: 06 12… and +33 6 12… are one number. */
+    fun sameDigits(a: String, b: String): Boolean {
+        val x = a.removePrefix("+")
+        val y = b.removePrefix("+")
+        if (x == y) return x.isNotEmpty()
+        return x.length >= 9 && y.length >= 9 && x.takeLast(9) == y.takeLast(9)
+    }
 }

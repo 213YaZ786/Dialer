@@ -1,10 +1,10 @@
 package com.dialer.app.data.contacts
 
-import com.dialer.app.core.calllog.CallGrouping
 import com.dialer.app.core.dial.PhoneEntry
+import com.dialer.app.core.dial.T9
 
 /**
- * The contacts by number, to put a name and a face on a call: the same
+ * The contacts by number, to put a name and a face on a number: the same
  * number written 06… or +33 6… finds the same contact.
  */
 class PhoneIndex(entries: List<PhoneEntry>) {
@@ -27,5 +27,5 @@ class PhoneIndex(entries: List<PhoneEntry>) {
     }
 
     /** All the numbers of one contact match the same way, for the call screen. */
-    fun matches(entry: PhoneEntry, digits: String): Boolean = CallGrouping.sameDigits(entry.digits, digits)
+    fun matches(entry: PhoneEntry, digits: String): Boolean = T9.sameDigits(entry.digits, digits)
 }

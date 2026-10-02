@@ -83,7 +83,7 @@ import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.LocalGlass
 import com.dialer.app.ui.glass.glassZone
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import java.util.Locale
 import org.koin.compose.koinInject
 
@@ -216,7 +216,7 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                BannerAction(icon = DialerIcons.ArrowBack, label = "Close", onClick = onClose)
+                BannerAction(icon = AppIcons.ArrowBack, label = "Close", onClick = onClose)
                 Spacer(Modifier.weight(1f))
                 // The network the call would go over, before it is placed.
                 val cell: CellWatch = koinInject()
@@ -294,7 +294,7 @@ private fun Keys(
                         haptics.tick()
                         onVoicemail()
                     }) {
-                        Icon(DialerIcons.Voicemail, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(AppIcons.Voicemail, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Voicemail")
                     }
@@ -341,7 +341,7 @@ private fun Keys(
             horizontalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             Spacer(Modifier.size(72.dp))
-            GlassCallButton(icon = DialerIcons.Call, label = "Call", color = AnswerGreen, size = 72.dp, glow = 0.35f, onClick = onCall)
+            GlassCallButton(icon = AppIcons.Call, label = "Call", color = AnswerGreen, size = 72.dp, glow = 0.35f, onClick = onCall)
             // Backspace: a tap takes the last digit, held it clears the number.
             val glass = LocalGlass.current
             val base = Modifier.size(72.dp).clip(CircleShape)
@@ -366,7 +366,7 @@ private fun Keys(
                         }
                     )
             ) {
-                Icon(DialerIcons.Backspace, contentDescription = "Delete", tint = MaterialTheme.colorScheme.primary)
+                Icon(AppIcons.Backspace, contentDescription = "Delete", tint = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -484,7 +484,7 @@ private fun MatchRow(match: T9Match, typed: String, onCall: () -> Unit) {
                     maxLines = 1
                 )
             }
-            Icon(DialerIcons.Call, contentDescription = "Call", tint = AnswerGreen)
+            Icon(AppIcons.Call, contentDescription = "Call", tint = AnswerGreen)
         }
     }
 }

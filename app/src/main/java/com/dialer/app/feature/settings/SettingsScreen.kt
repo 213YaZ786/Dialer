@@ -1,6 +1,6 @@
 package com.dialer.app.feature.settings
 
-import com.dialer.app.core.call.SalesCalls
+import com.dialer.app.core.dial.SalesCalls
 import com.dialer.app.ui.component.FloatingAction
 import com.dialer.app.ui.component.FloatingFrame
 import com.dialer.app.ui.component.FloatingTop
@@ -65,7 +65,7 @@ import com.dialer.app.navigation.LocalReadableInset
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import com.dialer.app.ui.theme.TEXT_SCALES
 import com.dialer.app.ui.theme.textScaleLabel
 import org.koin.androidx.compose.koinViewModel
@@ -83,7 +83,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     // margins of a tablet scroll like the rest. See ReadableScroll.
     FloatingFrame(
         bottom = 0.dp,
-        top = { FloatingTop("Settings", leading = { FloatingAction(DialerIcons.ArrowBack, "Back", onBack) }) }
+        top = { FloatingTop("Settings", leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) }
     ) { padding ->
         Column(
             modifier = Modifier

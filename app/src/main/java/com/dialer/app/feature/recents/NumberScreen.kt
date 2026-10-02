@@ -54,7 +54,7 @@ import com.dialer.app.ui.component.QuietButton
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 import java.time.Instant
 import java.time.ZoneId
 import org.koin.compose.koinInject
@@ -88,7 +88,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
 
     FloatingFrame(
         bottom = 0.dp,
-        top = { FloatingTop(null, leading = { FloatingAction(DialerIcons.ArrowBack, "Back", onBack) }) }
+        top = { FloatingTop(null, leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) }
     ) { padding ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             // The person's light behind the top of the page, under the glass.
@@ -129,15 +129,15 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            ActionTile(DialerIcons.Message, "Message", Modifier.weight(1f)) { NumberActions.message(context, number) }
+                            ActionTile(AppIcons.Message, "Message", Modifier.weight(1f)) { NumberActions.message(context, number) }
                             if (contact != null) {
-                                ActionTile(DialerIcons.Person, "Contact", Modifier.weight(1f)) { NumberActions.openContact(context, contact.contactId) }
+                                ActionTile(AppIcons.Person, "Contact", Modifier.weight(1f)) { NumberActions.openContact(context, contact.contactId) }
                             } else {
-                                ActionTile(DialerIcons.PersonAdd, "Add", Modifier.weight(1f)) { NumberActions.addContact(context, number) }
+                                ActionTile(AppIcons.PersonAdd, "Add", Modifier.weight(1f)) { NumberActions.addContact(context, number) }
                             }
-                            ActionTile(DialerIcons.Copy, "Copy", Modifier.weight(1f)) { NumberActions.copy(context, number) }
+                            ActionTile(AppIcons.Copy, "Copy", Modifier.weight(1f)) { NumberActions.copy(context, number) }
                             if (NumberActions.canBlock(context)) {
-                                ActionTile(DialerIcons.Block, if (blocked) "Unblock" else "Block", Modifier.weight(1f), tint = MaterialTheme.colorScheme.error) {
+                                ActionTile(AppIcons.Block, if (blocked) "Unblock" else "Block", Modifier.weight(1f), tint = MaterialTheme.colorScheme.error) {
                                     if (blocked) {
                                         NumberActions.unblock(context, number)
                                         blocked = NumberActions.isBlocked(context, number)
@@ -192,7 +192,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
                     QuietButton(onClick = { confirmDelete = true }) {
-                        Icon(DialerIcons.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(AppIcons.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Delete this history")
                     }

@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.ui.icon.AppIcons
 
 /** A pill of glass to type a name or a number in; the cross clears it. */
 @Composable
@@ -35,7 +35,7 @@ fun SearchPill(value: String, onChange: (String) -> Unit, hint: String, modifier
     }
     pane {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.dp, end = 4.dp)) {
-            Icon(DialerIcons.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+            Icon(AppIcons.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Box(Modifier.weight(1f).padding(vertical = 14.dp)) {
                 BasicTextField(
@@ -56,7 +56,7 @@ fun SearchPill(value: String, onChange: (String) -> Unit, hint: String, modifier
                     haptics.tick()
                     onChange("")
                 }) {
-                    Icon(DialerIcons.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(AppIcons.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (value.isEmpty()) Spacer(Modifier.size(48.dp))
