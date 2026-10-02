@@ -14,7 +14,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 /** One SIM and the networks it is on: the one calls use, the one data uses. */
@@ -30,7 +32,14 @@ data class SimNetwork(val subId: Int, val name: String, val voice: Protocol, val
  */
 class CellWatch(private val context: Context, scope: CoroutineScope) {
 
-    val sims: StateFlow<List<SimNetwork>> = watch().stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val sims: StateFlow<List<SimNetwork>> = combine(watch(), forced) { sims, force ->
+        if (force == null) sims else sims.map { it.copy(voice = force) }
+    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    companion object {
+        /** Set only by debug builds' test receiver: the emulator's radio never leaves 5G. */
+        val forced = MutableStateFlow<Protocol?>(null)
+    }
 
     private fun allowed() =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED

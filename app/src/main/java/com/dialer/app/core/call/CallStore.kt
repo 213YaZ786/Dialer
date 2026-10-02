@@ -63,7 +63,9 @@ data class CallInfo(
     /** Over the messaging app's end-to-end encrypted line (a self-managed call), not the phone network. */
     val encrypted: Boolean = false,
     /** A video call: the other side's picture and one's own. */
-    val video: Boolean = false
+    val video: Boolean = false,
+    /** The SIM the call goes over, or -1 when it is not known (or not a SIM's call). */
+    val subId: Int = -1
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -316,6 +318,9 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             encrypted = EncryptedCalls.isEncrypted(call),
             video = android.telecom.VideoProfile.isVideo(details.videoState) && call.videoCall != null,
+            subId = details.accountHandle?.let { handle ->
+                runCatching { context.getSystemService(android.telephony.TelephonyManager::class.java).getSubscriptionId(handle) }.getOrNull()
+            } ?: -1,
             numberCheck = if (details.callDirection != Call.Details.DIRECTION_INCOMING) NumberCheck.NONE else when (details.callerNumberVerificationStatus) {
                 Connection.VERIFICATION_STATUS_PASSED -> NumberCheck.VERIFIED
                 Connection.VERIFICATION_STATUS_FAILED -> NumberCheck.FAILED

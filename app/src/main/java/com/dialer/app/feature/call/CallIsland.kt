@@ -74,6 +74,9 @@ import com.dialer.app.core.call.CallInfo
 import com.dialer.app.core.call.CallPhase
 import com.dialer.app.core.call.CallStore
 import com.dialer.app.core.call.CallsState
+import com.dialer.app.core.network.CellProtection
+import com.dialer.app.core.network.NetworkAlert
+import com.dialer.app.core.network.Protection
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.icon.AppIcons
@@ -266,8 +269,20 @@ fun CallIsland(
         }
     }
     var origin by remember { mutableStateOf(Offset.Zero) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
     fun let(color: Color, kind: WaveKind, at: Offset) {
         wave = IslandWave(GlassWave(color, at - origin), kind)
+    }
+    // The call went onto 2G: out of sight of the call screen, a wave of red
+    // runs through the glass and the phone gives a refusal, felt at the ear.
+    val protocol = callProtocol(call)
+    val twoG = protocol?.let(CellProtection::protectionOf) == Protection.UNPROTECTED
+    val alarm = MaterialTheme.colorScheme.error
+    rememberNetworkChange(call, protocol) {
+        if (it == NetworkAlert.Change.DOWN && active && !leaving) {
+            haptics.reject()
+            wave = IslandWave(GlassWave(alarm, Offset(width.value * density.density / 2f, height.value * density.density / 2f)), WaveKind.RIPPLE)
+        }
     }
     // A tap on the island itself dips it, like a key pressed.
     val press = remember { Animatable(1f) }
@@ -339,7 +354,7 @@ fun CallIsland(
         ) { now ->
             Box(Modifier.requiredSize(sizeOf(now)), contentAlignment = Alignment.Center) {
                 when (now) {
-                    Shape.RING -> Ringing(call, photo, onDecline = { at ->
+                    Shape.RING -> Ringing(call, photo, twoG, onDecline = { at ->
                         byMe = true
                         haptics.reject()
                         let(HangUpRed, WaveKind.STAY, at)
@@ -349,8 +364,8 @@ fun CallIsland(
                         let(AnswerGreen, WaveKind.SETTLE, at)
                         actions.answer(call.id)
                     })
-                    Shape.SMALL -> Small(call, photo)
-                    Shape.OPEN -> Open(state, call, photo, actions, onWave = { color, kind, at ->
+                    Shape.SMALL -> Small(call, photo, twoG)
+                    Shape.OPEN -> Open(state, call, photo, actions, twoG, onWave = { color, kind, at ->
                         touched++
                         if (kind == WaveKind.STAY) byMe = true
                         let(color, kind, at)
@@ -414,7 +429,7 @@ private fun Modifier.islandRim(scheme: androidx.compose.material3.ColorScheme) =
 }
 
 @Composable
-private fun Ringing(call: CallInfo, photo: String?, onDecline: (Offset) -> Unit, onAnswer: (Offset) -> Unit) {
+private fun Ringing(call: CallInfo, photo: String?, twoG: Boolean, onDecline: (Offset) -> Unit, onAnswer: (Offset) -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp)
@@ -432,6 +447,7 @@ private fun Ringing(call: CallInfo, photo: String?, onDecline: (Offset) -> Unit,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
+                if (twoG) TwoG()
             }
             Text(call.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -442,7 +458,7 @@ private fun Ringing(call: CallInfo, photo: String?, onDecline: (Offset) -> Unit,
 }
 
 @Composable
-private fun Small(call: CallInfo, photo: String?) {
+private fun Small(call: CallInfo, photo: String?, twoG: Boolean) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(start = 10.dp, end = 18.dp)
@@ -454,6 +470,7 @@ private fun Small(call: CallInfo, photo: String?) {
                 Icon(if (call.encrypted) AppIcons.Lock else AppIcons.Call, contentDescription = if (call.encrypted) "Encrypted" else null, tint = AnswerGreen, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(clockOf(call), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = AnswerGreen)
+                if (twoG) TwoG()
             }
         }
         Waves(live = call.phase == CallPhase.ACTIVE)
@@ -461,7 +478,7 @@ private fun Small(call: CallInfo, photo: String?) {
 }
 
 @Composable
-private fun Open(state: CallsState, call: CallInfo, photo: String?, actions: CallStore, onWave: (Color, WaveKind, Offset) -> Unit) {
+private fun Open(state: CallsState, call: CallInfo, photo: String?, actions: CallStore, twoG: Boolean, onWave: (Color, WaveKind, Offset) -> Unit) {
     val haptics = rememberHaptics()
     val speaker = state.route?.kind == AudioRoute.Kind.SPEAKER
     val accent = MaterialTheme.colorScheme.primary
@@ -481,6 +498,7 @@ private fun Open(state: CallsState, call: CallInfo, photo: String?, actions: Cal
             Waves(live = call.phase == CallPhase.ACTIVE)
             Spacer(Modifier.width(10.dp))
             Text(clockOf(call), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = AnswerGreen)
+            if (twoG) TwoG()
         }
         // Three capsules sharing the whole width: no empty glass between them.
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -556,6 +574,16 @@ private fun Round(
             Icon(it, contentDescription = label, tint = tint, modifier = Modifier.size(24.dp))
         }
     }
+}
+
+/** The call is on 2G: said in red next to the time, a warning sign before it. */
+@Composable
+private fun TwoG() {
+    val red = MaterialTheme.colorScheme.error
+    Spacer(Modifier.width(6.dp))
+    Icon(AppIcons.Warning, contentDescription = "On 2G, can be listened to", tint = red, modifier = Modifier.size(13.dp))
+    Spacer(Modifier.width(2.dp))
+    Text("2G", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = red)
 }
 
 /** How a button's wave behaves once it has spread. */

@@ -182,13 +182,12 @@ fun CallScreen(
             Spacer(Modifier.height(10.dp))
             EncryptedChip()
         } else if (call.phase != CallPhase.ENDED && !compact) {
-            val cell: CellWatch = koinInject()
-            val sims by cell.sims.collectAsState()
-            val protocol = if (call.wifi) Protocol.WIFI else sims.firstOrNull { it.isDefaultVoice }?.forCalls ?: sims.firstOrNull()?.forCalls
-            if (protocol != null && protocol != Protocol.NONE) {
+            val protocol = callProtocol(call)
+            if (protocol != null) {
                 Spacer(Modifier.height(10.dp))
                 NetworkChip(protocol, CellProtection.protectionOf(protocol), hd = call.hd)
             }
+            NetworkAlertBanner(call, protocol)
         }
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
         // A video call: the picture speaks for itself, the caller stays small,
