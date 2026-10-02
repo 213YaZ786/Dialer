@@ -44,6 +44,7 @@ import com.dialer.app.feature.call.HangUpRed
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.glass.LocalGlass
 import com.dialer.app.ui.glass.glassZone
+import java.util.Locale
 import kotlin.math.ceil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -137,12 +138,27 @@ fun SosButton(onCall: (String) -> Unit) {
 }
 
 /**
- * The general emergency number the network and the SIM give, 112 among
- * them when it is; else 112, which GSM networks answer everywhere.
+ * The emergency number of the country the phone is in (its network, else
+ * its SIM, else the system's region), as the network and the SIM list it.
+ * Where one number answers for everything, that one; else the first
+ * general one listed; with no list (no SIM), the country's number, else
+ * 112, which every phone dials as an emergency.
  */
-private fun emergencyNumber(context: Context): String = runCatching {
-    val general = context.getSystemService(TelephonyManager::class.java).emergencyNumberList.values.flatten()
-        .filter { EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_UNSPECIFIED in it.emergencyServiceCategories }
-        .map { it.number }
-    general.firstOrNull { it == "112" } ?: general.firstOrNull()
-}.getOrNull() ?: "112"
+private fun emergencyNumber(context: Context): String {
+    val phone = context.getSystemService(TelephonyManager::class.java)
+    val country = listOf(phone?.networkCountryIso, phone?.simCountryIso, Locale.getDefault().country)
+        .firstOrNull { !it.isNullOrBlank() }?.lowercase()
+    val usual = UnifiedNumbers[country] ?: "112"
+    val listed = runCatching {
+        phone.emergencyNumberList.values.flatten()
+            .filter { EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_UNSPECIFIED in it.emergencyServiceCategories }
+            .map { it.number }
+    }.getOrNull().orEmpty()
+    return listed.firstOrNull { it == usual } ?: listed.firstOrNull() ?: usual
+}
+
+/** Countries whose single emergency number is not 112. */
+private val UnifiedNumbers = mapOf(
+    "us" to "911", "ca" to "911", "mx" to "911", "pr" to "911",
+    "gb" to "999", "au" to "000", "nz" to "111"
+)

@@ -4,6 +4,7 @@ import com.dialer.app.ui.component.FloatingAction
 import com.dialer.app.ui.component.FloatingFrame
 import com.dialer.app.ui.component.FloatingTop
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dialer.app.core.call.Dialing
 import com.dialer.app.core.calllog.CallGrouping
+import com.dialer.app.core.calllog.Rhythms
 import com.dialer.app.core.dial.DialRequests
 import com.dialer.app.core.dial.NumberActions
 import com.dialer.app.core.dial.Numbers
@@ -47,10 +49,8 @@ import com.dialer.app.core.dial.T9
 import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.contacts.PhoneIndex
-import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.ui.component.ContactAvatar
 import com.dialer.app.ui.component.QuietButton
-import com.dialer.app.ui.component.RoundAction
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
@@ -91,17 +91,21 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
         top = { FloatingTop(null, leading = { FloatingAction(DialerIcons.ArrowBack, "Back", onBack) }) }
     ) { padding ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(padding.calculateTopPadding()))
+            // The person's light behind the top of the page, under the glass.
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            HeroGlow(contact?.photo, height = padding.calculateTopPadding() + 340.dp)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 16.dp)
+                modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
             ) {
-                ContactAvatar(contact?.name, contact?.photo, 112.dp)
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(8.dp))
+                ContactAvatar(contact?.name, contact?.photo, 128.dp)
+                Spacer(Modifier.height(18.dp))
                 Text(
                     contact?.name ?: shown,
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
+                    style = MaterialTheme.typography.displaySmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
                 )
                 val under = listOfNotNull(shown.takeIf { contact != null }, location).joinToString(" · ")
                 if (under.isNotEmpty()) {
@@ -115,34 +119,43 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 }
 
                 if (!hidden) {
-                    Spacer(Modifier.height(24.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                        RoundAction(DialerIcons.Call, "Call", AnswerGreen) {
+                    Spacer(Modifier.height(28.dp))
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CallBar(label = "Call", enabled = true) {
                             haptics.firm()
                             if (!Dialing.call(context, number)) {
                                 dial.open(number)
                                 onBack()
                             }
                         }
-                        RoundAction(DialerIcons.Message, "Message") { NumberActions.message(context, number) }
-                        if (contact != null) {
-                            RoundAction(DialerIcons.Person, "Contact") { NumberActions.openContact(context, contact.contactId) }
-                        } else {
-                            RoundAction(DialerIcons.PersonAdd, "Add") { NumberActions.addContact(context, number) }
-                        }
-                        RoundAction(DialerIcons.Copy, "Copy") {
-                            haptics.tick()
-                            NumberActions.copy(context, number)
-                        }
-                        if (NumberActions.canBlock(context)) {
-                            RoundAction(DialerIcons.Block, if (blocked) "Unblock" else "Block") {
-                                if (blocked) {
-                                    NumberActions.unblock(context, number)
-                                    blocked = NumberActions.isBlocked(context, number)
-                                } else {
-                                    confirmBlock = true
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            ActionTile(DialerIcons.Message, "Message", Modifier.weight(1f)) { NumberActions.message(context, number) }
+                            if (contact != null) {
+                                ActionTile(DialerIcons.Person, "Contact", Modifier.weight(1f)) { NumberActions.openContact(context, contact.contactId) }
+                            } else {
+                                ActionTile(DialerIcons.PersonAdd, "Add", Modifier.weight(1f)) { NumberActions.addContact(context, number) }
+                            }
+                            ActionTile(DialerIcons.Copy, "Copy", Modifier.weight(1f)) { NumberActions.copy(context, number) }
+                            if (NumberActions.canBlock(context)) {
+                                ActionTile(DialerIcons.Block, if (blocked) "Unblock" else "Block", Modifier.weight(1f), tint = MaterialTheme.colorScheme.error) {
+                                    if (blocked) {
+                                        NumberActions.unblock(context, number)
+                                        blocked = NumberActions.isBlocked(context, number)
+                                    } else {
+                                        confirmBlock = true
+                                    }
                                 }
                             }
+                        }
+                    }
+                }
+
+                if (calls.size > 1) {
+                    Spacer(Modifier.height(16.dp))
+                    val rhythm = remember(calls) { Rhythms.of(calls, System.currentTimeMillis()) }
+                    Box(Modifier.fillMaxWidth()) {
+                        RhythmCard(rhythm) { hour ->
+                            timeLabel(context, java.time.LocalDate.now().atTime(hour, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
                         }
                     }
                 }
@@ -185,6 +198,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(24.dp))
+            }
             }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
