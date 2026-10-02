@@ -4,7 +4,11 @@ A phone app for Android. No account, no tracking, no ads.
 
 - Calls, dialpad with contact search, recents, contacts, favorites and
   speed dial.
-- Silence unknown callers, block hidden or faked numbers.
+- Silence unknown callers, block hidden or faked numbers and sales
+  calls (official ranges of France, Spain and India).
+- SOS on the dialpad: hold it to call your country's emergency number.
+- People still waiting for a call back, and the rhythm of your calls
+  with each person.
 - Shows how well the network protects each call (5G, 4G, 2G).
 - Light and dark themes in your wallpaper's colours.
 
