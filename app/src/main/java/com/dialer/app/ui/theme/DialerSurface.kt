@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -48,7 +49,9 @@ fun ComponentActivity.DialerSurface(content: @Composable () -> Unit) {
 
     DialerTheme(darkTheme = dark, pureBlack = settings.pureBlack, textScale = settings.textScale) {
         val look = rememberGlassLook(MaterialTheme.colorScheme, settings.glass)
-        CompositionLocalProvider(LocalGlass provides look) {
+        // Text and icons take the theme's colour in every window: without it
+        // Compose draws them black, unreadable on a dark ground.
+        CompositionLocalProvider(LocalGlass provides look, LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
             Box(Modifier.fillMaxSize().glassGround(look, MaterialTheme.colorScheme.background)) {
                 content()
             }
