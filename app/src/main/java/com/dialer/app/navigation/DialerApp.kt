@@ -1,6 +1,16 @@
 package com.dialer.app.navigation
 
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.KeyframesSpec
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.border
+import androidx.compose.material3.Text
+import com.dialer.app.ui.glass.glassZone
+import kotlinx.coroutines.delay
 import androidx.compose.animation.fadeIn
 import com.dialer.app.ui.icon.DialerIcons
 import com.dialer.app.ui.glass.glassFloating
@@ -233,6 +243,20 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
 
     val haptics = rememberHaptics()
 
+    // Once, after the first launch page: the dialpad button shows that it
+    // moves. A tap anywhere ends it.
+    var hint by remember { mutableStateOf(false) }
+    LaunchedEffect(showWelcome) {
+        if (!showWelcome && !store.current.dialpadHintSeen) {
+            delay(700)
+            hint = true
+        }
+    }
+    fun closeHint() {
+        hint = false
+        store.update { it.copy(dialpadHintSeen = true) }
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = WidthClass.of(maxWidth).usesSideDock
 
@@ -343,7 +367,8 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                         vertical = true,
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
                     )
-                    MovableDialpadButton(onClick = { dialpad = "" }, above = 24.dp)
+                    HintDim(hint)
+                    MovableDialpadButton(onClick = { dialpad = "" }, above = 24.dp, demo = hint)
                 }
             }
         } else {
@@ -358,10 +383,25 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                         onSelect = ::go,
                         modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
                     )
+                    HintDim(hint)
                     // At the thumb's side, just above the dock, until moved.
-                    MovableDialpadButton(onClick = { dialpad = "" }, above = DockClearance + 4.dp)
+                    MovableDialpadButton(onClick = { dialpad = "" }, above = DockClearance + 4.dp, demo = hint)
                 }
             }
+        }
+
+        if (hint) {
+            HintPill(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (side) 48.dp else DockClearance + 96.dp))
+            // Over everything while it plays: any tap ends it.
+            Box(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown().consume()
+                        haptics.tick()
+                        closeHint()
+                    }
+                }
+            )
         }
 
         // Above the tabs and the dock, opaque, with the page's ground and its
@@ -408,7 +448,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
  * Until moved it sits at the thumb's side, [above] the bottom edge.
  */
 @Composable
-private fun MovableDialpadButton(onClick: () -> Unit, above: Dp) {
+private fun MovableDialpadButton(onClick: () -> Unit, above: Dp, demo: Boolean = false) {
     val haptics = rememberHaptics()
     val store: SettingsStore = koinInject()
     val settings by store.settings.collectAsState()
@@ -431,9 +471,20 @@ private fun MovableDialpadButton(onClick: () -> Unit, above: Dp) {
         val usual = with(density) { Offset(roomX - 8.dp.toPx(), roomY - (above - 12.dp).coerceAtLeast(0.dp).toPx()) }
         val saved = if (settings.dialpadX >= 0f) Offset(settings.dialpadX * roomX, settings.dialpadY * roomY) else null
         var dragging by remember { mutableStateOf<Offset?>(null) }
-        val at = dragging ?: saved ?: usual
+        val show = if (demo) rememberDemo() else null
+        val rest = dragging ?: saved ?: usual
+        // In the show, it travels from where it rests and comes back.
+        val at = show?.let { d ->
+            with(density) {
+                Offset(
+                    (rest.x + d.dx.dp.toPx() * (if (rest.x > roomX / 2) -1f else 1f)).coerceIn(0f, roomX),
+                    (rest.y + d.dy.dp.toPx() * (if (rest.y > roomY / 2) -1f else 1f)).coerceIn(0f, roomY)
+                )
+            }
+        } ?: rest
         val current by rememberUpdatedState(at)
-        val lift by animateFloatAsState(if (dragging != null) 1.14f else 1f, spring(dampingRatio = 0.5f, stiffness = 500f), label = "lift")
+        val held by animateFloatAsState(if (dragging != null) 1.14f else 1f, spring(dampingRatio = 0.5f, stiffness = 500f), label = "lift")
+        val lift = show?.lift ?: held
 
         val base = Modifier
             .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
@@ -486,6 +537,77 @@ private fun MovableDialpadButton(onClick: () -> Unit, above: Dp) {
         ) {
             Icon(DialerIcons.Dialpad, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
+        // The finger of the show, pressing the button and carrying it.
+        show?.let { d ->
+            Box(
+                Modifier
+                    .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+                    .size(ButtonSize)
+                    .graphicsLayer {
+                        alpha = d.finger
+                        val s = 0.55f + 0.25f * (1f - d.finger)
+                        scaleX = s
+                        scaleY = s
+                    }
+                    .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                    .background(Color.White.copy(alpha = 0.3f), CircleShape)
+            )
+        }
+    }
+}
+
+/** Where the show is: how far the button has gone (dp, towards the middle), its lift, the finger's presence. */
+private class DemoState(val dx: Float, val dy: Float, val lift: Float, val finger: Float)
+
+/**
+ * The show of the dialpad button, five seconds over and over: the finger
+ * comes, the button lifts, travels up and across, comes back, settles.
+ */
+@Composable
+private fun rememberDemo(): DemoState {
+    val loop = rememberInfiniteTransition(label = "demo")
+    val spec = { frames: KeyframesSpec.KeyframesSpecConfig<Float>.() -> Unit ->
+        infiniteRepeatable(keyframes { durationMillis = DEMO_MS; frames() })
+    }
+    val dx by loop.animateFloat(0f, 0f, spec {
+        0f at 0; 0f at 1150 using FastOutSlowInEasing; 190f at 2400 using FastOutSlowInEasing
+        120f at 3100 using FastOutSlowInEasing; 0f at 4050; 0f at DEMO_MS
+    }, label = "dx")
+    val dy by loop.animateFloat(0f, 0f, spec {
+        0f at 0; 0f at 1150 using FastOutSlowInEasing; 220f at 2400 using FastOutSlowInEasing
+        360f at 3100 using FastOutSlowInEasing; 0f at 4050; 0f at DEMO_MS
+    }, label = "dy")
+    val lift by loop.animateFloat(1f, 1f, spec {
+        1f at 0; 1f at 730; 1.14f at 1150; 1.14f at 4050; 1f at 4470; 1f at DEMO_MS
+    }, label = "lift")
+    val finger by loop.animateFloat(0f, 0f, spec {
+        0f at 0; 0f at 310; 1f at 730; 1f at 4050; 0f at 4470; 0f at DEMO_MS
+    }, label = "finger")
+    return DemoState(dx, dy, lift, finger)
+}
+
+private const val DEMO_MS = 5200
+
+/** Dims the tabs and the dock under the show, not the button. */
+@Composable
+private fun HintDim(on: Boolean) {
+    AnimatedVisibility(visible = on, enter = fadeIn(), exit = fadeOut()) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f)))
+    }
+}
+
+/** What the show means, in a pill of glass under it. */
+@Composable
+private fun HintPill(modifier: Modifier) {
+    val look = LocalGlass.current
+    val shape = CircleShape
+    Box(
+        modifier
+            .clip(shape)
+            .then(if (look != null) Modifier.glassZone(shape, look, lens = 1f) else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Text("Hold the dialpad button to move it", style = MaterialTheme.typography.titleSmall)
     }
 }
 

@@ -56,6 +56,8 @@ data class Settings(
      */
     val dialpadX: Float = -1f,
     val dialpadY: Float = -1f,
+    /** The little show of the dialpad button moving was seen. */
+    val dialpadHintSeen: Boolean = false,
     /** Held keys 2 to 9 of the dialpad call these numbers. */
     val speedDial: Map<Int, String> = emptyMap()
 )
