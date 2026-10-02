@@ -62,7 +62,7 @@ class CallNotifier(private val context: Context) {
                         screen(ANSWER_REQUEST, CallActivity.EXTRA_ANSWER, call.id)
                     )
                 )
-                .setContentText(call.number.takeIf { call.name != null })
+                .setContentText(if (call.encrypted) "Encrypted call" else call.number.takeIf { call.name != null })
                 .apply { if (!screenShown) setFullScreenIntent(open, true) }
                 .setContentIntent(open)
                 .setOngoing(true)
@@ -84,11 +84,11 @@ class CallNotifier(private val context: Context) {
     }
 
     private fun statusOf(call: CallInfo): String = when (call.phase) {
-        CallPhase.DIALING -> "Calling"
+        CallPhase.DIALING -> if (call.encrypted) "Calling, encrypted" else "Calling"
         CallPhase.HOLDING -> "On hold"
         CallPhase.CHOOSE_SIM -> "Choose a SIM"
         CallPhase.ENDED -> "Call ended"
-        else -> "Ongoing call"
+        else -> if (call.encrypted) "Encrypted call" else "Ongoing call"
     }
 
     private fun screen(request: Int, extra: String?, id: Int): PendingIntent {

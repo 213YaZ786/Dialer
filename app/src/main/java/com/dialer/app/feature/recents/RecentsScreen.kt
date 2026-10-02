@@ -263,6 +263,11 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
                         overflow = TextOverflow.Ellipsis
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Over the encrypted line: a lock before the kind.
+                        if (call.encrypted) {
+                            Icon(AppIcons.Lock, contentDescription = "Encrypted", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
                         // The kind in its colour, then the rest quieter.
                         Text(
                             kindWord(call.kind) + if (group.count > 1) " ×${group.count}" else "",

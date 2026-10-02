@@ -59,7 +59,9 @@ data class CallInfo(
     /** High definition voice (VoLTE, VoNR, Wi-Fi calling). */
     val hd: Boolean = false,
     /** What the network says of the caller's number (STIR/SHAKEN): checked, failed, or not known. */
-    val numberCheck: NumberCheck = NumberCheck.NONE
+    val numberCheck: NumberCheck = NumberCheck.NONE,
+    /** Over the messaging app's end-to-end encrypted line (a self-managed call), not the phone network. */
+    val encrypted: Boolean = false
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -283,6 +285,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             outgoing = details.callDirection == Call.Details.DIRECTION_OUTGOING,
             wifi = details.hasProperty(Call.Details.PROPERTY_WIFI),
             hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
+            encrypted = EncryptedCalls.isEncrypted(call),
             numberCheck = if (details.callDirection != Call.Details.DIRECTION_INCOMING) NumberCheck.NONE else when (details.callerNumberVerificationStatus) {
                 Connection.VERIFICATION_STATUS_PASSED -> NumberCheck.VERIFIED
                 Connection.VERIFICATION_STATUS_FAILED -> NumberCheck.FAILED

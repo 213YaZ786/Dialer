@@ -116,6 +116,11 @@
             <meta-data
                 android:name="android.telecom.IN_CALL_SERVICE_RINGING"
                 android:value="false" />
+            <!-- The encrypted calls of the messaging app (a self-managed line)
+                 show on this same call screen. -->
+            <meta-data
+                android:name="android.telecom.INCLUDE_SELF_MANAGED_CALLS"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.telecom.InCallService" />
             </intent-filter>

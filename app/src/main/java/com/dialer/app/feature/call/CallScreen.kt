@@ -176,7 +176,11 @@ fun CallScreen(
         Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
         StatusPill(call)
         // The network the call goes over, red on 2G before anything is said.
-        if (call.phase != CallPhase.ENDED && !compact) {
+        if (call.encrypted && call.phase != CallPhase.ENDED) {
+            // Over the messaging app's encrypted line: the phone network has nothing to do with it.
+            Spacer(Modifier.height(10.dp))
+            EncryptedChip()
+        } else if (call.phase != CallPhase.ENDED && !compact) {
             val cell: CellWatch = koinInject()
             val sims by cell.sims.collectAsState()
             val protocol = if (call.wifi) Protocol.WIFI else sims.firstOrNull { it.isDefaultVoice }?.forCalls ?: sims.firstOrNull()?.forCalls
@@ -638,5 +642,17 @@ private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () 
             haptics.tick()
             onBack()
         }) { Text("Back") }
+    }
+}
+
+/** The mark of a call over the messaging app's end-to-end encrypted line. */
+@Composable
+private fun EncryptedChip() {
+    ZoneSurface(shape = androidx.compose.foundation.shape.CircleShape) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+            Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("End-to-end encrypted", style = MaterialTheme.typography.labelLarge)
+        }
     }
 }

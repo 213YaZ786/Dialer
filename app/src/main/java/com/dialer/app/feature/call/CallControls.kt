@@ -119,7 +119,8 @@ fun CallControls(
                 enabled = call.canMute,
                 order = 0
             ) { actions.mute(!state.muted) }
-            CallControl(AppIcons.Dialpad, "Keypad", on = false, order = 1, onClick = onKeypad)
+            // Tones mean nothing on an encrypted line: no keypad there.
+            CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted, order = 1, onClick = onKeypad)
             // Sound: a tap switches between the ear and the speaker; with a
             // headset or Bluetooth device about, or held, it offers them all.
             CallControl(
@@ -165,7 +166,7 @@ fun CallControls(
                 AppIcons.AddCall,
                 "Add call",
                 on = false,
-                enabled = state.secondary == null,
+                enabled = state.secondary == null && !call.encrypted,
                 motion = ControlMotion.TURN,
                 order = 4,
                 onClick = onAddCall

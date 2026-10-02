@@ -25,7 +25,9 @@ data class CallEntry(
     /** The city or country Android tells from the number, without any network. */
     val location: String?,
     /** Hidden, payphone or unknown: no number to call back. */
-    val hidden: Boolean
+    val hidden: Boolean,
+    /** Over the messaging app's end-to-end encrypted line. */
+    val encrypted: Boolean = false
 ) {
     /** The digits, to compare numbers written differently. */
     val key: String get() = if (hidden) "hidden" else T9.clean(number)

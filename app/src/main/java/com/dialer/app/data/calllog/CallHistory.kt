@@ -93,7 +93,7 @@ class CallHistory(private val context: Context, private val scope: CoroutineScop
     private fun load(): List<CallEntry> = runCatching {
         val columns = arrayOf(
             Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION,
-            Calls.NEW, Calls.GEOCODED_LOCATION, Calls.NUMBER_PRESENTATION
+            Calls.NEW, Calls.GEOCODED_LOCATION, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_COMPONENT_NAME
         )
         val uri = Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, LIMIT.toString()).build()
         context.contentResolver.query(uri, columns, null, null, "${Calls.DATE} DESC")?.use { c ->
@@ -118,7 +118,8 @@ class CallHistory(private val context: Context, private val scope: CoroutineScop
                             duration = c.getLong(5),
                             isNew = c.getInt(6) == 1,
                             location = c.getString(7)?.takeIf { it.isNotBlank() },
-                            hidden = c.getInt(8) != Calls.PRESENTATION_ALLOWED || number.isBlank()
+                            hidden = c.getInt(8) != Calls.PRESENTATION_ALLOWED || number.isBlank(),
+                            encrypted = com.dialer.app.core.call.EncryptedCalls.isEncrypted(c.getString(9))
                         )
                     )
                 }
