@@ -14,7 +14,7 @@ object SalesCalls {
     )
 
     /** Countries with ranges, by ISO code. */
-    val countries = setOf("fr", "es")
+    val countries = setOf("fr", "es", "in")
 
     /**
      * Whether [number] is in a range kept for sales calls, read as [country]
@@ -25,6 +25,7 @@ object SalesCalls {
         val (cc, national) = when {
             digits.startsWith("+33") -> "fr" to "0" + digits.removePrefix("+33")
             digits.startsWith("+34") -> "es" to digits.removePrefix("+34")
+            digits.startsWith("+91") -> "in" to digits.removePrefix("+91")
             digits.startsWith("+") -> return false
             else -> country?.lowercase() to digits
         }
@@ -32,6 +33,8 @@ object SalesCalls {
             "fr" -> national.length == 10 && France.any { national.startsWith(it) }
             // Spain (Law 10/2025): nine digit numbers starting with 400.
             "es" -> national.length == 9 && national.startsWith("400")
+            // India (TRAI): the 140 series, kept for promotional calls.
+            "in" -> national.removePrefix("0").let { it.length == 10 && it.startsWith("140") }
             else -> false
         }
     }

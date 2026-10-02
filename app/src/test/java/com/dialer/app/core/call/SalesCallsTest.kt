@@ -35,4 +35,11 @@ class SalesCallsTest {
         assertFalse(SalesCalls.isSalesCall("400123456", "fr"))
         assertFalse(SalesCalls.isSalesCall("+1 400 123 4567", "us"))
     }
+
+    @Test
+    fun indiaPromotionalSeriesIs140() {
+        assertTrue(SalesCalls.isSalesCall("+91 140 123 4567", null))
+        assertTrue(SalesCalls.isSalesCall("1401234567", "in"))
+        assertFalse(SalesCalls.isSalesCall("9812345678", "in"))
+    }
 }
