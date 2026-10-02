@@ -4,6 +4,7 @@ import android.telecom.Call
 import android.telecom.Connection
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
 import com.dialer.app.core.dial.ContactLookup
 import com.dialer.app.core.system.AdvancedProtection
 import com.dialer.app.data.settings.SettingsStore
@@ -37,6 +38,8 @@ class Screening : CallScreeningService(), KoinComponent {
             blockSpoofed = prefs.blockSpoofed,
             blockHidden = prefs.blockHidden,
             silenceUnknown = prefs.silenceUnknown,
+            salesCall = prefs.blockSalesCalls && !hidden &&
+                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, getSystemService(TelephonyManager::class.java)?.networkCountryIso),
             strict = AdvancedProtection.isOn(this),
             isContact = { ContactLookup.isContact(this, details.handle.schemeSpecificPart) }
         )
@@ -59,7 +62,8 @@ enum class Verdict { ALLOW, SILENCE, REJECT }
 object ScreeningRules {
     /**
      * A faked number, then a hidden one, are turned away when the user
-     * chose so or Android's Advanced Protection is on; a number not in the
+     * chose so or Android's Advanced Protection is on; [salesCall] (the user
+     * chose to block them and the number is in one) too; a number not in the
      * contacts rings without sound when chosen. [isContact] is only asked
      * when it matters.
      */
@@ -70,10 +74,13 @@ object ScreeningRules {
         blockHidden: Boolean,
         silenceUnknown: Boolean,
         strict: Boolean,
+        salesCall: Boolean = false,
         isContact: () -> Boolean
     ): Verdict = when {
         spoofed && (blockSpoofed || strict) -> Verdict.REJECT
         hidden && (blockHidden || strict) -> Verdict.REJECT
+        // A number in a sales range, unless the user saved it.
+        salesCall && !isContact() -> Verdict.REJECT
         !hidden && silenceUnknown && !isContact() -> Verdict.SILENCE
         else -> Verdict.ALLOW
     }

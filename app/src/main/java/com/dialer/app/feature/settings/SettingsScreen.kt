@@ -1,5 +1,6 @@
 package com.dialer.app.feature.settings
 
+import com.dialer.app.core.call.SalesCalls
 import com.dialer.app.ui.component.FloatingAction
 import com.dialer.app.ui.component.FloatingFrame
 import com.dialer.app.ui.component.FloatingTop
@@ -116,6 +117,20 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                     enabled = !strict,
                     onChange = viewModel::setBlockHidden
                 )
+                // Only where the country keeps ranges for sales calls.
+                val country = remember {
+                    val phone = context.getSystemService(android.telephony.TelephonyManager::class.java)
+                    listOf(phone?.networkCountryIso, phone?.simCountryIso, java.util.Locale.getDefault().country)
+                        .firstOrNull { !it.isNullOrBlank() }?.lowercase()
+                }
+                if (country in SalesCalls.countries) {
+                    SwitchRow(
+                        title = "Block sales calls",
+                        summary = "Numbers reserved for cold calls are rejected, unless saved in your contacts.",
+                        checked = settings.blockSalesCalls,
+                        onChange = viewModel::setBlockSalesCalls
+                    )
+                }
                 SwitchRow(
                     title = "Flip to silence",
                     summary = "Turn the phone face down to stop the ringing.",

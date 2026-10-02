@@ -58,6 +58,8 @@ data class Settings(
     val dialpadY: Float = -1f,
     /** The little show of the dialpad button moving was seen. */
     val dialpadHintSeen: Boolean = false,
+    /** Calls from the ranges kept for sales calls are turned away. */
+    val blockSalesCalls: Boolean = false,
     /** Held keys 2 to 9 of the dialpad call these numbers. */
     val speedDial: Map<Int, String> = emptyMap()
 )
