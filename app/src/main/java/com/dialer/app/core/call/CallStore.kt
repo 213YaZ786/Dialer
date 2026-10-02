@@ -126,6 +126,11 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     val screenShown: StateFlow<Boolean> = _screenShown.asStateFlow()
     fun screenShown(shown: Boolean) { _screenShown.value = shown }
 
+    /** The island over the other apps holds a ringing call: no banner on top of it. */
+    private val _islandShown = MutableStateFlow(false)
+    val islandShown: StateFlow<Boolean> = _islandShown.asStateFlow()
+    fun islandShown(shown: Boolean) { _islandShown.value = shown }
+
     private val _state = MutableStateFlow(CallsState())
     val state: StateFlow<CallsState> = _state.asStateFlow()
 
@@ -171,7 +176,8 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
         _state.update { it.copy(muted = muted, route = route, routes = routes) }
     }
 
-    fun answer(id: Int) = calls[id]?.answer(0) // 0: audio only
+    /** Answered as it was offered: a video call stays a video call. */
+    fun answer(id: Int) = calls[id]?.let { it.answer(it.details.videoState) }
 
     /**
      * A second call rings during one: the first is hung up, and the new one

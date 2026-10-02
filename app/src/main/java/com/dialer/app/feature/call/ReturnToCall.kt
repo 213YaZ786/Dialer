@@ -53,56 +53,32 @@ fun ReturnToCall(modifier: Modifier = Modifier) {
     ) {
         var last by remember { mutableStateOf<CallInfo?>(null) }
         call?.let { last = it }
-        last?.let { Pill(it) }
+        last?.let { ReturnToCallPill(it) }
     }
 }
 
-/** The call going on, taken or dialling, or null. */
+/**
+ * The call going on, taken or dialling, or null; null too when the island
+ * floats over every app (the user allowed it), so it is not shown twice.
+ */
 @Composable
 fun ongoingCall(): CallInfo? {
     val store: CallStore = koinInject()
     val state by store.state.collectAsState()
+    val context = LocalContext.current
+    if (android.provider.Settings.canDrawOverlays(context)) return null
     return state.primary?.takeIf { it.phase != CallPhase.ENDED && it.phase != CallPhase.RINGING }
 }
 
+/** The call island, inside the app, where the screen's name goes. */
 @Composable
-fun ReturnToCallPill(call: CallInfo) = Pill(call)
-
-@Composable
-private fun Pill(call: CallInfo) {
+fun ReturnToCallPill(call: CallInfo) {
     val context = LocalContext.current
-    val haptics = rememberHaptics()
-    val green = rememberTinted(LocalGlass.current, AnswerGreen.copy(alpha = 0.30f))
-    CompositionLocalProvider(LocalGlass provides (green ?: LocalGlass.current)) {
-        ZoneSurface(
-            shape = CircleShape,
-            color = AnswerGreen.copy(alpha = 0.18f),
-            onClick = {
-                haptics.tick()
-                context.startActivity(
-                    Intent(context, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            },
-            modifier = Modifier.widthIn(max = 420.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 16.dp, end = 20.dp, top = 10.dp, bottom = 10.dp)
-            ) {
-                Icon(AppIcons.Call, contentDescription = null, tint = AnswerGreen, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    "Return to call · " + when (call.phase) {
-                        CallPhase.ACTIVE -> elapsed(call.connectedAt)
-                        CallPhase.HOLDING -> "On hold"
-                        CallPhase.CHOOSE_SIM -> "Choose a SIM"
-                        else -> "Calling"
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
+    val store: CallStore = koinInject()
+    val state by store.state.collectAsState()
+    val book: com.dialer.app.data.contacts.PhoneBook = koinInject()
+    val contacts by book.entries.collectAsState()
+    val photo = remember(contacts, call.number) { com.dialer.app.data.contacts.PhoneIndex(contacts).find(com.dialer.app.core.dial.T9.clean(call.number))?.photo }
+    CallIsland(state, call, photo, store, onOpenScreen = { openCallScreen(context) })
 }
+

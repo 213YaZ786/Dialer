@@ -5,6 +5,8 @@
     <!-- The camera of an encrypted video call: Android lets only the phone app
          showing the call pick it; asked at the first video call. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The call island over the other apps, when the user allows it in Android's settings. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->

@@ -266,6 +266,40 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
         store.update { it.copy(dialpadHintSeen = true) }
     }
 
+    // Once, after a first call: the call island over the other apps, which
+    // only Android's own switch can allow.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var offerIsland by remember { mutableStateOf(false) }
+    LaunchedEffect(calls.isNotEmpty(), showWelcome, hint) {
+        offerIsland = calls.isNotEmpty() && !showWelcome && !hint && !store.current.islandOffered &&
+            !android.provider.Settings.canDrawOverlays(context)
+    }
+    if (offerIsland) com.dialer.app.ui.component.ZoneAlertDialog(
+        onDismissRequest = {
+            offerIsland = false
+            store.update { it.copy(islandOffered = true) }
+        },
+        title = { androidx.compose.material3.Text("Keep your calls in sight") },
+        text = { androidx.compose.material3.Text("During a call, a small island at the top of the screen shows its time and controls in every app. Android asks you to allow it once.") },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                offerIsland = false
+                store.update { it.copy(islandOffered = true) }
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + context.packageName))
+                    )
+                }
+            }) { androidx.compose.material3.Text("Allow") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                offerIsland = false
+                store.update { it.copy(islandOffered = true) }
+            }) { androidx.compose.material3.Text("Not now") }
+        }
+    )
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val side = WidthClass.of(maxWidth).usesSideDock
 

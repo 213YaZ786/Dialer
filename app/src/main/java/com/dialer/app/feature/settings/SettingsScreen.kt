@@ -94,6 +94,21 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             Spacer(Modifier.height(padding.calculateTopPadding()))
 
             Section("Calls") {
+                // Android's own switch for drawing over other apps, asked from here.
+                val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+                val resumed by lifecycle.currentStateFlow.collectAsState()
+                val island = remember(resumed) { android.provider.Settings.canDrawOverlays(context) }
+                SettingRow(
+                    title = "Call island over other apps",
+                    summary = if (island) "On: the call stays at the top of the screen in every app." else "Off: the call shows at the top in this app only.",
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + context.packageName))
+                            )
+                        }
+                    }
+                )
                 SwitchRow(
                     title = "Silence unknown callers",
                     summary = "Numbers not in your contacts ring without sound.",
