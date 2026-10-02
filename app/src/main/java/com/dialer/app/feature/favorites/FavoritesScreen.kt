@@ -1,9 +1,6 @@
 package com.dialer.app.feature.favorites
 
 import com.dialer.app.core.calllog.Frequents
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -121,19 +118,16 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
                         modifier = Modifier.padding(start = 8.dp, top = 12.dp)
                     )
                 }
-                // A row of faces: one tap calls, as the favourites above.
-                item(key = "frequents", span = { GridItemSpan(maxLineSpan) }) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                        items(frequents, key = { it.number }) { frequent ->
-                            FrequentFace(
-                                name = frequent.person?.name ?: Numbers.format(context, frequent.number),
-                                photo = frequent.person?.photo,
-                                calls = frequent.calls,
-                                number = frequent.number,
-                                onOpen = { onOpenNumber(frequent.number) }
-                            )
-                        }
-                    }
+                // Tiles in the same grid as the favourites, smaller: never cut, never off screen.
+                items(frequents, key = { "frequent/${it.number}" }) { frequent ->
+                    FrequentTile(
+                        name = frequent.person?.name ?: Numbers.format(context, frequent.number),
+                        photo = frequent.person?.photo,
+                        known = frequent.person != null,
+                        calls = frequent.calls,
+                        number = frequent.number,
+                        onOpen = { onOpenNumber(frequent.number) }
+                    )
                 }
             }
         }
@@ -141,24 +135,26 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
     }
 }
 
-/** Someone called often: their face in a ring of glass, a tap calls, a long press opens their calls. */
+/** Someone called often: a smaller tile of glass, a tap calls, a long press opens their calls. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FrequentFace(name: String, photo: String?, calls: Int, number: String, onOpen: () -> Unit) {
+private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: Int, number: String, onOpen: () -> Unit) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val dial: DialRequests = koinInject()
     val press = remember { MutableInteractionSource() }
     val pressed by press.collectIsPressedAsState()
-    val sink by animateFloatAsState(if (pressed) 0.9f else 1f, spring(dampingRatio = 0.45f, stiffness = 700f), label = "sink")
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val sink by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "sink")
+    val shape = RoundedCornerShape(24.dp)
+    ZoneSurface(
+        shape = shape,
         modifier = Modifier
-            .width(84.dp)
+            .fillMaxWidth()
             .graphicsLayer {
                 scaleX = sink
                 scaleY = sink
             }
+            .clip(shape)
             .combinedClickable(
                 interactionSource = press,
                 indication = null,
@@ -174,12 +170,16 @@ private fun FrequentFace(name: String, photo: String?, calls: Int, number: Strin
                 }
             )
     ) {
-        ZoneSurface(shape = CircleShape, modifier = Modifier.size(76.dp)) {
-            Box(contentAlignment = Alignment.Center) { ContactAvatar(name, photo, 64.dp) }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 12.dp, horizontal = 10.dp)) {
+            ContactAvatar(if (known) name else null, photo, 48.dp)
+            Spacer(Modifier.height(8.dp))
+            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            Text(
+                if (calls == 1) "1 call" else "$calls calls",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(name.substringBefore(' '), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("$calls calls", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
