@@ -50,6 +50,7 @@ import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.contacts.PhoneIndex
 import com.dialer.app.ui.component.ContactAvatar
+import com.dialer.app.ui.component.HeroGlow
 import com.dialer.app.ui.component.QuietButton
 import com.dialer.app.ui.component.ZoneAlertDialog
 import com.dialer.app.ui.component.ZoneSurface
