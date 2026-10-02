@@ -67,6 +67,7 @@ import com.dialer.app.ui.component.ZoneSurface
 import com.dialer.app.ui.component.rememberHaptics
 import com.dialer.app.ui.component.rememberPillMenu
 import com.dialer.app.ui.icon.DialerIcons
+import com.dialer.app.core.calllog.CallBacks
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
@@ -109,6 +110,11 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                     )
             }
         )
+    }
+
+    // Who still waits for a call back, above all calls when nothing filters them.
+    val waiting = remember(entries, missedOnly, query) {
+        if (missedOnly || query.isNotBlank()) emptyList() else CallBacks.pending(entries, System.currentTimeMillis())
     }
 
     // Seen once the tab has been in front a moment: the dots then shrink
@@ -160,6 +166,9 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        if (waiting.isNotEmpty()) {
+                            item(key = "callbacks") { CallBackStrip(waiting, index, LINE_WIDTH, onOpenNumber) }
+                        }
                         sections.forEach { section ->
                             item(key = "day/${section.day}") {
                                 Text(
