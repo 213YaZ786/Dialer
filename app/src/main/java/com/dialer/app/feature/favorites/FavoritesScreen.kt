@@ -1,5 +1,12 @@
 package com.dialer.app.feature.favorites
 
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -8,14 +15,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -44,14 +47,12 @@ import com.dialer.app.core.dial.NumberActions
 import com.dialer.app.core.dial.Numbers
 import com.dialer.app.core.dial.People
 import com.dialer.app.core.dial.Person
-import com.dialer.app.core.dial.PhoneEntry
 import com.dialer.app.core.dial.T9
 import com.dialer.app.data.calllog.CallHistory
 import com.dialer.app.data.contacts.PhoneBook
 import com.dialer.app.data.settings.SettingsStore
 import com.dialer.app.feature.call.AnswerGreen
 import com.dialer.app.feature.contacts.NumberChooser
-import com.dialer.app.feature.contacts.PersonLine
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dialer.app.feature.contacts.StarGold
@@ -100,7 +101,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
         }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(132.dp),
+            columns = GridCells.Adaptive(150.dp),
             modifier = Modifier.widthIn(max = 672.dp).fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding()),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -119,24 +120,65 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
                         modifier = Modifier.padding(start = 8.dp, top = 12.dp)
                     )
                 }
-                items(frequents, key = { "freq/${it.number}" }, span = { GridItemSpan(maxLineSpan) }) { frequent ->
-                    val saved = frequent.person
-                    val person = saved ?: Person(
-                        -1, Numbers.format(context, frequent.number), null, false,
-                        listOf(PhoneEntry(-1, frequent.number, frequent.number, T9.clean(frequent.number), null, false))
-                    )
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        PersonLine(
-                            person,
-                            onOpen = { onOpenNumber(frequent.number) },
-                            subtitle = "${frequent.calls} calls",
-                            saved = saved != null
-                        )
+                // A row of faces: one tap calls, as the favourites above.
+                item(key = "frequents", span = { GridItemSpan(maxLineSpan) }) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        items(frequents, key = { it.number }) { frequent ->
+                            FrequentFace(
+                                name = frequent.person?.name ?: Numbers.format(context, frequent.number),
+                                photo = frequent.person?.photo,
+                                calls = frequent.calls,
+                                number = frequent.number,
+                                onOpen = { onOpenNumber(frequent.number) }
+                            )
+                        }
                     }
                 }
             }
         }
         }
+    }
+}
+
+/** Someone called often: their face in a ring of glass, a tap calls, a long press opens their calls. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FrequentFace(name: String, photo: String?, calls: Int, number: String, onOpen: () -> Unit) {
+    val context = LocalContext.current
+    val haptics = rememberHaptics()
+    val dial: DialRequests = koinInject()
+    val press = remember { MutableInteractionSource() }
+    val pressed by press.collectIsPressedAsState()
+    val sink by animateFloatAsState(if (pressed) 0.9f else 1f, spring(dampingRatio = 0.45f, stiffness = 700f), label = "sink")
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(84.dp)
+            .graphicsLayer {
+                scaleX = sink
+                scaleY = sink
+            }
+            .combinedClickable(
+                interactionSource = press,
+                indication = null,
+                onClickLabel = "Call",
+                onLongClickLabel = "Calls",
+                onClick = {
+                    haptics.firm()
+                    if (!Dialing.call(context, number)) dial.open(number)
+                },
+                onLongClick = {
+                    haptics.tick()
+                    onOpen()
+                }
+            )
+    ) {
+        ZoneSurface(shape = CircleShape, modifier = Modifier.size(76.dp)) {
+            Box(contentAlignment = Alignment.Center) { ContactAvatar(name, photo, 64.dp) }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(name.substringBefore(' '), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("$calls calls", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -188,9 +230,9 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
                     onLongClick = menu::open
                 )
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 18.dp, horizontal = 10.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 22.dp, horizontal = 10.dp)) {
                 Box {
-                    ContactAvatar(person.name, person.photo, 72.dp)
+                    ContactAvatar(person.name, person.photo, 88.dp)
                     if (speedDigit != null) {
                         ZoneSurface(shape = CircleShape, accent = true, modifier = Modifier.align(Alignment.BottomEnd).size(26.dp)) {
                             Box(contentAlignment = Alignment.Center) {
@@ -199,8 +241,8 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(person.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(12.dp))
+                Text(person.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
             }
         }
         PillMenu(
