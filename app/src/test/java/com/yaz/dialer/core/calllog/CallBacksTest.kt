@@ -33,4 +33,15 @@ class CallBacksTest {
         val calls = listOf(call("0612345678", CallKind.MISSED, 24 * 8), call("", CallKind.MISSED, 1, hidden = true))
         assertTrue(CallBacks.pending(calls, now).isEmpty())
     }
+
+    @Test
+    fun aCardShowsOnceUntilANewMissedCall() {
+        val calls = listOf(call("0612345678", CallKind.MISSED, 2))
+        val first = CallBacks.toShow(calls, now, emptySet())
+        assertEquals(1, first.size)
+        val seen = setOf(CallBacks.key(first[0]))
+        assertTrue(CallBacks.toShow(calls, now, seen).isEmpty())
+        val again = calls + call("0612345678", CallKind.MISSED, 1)
+        assertEquals(1, CallBacks.toShow(again, now, seen).size)
+    }
 }

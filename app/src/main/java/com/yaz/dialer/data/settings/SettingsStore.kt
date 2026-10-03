@@ -19,6 +19,8 @@ enum class AnnounceMode { OFF, HEADPHONES, ALWAYS }
 
 @Serializable
 data class Settings(
+    /** To call back cards already shown once (CallBacks.key), so each shows once. */
+    val callBackSeen: Set<String> = emptySet(),
     /**
      * What happens when a newer version is out, checked once when the app
      * opens. Installing by default: the first launch page says so, and that

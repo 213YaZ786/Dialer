@@ -112,9 +112,26 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
         )
     }
 
-    // Who still waits for a call back, above all calls when nothing filters them.
-    val waiting = remember(entries, missedOnly, query) {
-        if (missedOnly || query.isNotBlank()) emptyList() else CallBacks.pending(entries, System.currentTimeMillis())
+    // Who still waits for a call back, above all calls when nothing filters
+    // them: each card once, kept as seen when the tab is left, back with a new missed call.
+    val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
+    var seenAtOpen by remember { mutableStateOf(settingsStore.current.callBackSeen) }
+    val waiting = remember(entries, missedOnly, query, seenAtOpen) {
+        if (missedOnly || query.isNotBlank()) emptyList() else CallBacks.toShow(entries, System.currentTimeMillis(), seenAtOpen)
+    }
+    val shownCards by androidx.compose.runtime.rememberUpdatedState(waiting)
+    // A new card to call back comes in on top: in sight when the list was at its top.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(waiting.firstOrNull()?.let(CallBacks::key)) {
+        if (waiting.isNotEmpty() && listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
+    }
+    LaunchedEffect(visible) {
+        if (visible) seenAtOpen = settingsStore.current.callBackSeen
+        else if (shownCards.isNotEmpty()) {
+            val keys = shownCards.map(CallBacks::key)
+            val alive = CallBacks.pending(entries, System.currentTimeMillis()).map(CallBacks::key).toSet()
+            settingsStore.update { s -> s.copy(callBackSeen = (s.callBackSeen + keys).filter { it in alive }.toSet()) }
+        }
     }
 
     // Seen once the tab has been in front a moment: the dots then shrink
@@ -161,6 +178,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                     )
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -255,19 +273,22 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
                     KindBadge(call.kind, Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), unseen = group.unseen)
                 }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                    Text(
-                        name ?: shown,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    // Over the encrypted line: a lock beside the name, as in SMS.
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Over the encrypted line: a lock before the kind.
+                        Text(
+                            name ?: shown,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
                         if (call.encrypted) {
-                            Icon(AppIcons.Lock, contentDescription = "Encrypted", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Icon(AppIcons.Lock, contentDescription = "End-to-end encrypted", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                         }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         // The kind in its colour, then the rest quieter.
                         Text(
                             kindWord(call.kind) + if (group.count > 1) " ×${group.count}" else "",
