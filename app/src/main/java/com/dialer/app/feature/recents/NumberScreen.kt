@@ -93,7 +93,11 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             // The person's light behind the top of the page, under the glass.
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            HeroGlow(contact?.photo, height = padding.calculateTopPadding() + 340.dp)
+            // The person's colour, chosen in the Contacts app, when there is no photo.
+            val color by androidx.compose.runtime.produceState<Int?>(null, contact?.contactId) {
+                value = contact?.contactId?.let { id -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.dialer.app.core.dial.ContactLook.of(context, id)?.color } }
+            }
+            HeroGlow(contact?.photo, height = padding.calculateTopPadding() + 340.dp, color = color?.let { androidx.compose.ui.graphics.Color(it) })
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
