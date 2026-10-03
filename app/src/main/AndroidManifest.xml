@@ -9,8 +9,14 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Only an app signed with Dialer's own key may take its files over: its successor. -->
-    <permission android:name="${applicationId}.permission.HANDOVER" android:protectionLevel="signature" />
+    <!-- The old Dialer (com.dialer.app) hands its files over to this one, signed with the same key, once. -->
+    <uses-permission android:name="${predecessor}.permission.HANDOVER" />
+
+    <queries>
+        <!-- The old Dialer, to take its files over and offer to remove it. -->
+        <package android:name="${predecessor}" />
+        <provider android:authorities="${predecessor}.handover" />
+    </queries>
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- The incoming call and the call in progress are notifications; so is the note after an update. -->
@@ -57,13 +63,8 @@
         android:enableOnBackInvokedCallback="false"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config">
-        <!-- Dialer moves to a new package: the one it hands its files over to. -->
-        <meta-data android:name="handover.successor" android:value="${successor}" />
-        <provider
-            android:name=".core.handover.HandoverProvider"
-            android:authorities="${applicationId}.handover"
-            android:exported="true"
-            android:permission="${applicationId}.permission.HANDOVER" />
+        <!-- The package Dialer came from (core/handover). -->
+        <meta-data android:name="handover.predecessor" android:value="${predecessor}" />
 
         <activity
             android:name=".MainActivity"
@@ -112,7 +113,7 @@
             android:name=".feature.call.CallActivity"
             android:exported="false"
             android:launchMode="singleTask"
-            android:taskAffinity="com.dialer.app.call"
+            android:taskAffinity="com.yaz.dialer.call"
             android:excludeFromRecents="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode"
             android:theme="@style/Theme.Dialer" />

@@ -2,7 +2,7 @@
 <!-- Debug builds only: a way for tests to put a call on another network. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <receiver android:name="com.dialer.app.DebugNetworkReceiver" android:exported="true" />
-        <receiver android:name="com.dialer.app.DebugLookReceiver" android:exported="true" />
+        <receiver android:name="com.yaz.dialer.DebugNetworkReceiver" android:exported="true" />
+        <receiver android:name="com.yaz.dialer.DebugLookReceiver" android:exported="true" />
     </application>
 </manifest>

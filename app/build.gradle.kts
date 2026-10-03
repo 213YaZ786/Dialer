@@ -6,19 +6,19 @@ plugins {
 }
 
 android {
-    namespace = "com.dialer.app"
+    namespace = "com.yaz.dialer"
     // 37 because Compose compiles against it, and the phone app follows the
     // newest platform rules for calls, notifications and permissions.
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.dialer.app"
+        applicationId = "com.yaz.dialer"
         minSdk = 31
         targetSdk = 37
-        versionCode = 24
-        versionName = "0.13.3"
-        // The package Dialer moves to, handed its files over (core/handover).
-        manifestPlaceholders["successor"] = "com.yaz.dialer"
+        versionCode = 23
+        versionName = "0.13.2"
+        // The package Dialer came from: its files are taken over at the first start (core/handover).
+        manifestPlaceholders["predecessor"] = "com.dialer.app"
     }
 
     signingConfigs {
@@ -36,7 +36,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["successor"] = "com.yaz.dialer.debug"
+            manifestPlaceholders["predecessor"] = "com.dialer.app.debug"
             versionNameSuffix = "-debug"
         }
         release {
