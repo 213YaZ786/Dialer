@@ -15,8 +15,8 @@ android {
         applicationId = "com.yaz.dialer"
         minSdk = 31
         targetSdk = 37
-        versionCode = 23
-        versionName = "0.13.2"
+        versionCode = 25
+        versionName = "0.14.0"
         // The package Dialer came from: its files are taken over at the first start (core/handover).
         manifestPlaceholders["predecessor"] = "com.dialer.app"
     }
