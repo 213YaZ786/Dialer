@@ -127,8 +127,15 @@ fun DialerApp() {
     // The only owner of the window insets: screens below draw under the bars
     // and take them as padding themselves. Transparent, because the page's
     // ground with its ambient light is painted once under the whole app.
+    // Moved to the new Dialer (read again each time the app comes back): only the way there.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var moved by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.dialer.app.core.handover.Handover.handedOver(context)) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        moved = com.dialer.app.core.handover.Handover.handedOver(context)
+        onPauseOrDispose { }
+    }
     Scaffold(containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground) { _ ->
-        DialerNavHost(navController)
+        if (moved) com.dialer.app.feature.main.MovedScreen() else DialerNavHost(navController)
     }
 }
 

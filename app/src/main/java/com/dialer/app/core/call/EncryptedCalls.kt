@@ -15,10 +15,10 @@ object EncryptedCalls {
 
     fun isEncrypted(call: Call): Boolean =
         call.details.hasProperty(Call.Details.PROPERTY_SELF_MANAGED) &&
-            call.details.accountHandle?.componentName?.packageName?.startsWith(LINE_PACKAGE) == true
+            LINE_PACKAGES.any { call.details.accountHandle?.componentName?.packageName?.startsWith(it) == true }
 
     /** The log's mark of a call that went over the encrypted line. */
-    fun isEncrypted(componentName: String?): Boolean = componentName?.startsWith(LINE_PACKAGE) == true
+    fun isEncrypted(componentName: String?): Boolean = LINE_PACKAGES.any { componentName?.startsWith(it) == true }
 
     /** The call, ended, into Android's call history; true when it was missed. */
     fun log(context: Context, call: Call): Boolean {
@@ -48,5 +48,6 @@ object EncryptedCalls {
         return type == Calls.MISSED_TYPE
     }
 
-    private const val LINE_PACKAGE = "com.sms.app"
+    /** SMS, under its old package and its new one. */
+    private val LINE_PACKAGES = listOf("com.sms.app", "com.yaz.sms")
 }

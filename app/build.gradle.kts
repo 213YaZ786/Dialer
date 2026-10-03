@@ -17,6 +17,8 @@ android {
         targetSdk = 37
         versionCode = 23
         versionName = "0.13.2"
+        // The package Dialer moves to, handed its files over (core/handover).
+        manifestPlaceholders["successor"] = "com.yaz.dialer"
     }
 
     signingConfigs {
@@ -34,6 +36,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            manifestPlaceholders["successor"] = "com.yaz.dialer.debug"
             versionNameSuffix = "-debug"
         }
         release {
