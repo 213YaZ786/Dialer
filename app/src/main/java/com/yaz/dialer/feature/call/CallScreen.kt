@@ -132,9 +132,12 @@ fun CallScreen(
     val book: PhoneBook = koinInject()
     LaunchedEffect(Unit) { book.refresh() }
     val contacts by book.entries.collectAsState()
-    val photo = remember(contacts, call.number, call.isConference) {
-        if (call.isConference) null else PhoneIndex(contacts).find(T9.clean(call.number))?.photo
+    val entry = remember(contacts, call.number, call.isConference) {
+        if (call.isConference) null else PhoneIndex(contacts).find(T9.clean(call.number))
     }
+    val photo = entry?.photo
+    // A saved person: their poster behind the call, as set in the Contacts app.
+    val poster = entry != null && !call.video
 
     // Writing back instead of answering: the replies replace Answer and Decline.
     var replying by remember(call.id) { mutableStateOf(false) }
@@ -162,9 +165,13 @@ fun CallScreen(
     // At least the screen's height, so the buttons sit at the bottom, and
     // scrolling when two calls and the keypad need more: Hang up is never
     // pushed out of reach.
+    // Over a poster the call screen is dark, its glass and its words light, whatever the theme.
+    PosterTheme(poster) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
     // A video call: the pictures behind the glass; otherwise the photo, blurred.
-    if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions) else CallingCard(photo)
+    if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions)
+    else if (poster) PosterStage(entry!!)
+    else CallingCard(photo)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -197,7 +204,7 @@ fun CallScreen(
                 Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true) }
             }
         } else {
-            Caller(call, photo, compact = compact)
+            Caller(call, photo, compact = compact, poster = if (poster) entry?.look?.style ?: "classic" else null, posterName = entry?.name)
         }
         if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {
             Spacer(Modifier.height(16.dp))
@@ -273,6 +280,7 @@ fun CallScreen(
     }
     wave?.let { w ->
         Canvas(Modifier.matchParentSize()) { drawGlassWave(w, waveProgress.value, waveAlpha.value) }
+    }
     }
     }
 }
@@ -352,7 +360,7 @@ internal fun elapsed(since: Long): String {
  * the other side picks up the drop pops once; on hold it fades back.
  */
 @Composable
-private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
+private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null) {
     if (compact) {
         // With the keypad open, the name alone: the keys need the room.
         Text(call.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -373,6 +381,26 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
     }
     val dim by animateFloatAsState(if (call.phase == CallPhase.HOLDING) 0.45f else 1f, tween(500), label = "dim")
     val dialing = call.phase == CallPhase.DIALING
+
+    // Over a poster the photo is the screen itself: the name alone, large, white, in its style.
+    if (poster != null) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            posterName(call.name ?: posterName ?: call.title, poster),
+            style = posterNameStyle(MaterialTheme.typography.displayMedium, poster),
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = dim }
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(call.number, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f))
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Color.White) {
+            com.yaz.dialer.ui.component.PlaceLine(call.number, known = true, modifier = Modifier.padding(top = 6.dp))
+        }
+        return
+    }
 
     Box(
         contentAlignment = Alignment.Center,
