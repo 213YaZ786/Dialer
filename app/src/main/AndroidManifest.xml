@@ -9,13 +9,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- The old Dialer (com.dialer.app) hands its files over to this one, signed with the same key, once. -->
-    <uses-permission android:name="${predecessor}.permission.HANDOVER" />
 
     <queries>
-        <!-- The old Dialer, to take its files over and offer to remove it. -->
-        <package android:name="${predecessor}" />
-        <provider android:authorities="${predecessor}.handover" />
     </queries>
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -63,8 +58,6 @@
         android:enableOnBackInvokedCallback="false"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config">
-        <!-- The package Dialer came from (core/handover). -->
-        <meta-data android:name="handover.predecessor" android:value="${predecessor}" />
 
         <activity
             android:name=".MainActivity"

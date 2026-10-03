@@ -17,8 +17,6 @@ android {
         targetSdk = 37
         versionCode = 25
         versionName = "0.14.0"
-        // The package Dialer came from: its files are taken over at the first start (core/handover).
-        manifestPlaceholders["predecessor"] = "com.dialer.app"
     }
 
     signingConfigs {
@@ -36,7 +34,6 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["predecessor"] = "com.dialer.app.debug"
             versionNameSuffix = "-debug"
         }
         release {

@@ -103,19 +103,16 @@ fun WelcomeScreen(onStart: () -> Unit) {
             action = step?.action,
             onAction = { step?.let(setup.run) }
         )
-        // Moved from the old Dialer: everything came over; the old one can go.
-        val oldThere = remember(checks) { com.yaz.dialer.core.handover.Handover.oldInstalled(context) }
-        if (oldThere) {
-            Spacer(Modifier.height(16.dp))
-            WelcomeZone(
-                icon = AppIcons.Delete,
-                title = "The old Dialer",
-                message = "Your favourites, speed dial and settings are here now. Remove the old app.",
-                done = false,
-                action = "Remove it",
-                onAction = { com.yaz.dialer.core.handover.Handover.removeOld(context) }
-            )
-        }
+        // Nothing to bring over: Android keeps calls, contacts and blocked numbers for every phone app.
+        Spacer(Modifier.height(16.dp))
+        WelcomeZone(
+            icon = AppIcons.CheckCircle,
+            title = "Already here",
+            message = "Your call history, contacts, favourites, blocked numbers and voicemail are Android's: those of the app you used before are here.",
+            done = true,
+            action = null,
+            onAction = {}
+        )
         Spacer(Modifier.height(16.dp))
         WelcomeZone(
             icon = AppIcons.Update,
