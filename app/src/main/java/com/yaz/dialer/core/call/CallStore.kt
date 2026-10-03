@@ -139,6 +139,13 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     private val ids = AtomicInteger(0)
     private val answered = HashSet<Int>()
     private val calls = LinkedHashMap<Int, Call>()
+
+    init {
+        // A private name of the Contacts app arrives after the call does: the calls are shown again with it.
+        scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            androidx.compose.runtime.snapshotFlow { com.yaz.dialer.core.dial.PrivateNames.version.intValue }.collect { if (calls.isNotEmpty()) publish() }
+        }
+    }
     private val ended = HashMap<Int, CallInfo>()
     private val callbacks = HashMap<Int, Call.Callback>()
     var controls: Controls? = null
@@ -298,6 +305,9 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             ?: details.callerDisplayName?.takeIf {
                 it.isNotBlank() && details.callerDisplayNamePresentation == TelecomManager.PRESENTATION_ALLOWED
             }
+            // Kept private in the Contacts app: Telecom does not know it, the Contacts app tells while unlocked.
+            ?: details.handle?.takeIf { it.scheme == "tel" && details.handlePresentation == TelecomManager.PRESENTATION_ALLOWED }
+                ?.schemeSpecificPart?.let { com.yaz.dialer.core.dial.PrivateNames.cached(it)?.name }
         return CallInfo(
             id = id,
             phase = phase,
