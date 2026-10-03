@@ -23,6 +23,8 @@ enum class Protocol(val label: String) {
  * an alarm. 3G is old. 2G encryption can be broken with cheap equipment
  * and a fake antenna can switch it off: calls on it can be listened to.
  * Wi-Fi calling goes through an encrypted tunnel to the carrier.
+ * None of them hides a call from the carrier itself (and lawful
+ * interception through it): that takes an end-to-end encrypted call.
  */
 enum class Protection(val label: String) {
     PROTECTED("Protected"),
@@ -62,8 +64,9 @@ object CellProtection {
 
     /** What a person needs to know about [protection], in one sentence. */
     fun meaning(protection: Protection): String = when (protection) {
-        Protection.PROTECTED -> "Calls are encrypted and your SIM's identity is hidden."
-        Protection.STANDARD -> "Calls are encrypted."
+        // Over the air only: the carrier, and those it lets listen, still hear phone calls.
+        Protection.PROTECTED -> "Encrypted between your phone and the network, your SIM's identity hidden. Your carrier can still hear the call: only encrypted calls with SMS users are private end to end."
+        Protection.STANDARD -> "Encrypted between your phone and the antenna only. Your carrier can still hear the call: only encrypted calls with SMS users are private end to end."
         Protection.OLD -> "An old network with weaker protection."
         Protection.UNPROTECTED -> "A call on 2G can be listened to. Turn off 2G to avoid it."
         Protection.UNKNOWN -> "No mobile network right now."
