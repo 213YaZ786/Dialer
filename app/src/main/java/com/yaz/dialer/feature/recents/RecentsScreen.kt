@@ -93,7 +93,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
     val entries by history.entries.collectAsState()
     val loaded by history.loaded.collectAsState()
     val contacts by book.entries.collectAsState()
-    val index = remember(contacts) { PhoneIndex(contacts) }
+    val index = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue) { PhoneIndex(contacts) }
     var missedOnly by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val sections = remember(entries, missedOnly, query, index) {

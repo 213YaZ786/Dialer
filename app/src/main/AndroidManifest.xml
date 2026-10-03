@@ -9,8 +9,17 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- What the Contacts app may ask about the calls (keep in touch), and the private names it keeps: apps signed with the same key only. -->
+    <permission
+        android:name="${applicationId}.permission.PEOPLE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.yaz.contacts.permission.PRIVATE" />
+    <uses-permission android:name="com.yaz.contacts.debug.permission.PRIVATE" />
 
     <queries>
+        <!-- The Contacts app's private names (signature level). -->
+        <provider android:authorities="com.yaz.contacts.private" />
+        <provider android:authorities="com.yaz.contacts.debug.private" />
     </queries>
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -171,5 +180,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- The Contacts app asks when the last calls with some numbers were, and which unsaved numbers come back often. -->
+        <provider
+            android:name=".core.calllog.CallsDoor"
+            android:authorities="${applicationId}.people"
+            android:exported="true"
+            android:permission="${applicationId}.permission.PEOPLE" />
     </application>
 </manifest>

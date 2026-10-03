@@ -10,6 +10,8 @@ import org.koin.core.logger.Level
 class DialerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // The Contacts app's private names, asked when a number has none in Android's contacts.
+        com.yaz.dialer.core.dial.PrivateNames.init(this)
         startKoin {
             androidLogger(if (BuildConfig.DEBUG) Level.DEBUG else Level.NONE)
             androidContext(this@DialerApplication)

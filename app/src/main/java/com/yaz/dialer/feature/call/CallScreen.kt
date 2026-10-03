@@ -132,7 +132,7 @@ fun CallScreen(
     val book: PhoneBook = koinInject()
     LaunchedEffect(Unit) { book.refresh() }
     val contacts by book.entries.collectAsState()
-    val entry = remember(contacts, call.number, call.isConference) {
+    val entry = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue, call.number, call.isConference) {
         if (call.isConference) null else PhoneIndex(contacts).find(T9.clean(call.number))
     }
     val photo = entry?.photo

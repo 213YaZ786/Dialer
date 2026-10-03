@@ -190,7 +190,7 @@ class IslandWindow(
                     var last by remember { mutableStateOf(state.primary) }
                     state.primary?.let { last = it }
                     val call = last ?: return@DialerTheme
-                    val photo = remember(contacts, call.number) { PhoneIndex(contacts).find(T9.clean(call.number))?.photo }
+                    val photo = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue, call.number) { PhoneIndex(contacts).find(T9.clean(call.number))?.photo }
                     CallIsland(
                         state, call, photo, store,
                         onOpenScreen = { openCallScreen(context) },

@@ -79,7 +79,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
     val calls = remember(entries, key) {
         entries.filter { if (hidden) it.hidden else !it.hidden && CallGrouping.sameDigits(it.key, key) }
     }
-    val contact = remember(contacts, key) { if (hidden) null else PhoneIndex(contacts).find(key) }
+    val contact = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue, key) { if (hidden) null else PhoneIndex(contacts).find(key) }
     val shown = if (hidden) "Private number" else Numbers.format(context, number)
 
     var blocked by remember(number) { mutableStateOf(!hidden && NumberActions.isBlocked(context, number)) }
@@ -135,9 +135,10 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                             ActionTile(AppIcons.Message, "Message", Modifier.weight(1f)) { NumberActions.message(context, number) }
-                            if (contact != null) {
+                            // A private person of the Contacts app: nothing to open or add in Android's contacts.
+                            if (contact != null && contact.contactId > 0) {
                                 ActionTile(AppIcons.Person, "Contact", Modifier.weight(1f)) { NumberActions.openContact(context, contact.contactId) }
-                            } else {
+                            } else if (contact == null) {
                                 ActionTile(AppIcons.PersonAdd, "Add", Modifier.weight(1f)) { NumberActions.addContact(context, number) }
                             }
                             ActionTile(AppIcons.Copy, "Copy", Modifier.weight(1f)) { NumberActions.copy(context, number) }
