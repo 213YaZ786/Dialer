@@ -171,7 +171,7 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
             )
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 12.dp, horizontal = 10.dp)) {
-            ContactAvatar(if (known) name else null, photo, 48.dp)
+            ContactAvatar(if (known) name else null, photo, 48.dp, look = com.dialer.app.ui.component.rememberLook(number).value)
             Spacer(Modifier.height(8.dp))
             Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
             Text(
@@ -233,7 +233,7 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 22.dp, horizontal = 10.dp)) {
                 Box {
-                    ContactAvatar(person.name, person.photo, 88.dp)
+                    ContactAvatar(person.name, person.photo, 88.dp, look = person.look)
                     if (speedDigit != null) {
                         ZoneSurface(shape = CircleShape, accent = true, modifier = Modifier.align(Alignment.BottomEnd).size(26.dp)) {
                             Box(contentAlignment = Alignment.Center) {

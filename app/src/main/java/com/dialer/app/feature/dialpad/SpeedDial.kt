@@ -65,7 +65,7 @@ fun SpeedDialDialog(digit: Int, people: List<Person>, onPick: (String) -> Unit, 
                                 .clickable { onPick(person.number) }
                                 .padding(horizontal = 8.dp, vertical = 8.dp)
                         ) {
-                            ContactAvatar(person.name, person.photo, 40.dp)
+                            ContactAvatar(person.name, person.photo, 40.dp, look = person.look)
                             Text(person.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(start = 12.dp))
                             if (person.starred) Icon(AppIcons.Star, contentDescription = null, tint = StarGold, modifier = Modifier.size(18.dp))
                         }

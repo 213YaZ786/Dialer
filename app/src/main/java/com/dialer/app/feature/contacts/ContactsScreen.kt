@@ -217,7 +217,7 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
             )
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
-                ContactAvatar(person.name, person.photo, 44.dp)
+                ContactAvatar(person.name, person.photo, 44.dp, look = person.look)
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(person.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -263,7 +263,7 @@ fun NumberChooser(person: Person, onDismiss: () -> Unit, onPick: (String) -> Uni
     val context = LocalContext.current
     ZoneAlertDialog(
         onDismissRequest = onDismiss,
-        icon = { ContactAvatar(person.name, person.photo, 56.dp) },
+        icon = { ContactAvatar(person.name, person.photo, 56.dp, look = person.look) },
         title = { Text("Call ${person.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

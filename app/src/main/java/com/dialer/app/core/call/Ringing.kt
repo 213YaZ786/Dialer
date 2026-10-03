@@ -134,3 +134,90 @@ class CallerAnnouncer(private val context: Context) {
         }
     }
 }
+
+/**
+ * Some people's calls ring through Do not disturb and silent, as chosen in
+ * the Contacts app ("bypass" in their contact): Telecom stays quiet then,
+ * so the phone rings here on the alarm's sound, with their ringtone, until
+ * the call is answered, declined or ends. When Telecom rings anyway (the
+ * phone not muted, or Do not disturb letting their calls through), nothing
+ * more: never two rings.
+ */
+class BypassRinger(private val context: Context) {
+
+    private var ringtone: android.media.Ringtone? = null
+    private var vibrating = false
+    private var forCall: Int? = null
+
+    fun ring(callId: Int, number: String) {
+        if (forCall == callId) return
+        stop()
+        forCall = callId
+        Thread {
+            val look = com.dialer.app.core.dial.ContactLook.ofNumber(context, number)
+            if (look?.bypass != true || !quietFor(number)) return@Thread
+            val uri = contactRingtone(number) ?: android.media.RingtoneManager.getActualDefaultRingtoneUri(context, android.media.RingtoneManager.TYPE_RINGTONE)
+            android.os.Handler(context.mainLooper).post {
+                if (forCall != callId) return@post
+                ringtone = uri?.let { android.media.RingtoneManager.getRingtone(context, it) }?.apply {
+                    audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+                    isLooping = true
+                    runCatching { play() }
+                }
+                runCatching {
+                    val effect = android.os.VibrationEffect.createWaveform(longArrayOf(0, 800, 600), 0)
+                    context.getSystemService(android.os.VibratorManager::class.java).defaultVibrator
+                        .vibrate(effect, android.os.VibrationAttributes.createForUsage(android.os.VibrationAttributes.USAGE_ALARM))
+                    vibrating = true
+                }
+            }
+        }.start()
+    }
+
+    fun stop() {
+        forCall = null
+        runCatching { ringtone?.stop() }
+        ringtone = null
+        if (vibrating) runCatching { context.getSystemService(android.os.VibratorManager::class.java).defaultVibrator.cancel() }
+        vibrating = false
+    }
+
+    /** Telecom will not ring this call aloud: silent or vibrate, or Do not disturb not letting it through. */
+    private fun quietFor(number: String): Boolean {
+        val audio = context.getSystemService(AudioManager::class.java)
+        if (audio.ringerMode != AudioManager.RINGER_MODE_NORMAL) return true
+        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        return when (nm.currentInterruptionFilter) {
+            android.app.NotificationManager.INTERRUPTION_FILTER_ALL, android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN -> false
+            android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY -> !callsAllowed(nm, number)
+            else -> true
+        }
+    }
+
+    /** Whether Do not disturb's own rules already let this caller's calls ring. */
+    private fun callsAllowed(nm: android.app.NotificationManager, number: String): Boolean = runCatching {
+        val policy = nm.notificationPolicy
+        if (policy.priorityCategories and android.app.NotificationManager.Policy.PRIORITY_CATEGORY_CALLS == 0) return false
+        when (policy.priorityCallSenders) {
+            android.app.NotificationManager.Policy.PRIORITY_SENDERS_ANY -> true
+            android.app.NotificationManager.Policy.PRIORITY_SENDERS_CONTACTS -> com.dialer.app.core.dial.ContactLookup.nameOf(context, number) != null
+            android.app.NotificationManager.Policy.PRIORITY_SENDERS_STARRED -> starred(number)
+            else -> false
+        }
+    }.getOrDefault(false)
+
+    private fun starred(number: String): Boolean = runCatching {
+        context.contentResolver.query(
+            android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number)),
+            arrayOf(android.provider.ContactsContract.PhoneLookup.STARRED), null, null, null
+        )?.use { c -> c.moveToFirst() && c.getInt(0) == 1 }
+    }.getOrNull() == true
+
+    /** The ringtone chosen for this person in their contact, if any. */
+    private fun contactRingtone(number: String): android.net.Uri? = runCatching {
+        context.contentResolver.query(
+            android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number)),
+            arrayOf(android.provider.ContactsContract.PhoneLookup.CUSTOM_RINGTONE), null, null, null
+        )?.use { c -> if (c.moveToFirst()) c.getString(0)?.let(android.net.Uri::parse) else null }
+    }.getOrNull()
+}

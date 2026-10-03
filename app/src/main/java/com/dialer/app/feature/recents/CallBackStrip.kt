@@ -111,7 +111,7 @@ private fun Waiting(waiting: CallBack, index: PhoneIndex, onOpen: (String) -> Un
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)) {
             Box {
-                ContactAvatar(contact?.name ?: call.cachedName, contact?.photo, 44.dp)
+                ContactAvatar(contact?.name ?: call.cachedName, contact?.photo, 44.dp, look = contact?.look)
                 KindBadge(CallKind.MISSED, Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), unseen = call.isNew)
             }
             Spacer(Modifier.height(6.dp))

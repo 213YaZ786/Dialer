@@ -434,7 +434,7 @@ private fun Ringing(call: CallInfo, photo: String?, twoG: Boolean, onDecline: (O
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp)
     ) {
-        ContactAvatar(call.title, photo, 52.dp)
+        ContactAvatar(call.title, photo, 52.dp, look = com.dialer.app.ui.component.rememberLook(call.number).value)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (call.encrypted) {
@@ -473,7 +473,7 @@ private fun Small(call: CallInfo, photo: String?, twoG: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxSize().padding(start = 10.dp, end = 18.dp)
     ) {
-        ContactAvatar(call.title, photo, 40.dp)
+        ContactAvatar(call.title, photo, 40.dp, look = com.dialer.app.ui.component.rememberLook(call.number).value)
         Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
             Text(call.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -497,7 +497,7 @@ private fun Open(state: CallsState, call: CallInfo, photo: String?, actions: Cal
         modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ContactAvatar(call.title, photo, 36.dp)
+            ContactAvatar(call.title, photo, 36.dp, look = com.dialer.app.ui.component.rememberLook(call.number).value)
             Text(
                 call.title,
                 style = MaterialTheme.typography.titleMedium,

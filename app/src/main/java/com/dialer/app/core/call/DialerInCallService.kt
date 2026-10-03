@@ -39,6 +39,7 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
     private val settings: SettingsStore by inject()
     private lateinit var flip: FlipToSilence
     private lateinit var announcer: CallerAnnouncer
+    private lateinit var bypass: BypassRinger
     private var announcedId = -1
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var notifier: CallNotifier
@@ -55,6 +56,7 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
         store.controls = this
         flip = FlipToSilence(this) { store.silence() }
         announcer = CallerAnnouncer(this)
+        bypass = BypassRinger(this)
         // The call screen, or the island ringing over another app, take the banner's place.
         watching = scope.launch {
             combine(store.state, store.screenShown, store.islandShown) { state, shown, island -> state to (shown || island || this@DialerInCallService.island.covers()) }
@@ -71,6 +73,7 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
         island.stop()
         flip.stop()
         announcer.release()
+        bypass.stop()
         if (store.controls === this) store.controls = null
         scope.cancel()
         super.onDestroy()
@@ -105,8 +108,11 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
         if (call == null || silenced) {
             flip.stop()
             announcer.stop()
+            bypass.stop()
             return
         }
+        // Someone whose calls ring through Do not disturb and silent.
+        bypass.ring(call.id, call.number)
         val prefs = settings.current
         if (prefs.flipToSilence) flip.start()
         if (announcedId != call.id) {

@@ -400,7 +400,7 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean) {
                 }
             }
         } else {
-            ContactAvatar(call.name, photo, size)
+            ContactAvatar(call.name, photo, size, look = com.dialer.app.ui.component.rememberLook(call.number).value)
         }
     }
     Spacer(Modifier.height(16.dp))

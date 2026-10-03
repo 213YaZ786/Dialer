@@ -103,7 +103,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 Spacer(Modifier.height(8.dp))
-                ContactAvatar(contact?.name, contact?.photo, 128.dp)
+                ContactAvatar(contact?.name, contact?.photo, 128.dp, look = contact?.look)
                 Spacer(Modifier.height(18.dp))
                 Text(
                     contact?.name ?: shown,

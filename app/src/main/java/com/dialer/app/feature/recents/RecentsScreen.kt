@@ -251,7 +251,7 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
                 Box {
-                    ContactAvatar(name, contact?.photo, 48.dp)
+                    ContactAvatar(name, contact?.photo, 48.dp, look = contact?.look)
                     KindBadge(call.kind, Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), unseen = group.unseen)
                 }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
