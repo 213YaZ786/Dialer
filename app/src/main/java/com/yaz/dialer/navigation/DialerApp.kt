@@ -204,9 +204,20 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
     val dial: DialRequests = koinInject()
     val pendingDial by dial.pending.collectAsState()
     var dialpad by rememberSaveable { mutableStateOf<String?>(null) }
+    // Opened for another app: closed (back, Close, or a call placed), the dialpad gives the screen back to it.
+    var forOutside by rememberSaveable { mutableStateOf(false) }
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    fun closeDialpad() {
+        dialpad = null
+        if (forOutside) {
+            forOutside = false
+            activity?.moveTaskToBack(true)
+        }
+    }
     LaunchedEffect(pendingDial) {
         pendingDial?.let {
             dialpad = it
+            forOutside = dial.fromOutside
             dial.consume()
         }
     }
@@ -215,7 +226,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
     val numberPage by dial.numberPage.collectAsState()
     LaunchedEffect(numberPage) {
         numberPage?.let {
-            dialpad = null
+            dialpad = null; forOutside = false
             dial.numberShown()
             onOpenNumber(it)
         }
@@ -232,7 +243,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
     val showRecents by dial.recents.collectAsState()
     LaunchedEffect(showRecents) {
         if (showRecents) {
-            dialpad = null
+            dialpad = null; forOutside = false
             pager.scrollToPage(TopDestination.RECENTS.ordinal)
             dial.recentsShown()
         }
@@ -342,7 +353,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
         PredictiveBackHandler(enabled = dialpad != null) { events ->
             try {
                 events.collect { }
-                dialpad = null
+                closeDialpad()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             }
@@ -474,7 +485,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                 color = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground
             ) {
-                DialpadScreen(initial = shownNumber, onClose = { dialpad = null })
+                DialpadScreen(initial = shownNumber, onClose = { closeDialpad() })
             }
         }
 

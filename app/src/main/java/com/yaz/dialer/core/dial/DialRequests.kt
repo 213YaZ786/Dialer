@@ -13,7 +13,12 @@ class DialRequests {
     private val _pending = MutableStateFlow<String?>(null)
     val pending: StateFlow<String?> = _pending.asStateFlow()
 
-    fun open(number: String) {
+    /** Opened by another app (a messaging app's call button, a link): closing the dialpad goes back there. */
+    var fromOutside = false
+        private set
+
+    fun open(number: String, outside: Boolean = false) {
+        fromOutside = outside
         _pending.value = number
     }
 
