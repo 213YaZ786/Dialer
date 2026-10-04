@@ -241,6 +241,8 @@ fun CallControl(
     order: Int = 0,
     onLongPress: (() -> Unit)? = null,
     extra: @Composable () -> Unit = {},
+    diameter: androidx.compose.ui.unit.Dp = ControlSize,
+    labelShown: Boolean = true,
     onClick: () -> Unit
 ) {
     val haptics = rememberHaptics()
@@ -256,18 +258,18 @@ fun CallControl(
     val alpha = if (enabled) 1f else 0.38f
 
     Appear(order) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(ControlSize + 16.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(diameter + if (labelShown) 16.dp else 0.dp)) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(ControlSize)
+                    .size(diameter)
                     .graphicsLayer {
                         scaleX = sink
                         scaleY = sink
                     }
                     .then(if (motion == ControlMotion.WAVES && on) Modifier.soundWaves(accent) else Modifier)
             ) {
-                val base = Modifier.size(ControlSize).clip(CircleShape)
+                val base = Modifier.size(diameter).clip(CircleShape)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = (if (glass != null) base.glassZone(CircleShape, glass, lens = 1.3f) else base.background(MaterialTheme.colorScheme.zone))
@@ -319,15 +321,17 @@ fun CallControl(
                 }
                 extra()
             }
-            Spacer(Modifier.height(8.dp))
-            AnimatedContent(targetState = label, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "label") { text ->
-                Text(
-                    text,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
-                    maxLines = 1
-                )
+            if (labelShown) {
+                Spacer(Modifier.height(8.dp))
+                AnimatedContent(targetState = label, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "label") { text ->
+                    Text(
+                        text,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -367,7 +371,7 @@ fun routeIcon(kind: AudioRoute.Kind?): ImageVector = when (kind) {
  * name, a wired headset. The one in use carries the accent.
  */
 @Composable
-private fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDismiss: () -> Unit) {
+internal fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDismiss: () -> Unit) {
     val haptics = rememberHaptics()
     val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
     Popup(

@@ -168,6 +168,18 @@ fun CallScreen(
     // Over a poster the call screen is dark, its glass and its words light, whatever the theme.
     PosterTheme(poster) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Seeing the person: their picture, one line at the top, the controls folded at the bottom right.
+    if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING) && state.secondary == null && !keypadOpen) {
+        VideoStage(call, actions)
+        VideoCallLayer(state, call, actions, onAddCall = onAddCall, onHangUp = { at ->
+            wave = GlassWave(HangUpRed, at)
+            actions.hangUp(call.id)
+        })
+        wave?.let { w ->
+            Canvas(Modifier.matchParentSize()) { drawGlassWave(w, waveProgress.value, waveAlpha.value) }
+        }
+        return@BoxWithConstraints
+    }
     // A video call: the pictures behind the glass; otherwise the photo, blurred.
     if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions)
     else if (poster) PosterStage(entry!!)
@@ -319,7 +331,7 @@ private fun StatusPill(call: CallInfo) {
 
 /** Each character on its own wheel: a digit that changes rolls up into the next one. */
 @Composable
-private fun RollingText(text: String, style: androidx.compose.ui.text.TextStyle) {
+internal fun RollingText(text: String, style: androidx.compose.ui.text.TextStyle) {
     Row(Modifier.clipToBounds()) {
         text.forEachIndexed { index, char ->
             // Keyed from the right, so the seconds stay the seconds when a minute digit is added.

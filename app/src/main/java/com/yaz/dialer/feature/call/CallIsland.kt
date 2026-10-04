@@ -363,6 +363,8 @@ fun CallIsland(
                         haptics.firm()
                         let(AnswerGreen, WaveKind.SETTLE, at)
                         actions.answer(call.id)
+                        // A video call answered: its screen at once, where the camera starts and the other side is seen.
+                        if (call.video) onOpenScreen()
                     })
                     Shape.SMALL -> Small(call, photo, twoG)
                     Shape.OPEN -> Open(state, call, photo, actions, twoG, onWave = { color, kind, at ->

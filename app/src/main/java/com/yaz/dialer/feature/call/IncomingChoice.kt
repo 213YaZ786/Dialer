@@ -239,6 +239,7 @@ fun GlassCallButton(
     glow: Float = 0.3f,
     ripple: Float? = null,
     onCenter: ((Offset) -> Unit)? = null,
+    labelShown: Boolean = true,
     onClick: () -> Unit
 ) {
     val glass = LocalGlass.current
@@ -295,8 +296,10 @@ fun GlassCallButton(
                 Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(size * 0.4f))
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        if (labelShown) {
+            Spacer(Modifier.height(10.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium)
+        }
     }
 }
 

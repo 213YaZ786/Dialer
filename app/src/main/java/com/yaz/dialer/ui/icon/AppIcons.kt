@@ -16,6 +16,15 @@ import androidx.compose.ui.unit.dp
  */
 object AppIcons {
 
+    /** More: unfolds a call's controls. */
+    val MoreVert: ImageVector by lazy {
+        build(
+            "MoreVert",
+            "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 " +
+                "6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+        )
+    }
+
     /** A favourite. */
     val Star: ImageVector by lazy {
         build(
