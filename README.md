@@ -16,7 +16,10 @@ A phone app for Android. No account, no tracking, no ads.
 - The call stays in sight at the top of the screen over other apps:
   answer, mute, speaker or hang up from there.
 - End-to-end encrypted voice and video calls with people who use SMS,
-  on the same call screen and in Recents (with SMS installed).
+  on the same call screen and in Recents (with SMS installed). In a video
+  call the person fills the screen, a tap swaps the two pictures, the
+  controls fold under one button, and effects (confetti, balloons,
+  fireworks and more) play on both phones.
 - Light and dark themes in your wallpaper's colours.
 
 ## Install
