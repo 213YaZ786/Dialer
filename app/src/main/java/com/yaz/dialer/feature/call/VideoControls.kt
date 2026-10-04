@@ -38,6 +38,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import com.yaz.dialer.core.call.EFFECTS
+import com.yaz.dialer.ui.effects.ScreenEffect
+import com.yaz.dialer.ui.effects.ScreenKind
 import com.yaz.dialer.core.call.AudioRoute
 import com.yaz.dialer.core.call.CallInfo
 import com.yaz.dialer.core.call.CallPhase
@@ -62,7 +79,15 @@ fun VideoCallLayer(
 ) {
     val haptics = rememberHaptics()
     var open by rememberSaveable(call.id) { mutableStateOf(false) }
+    // The effect playing over the call: chosen here, or sent from the other side.
+    var playing by remember(call.id) { mutableStateOf<Pair<ScreenKind, Long>?>(null) }
+    LaunchedEffect(call.id) {
+        actions.effects.collect { (id, kind) -> if (id == call.id) playing = kind to System.nanoTime() }
+    }
     Box(Modifier.fillMaxSize()) {
+        playing?.let { (kind, at) ->
+            androidx.compose.runtime.key(at) { ScreenEffect(kind, "", null) { playing = null } }
+        }
         // Unfolded, a touch on the picture folds the controls away.
         if (open) Box(
             Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
@@ -126,6 +151,19 @@ private fun Unfolded(state: CallsState, call: CallInfo, actions: CallStore, onAd
     val choice = state.routes.any { it.kind == AudioRoute.Kind.BLUETOOTH || it.kind == AudioRoute.Kind.WIRED }
     val route = state.route
     // Built top to bottom; each rises after the one below it.
+    // Over the messaging app's encrypted line, a screen effect played on both phones.
+    if (call.encrypted) {
+        var choosing by remember { mutableStateOf(false) }
+        CallControl(
+            AppIcons.Sparkles, "Effects", on = choosing, order = 5, diameter = SmallButton, labelShown = false,
+            extra = {
+                if (choosing) EffectChoices(onPick = { kind ->
+                    choosing = false
+                    actions.effect(call.id, kind)
+                }, onDismiss = { choosing = false })
+            }
+        ) { choosing = !choosing }
+    }
     if (state.secondary == null && !call.encrypted) {
         CallControl(AppIcons.AddCall, "Add call", on = false, motion = ControlMotion.TURN, order = 4, diameter = SmallButton, labelShown = false, onClick = onAddCall)
     }
@@ -203,3 +241,76 @@ private fun TopLine(call: CallInfo) {
 
 private val VideoButton = 60.dp
 private val SmallButton = 52.dp
+
+/** The effects offered, on a pane of glass beside the button: each a glyph and its name. */
+@Composable
+private fun EffectChoices(onPick: (ScreenKind) -> Unit, onDismiss: () -> Unit) {
+    val haptics = rememberHaptics()
+    val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
+    Popup(
+        popupPositionProvider = remember { Beside(margin) },
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true)
+    ) {
+        val appear = remember { MutableTransitionState(false) }.apply { targetState = true }
+        AnimatedVisibility(
+            visibleState = appear,
+            enter = fadeIn() + scaleIn(spring(dampingRatio = 0.6f, stiffness = 500f), initialScale = 0.6f, transformOrigin = TransformOrigin(1f, 0.5f))
+        ) {
+            ZoneSurface(shape = RoundedCornerShape(28.dp), shadowElevation = 6.dp, modifier = Modifier.width(200.dp)) {
+                Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    EFFECTS.forEach { kind ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(22.dp))
+                                .clickable {
+                                    haptics.done()
+                                    onPick(kind)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Text(glyphOf(kind), style = MaterialTheme.typography.titleLarge)
+                            Text(nameOf(kind), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 14.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun glyphOf(kind: ScreenKind) = when (kind) {
+    ScreenKind.CONFETTI -> "\uD83C\uDF8A"
+    ScreenKind.BALLOONS -> "\uD83C\uDF88"
+    ScreenKind.FIREWORKS -> "\uD83C\uDF86"
+    ScreenKind.LOVE -> "\u2764\uFE0F"
+    ScreenKind.STARS -> "\u2728"
+    ScreenKind.CELEBRATION -> "\uD83C\uDF89"
+    ScreenKind.LASERS -> "\u26A1"
+    else -> ""
+}
+
+private fun nameOf(kind: ScreenKind) = when (kind) {
+    ScreenKind.CONFETTI -> "Confetti"
+    ScreenKind.BALLOONS -> "Balloons"
+    ScreenKind.FIREWORKS -> "Fireworks"
+    ScreenKind.LOVE -> "Love"
+    ScreenKind.STARS -> "Stars"
+    ScreenKind.CELEBRATION -> "Celebration"
+    ScreenKind.LASERS -> "Lasers"
+    else -> ""
+}
+
+/** A popup to the left of its anchor, its bottom at the anchor's bottom, kept on screen. */
+private class Beside(val margin: Int) : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+        val x = anchorBounds.left - popupContentSize.width - margin
+        val y = anchorBounds.bottom - popupContentSize.height
+        return IntOffset(
+            x.coerceIn(margin, (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin)),
+            y.coerceIn(margin, (windowSize.height - popupContentSize.height - margin).coerceAtLeast(margin))
+        )
+    }
+}

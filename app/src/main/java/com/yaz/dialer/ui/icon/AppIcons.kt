@@ -16,6 +16,15 @@ import androidx.compose.ui.unit.dp
  */
 object AppIcons {
 
+    /** Screen effects in a video call (Material "auto_awesome"). */
+    val Sparkles: ImageVector by lazy {
+        build(
+            "Sparkles",
+            "M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 " +
+                "2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"
+        )
+    }
+
     /** More: unfolds a call's controls. */
     val MoreVert: ImageVector by lazy {
         build(

@@ -8,6 +8,8 @@ import android.view.TextureView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,30 +78,41 @@ fun VideoStage(call: CallInfo, actions: CallStore) {
         }
     }
 
+    val haptics = com.yaz.dialer.ui.component.rememberHaptics()
+    // The other side large by default; a tap on the small picture swaps the two.
+    var swapped by remember(call.id) { mutableStateOf(false) }
+    val mine = camera.on && allowed
+    if (!mine) swapped = false
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        Picture(Modifier.fillMaxSize(), remoteSize) { surface -> actions.videoCall(call.id)?.setDisplaySurface(surface) }
-
-        if (camera.on && allowed) {
-            val density = LocalDensity.current
-            val width = 112.dp
-            val height = 150.dp
-            val margin = with(density) { 16.dp.toPx() }
-            val maxX = with(density) { maxWidth.toPx() - width.toPx() } - margin
-            val maxY = with(density) { maxHeight.toPx() - height.toPx() } - margin
-            var at by remember { mutableStateOf(Offset(maxX, with(density) { 230.dp.toPx() })) }
-            Picture(
-                content = localSize,
-                modifier = Modifier
-                    .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
-                    .size(width, height)
-                    .clip(RoundedCornerShape(20.dp))
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            at = Offset((at.x + drag.x).coerceIn(margin, maxX), (at.y + drag.y).coerceIn(margin, maxY))
-                        }
-                    }
-            ) { surface -> actions.videoCall(call.id)?.setPreviewSurface(surface) }
+        val density = LocalDensity.current
+        val width = 112.dp
+        val height = 150.dp
+        val margin = with(density) { 16.dp.toPx() }
+        val maxX = with(density) { maxWidth.toPx() - width.toPx() } - margin
+        val maxY = with(density) { maxHeight.toPx() - height.toPx() } - margin
+        var at by remember { mutableStateOf(Offset(maxX, with(density) { 230.dp.toPx() })) }
+        // The small picture: moved by the finger anywhere, a tap makes it the large one.
+        val small = Modifier
+            .zIndex(1f)
+            .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+            .size(width, height)
+            .clip(RoundedCornerShape(20.dp))
+            .pointerInput(Unit) {
+                detectDragGestures { change, drag ->
+                    change.consume()
+                    at = Offset((at.x + drag.x).coerceIn(margin, maxX), (at.y + drag.y).coerceIn(margin, maxY))
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    haptics.tick()
+                    swapped = !swapped
+                }
+            }
+        val large = Modifier.fillMaxSize()
+        Picture(if (swapped) small else large, remoteSize) { surface -> actions.videoCall(call.id)?.setDisplaySurface(surface) }
+        if (mine) {
+            Picture(if (swapped) large else small, localSize) { surface -> actions.videoCall(call.id)?.setPreviewSurface(surface) }
         }
     }
 }
@@ -118,7 +131,11 @@ private fun Picture(modifier: Modifier, content: Pair<Int, Int>, onSurface: (Sur
                     override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                         surface = Surface(texture).also { runCatching { onSurface(it) } }
                     }
-                    override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
+                    // Swapped large for small or back: framed again for the new size.
+                    override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
+                        @Suppress("UNCHECKED_CAST")
+                        (tag as? Pair<Int, Int>)?.let { crop(this@apply, it) }
+                    }
                     override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
                         runCatching { onSurface(null) }
                         surface?.release()
@@ -129,7 +146,10 @@ private fun Picture(modifier: Modifier, content: Pair<Int, Int>, onSurface: (Sur
                 }
             }
         },
-        update = { view -> view.post { crop(view, content) } },
+        update = { view ->
+            view.tag = content
+            view.post { crop(view, content) }
+        },
         modifier = modifier
     )
 }

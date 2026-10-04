@@ -32,4 +32,6 @@ check for a new version on GitHub, which you can turn off in Settings.
 
 ## Licence
 
-MIT. Icons from Google's Material Icons, Apache License 2.0.
+MIT. Icons from Google's Material Icons, Apache License 2.0. Video call
+effects move with Google's Noto Animated Emoji, CC BY 4.0, played by
+Lottie (Airbnb), Apache License 2.0.

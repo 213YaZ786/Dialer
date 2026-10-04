@@ -92,6 +92,8 @@ dependencies {
     // and its geocoder (Apache-2.0), with their own data, no network.
     implementation("com.googlecode.libphonenumber:libphonenumber:9.0.40")
     implementation("com.googlecode.libphonenumber:geocoder:3.40")
+    // A video call's screen effects (the shared ScreenEffect): Google's Noto animated emoji.
+    implementation("com.airbnb.android:lottie-compose:6.7.1")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)

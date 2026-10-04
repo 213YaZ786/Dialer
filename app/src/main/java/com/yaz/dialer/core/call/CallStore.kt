@@ -160,6 +160,12 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             override fun onParentChanged(call: Call, parent: Call?) = publish()
             override fun onConferenceableCallsChanged(call: Call, conferenceableCalls: List<Call>) = publish()
             override fun onCannedTextResponsesLoaded(call: Call, cannedTextResponses: List<String>) = publish()
+            // A screen effect the other side sent over the messaging app's encrypted line.
+            override fun onConnectionEvent(call: Call, event: String, extras: android.os.Bundle?) {
+                if (event != EVENT_EFFECT) return
+                val kind = extras?.getString(EXTRA_EFFECT)?.let { name -> EFFECTS.firstOrNull { it.name == name } } ?: return
+                _effects.tryEmit(id to kind)
+            }
         }
         callbacks[id] = callback
         call.registerCallback(callback)
@@ -219,6 +225,16 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
 
     /** A video call's channel to the line that carries it, for its pictures and camera. */
     fun videoCall(id: Int): android.telecom.InCallService.VideoCall? = calls[id]?.videoCall
+
+    /** Screen effects to play over a video call: the user's own and the other side's. */
+    private val _effects = kotlinx.coroutines.flow.MutableSharedFlow<Pair<Int, com.yaz.dialer.ui.effects.ScreenKind>>(extraBufferCapacity = 4)
+    val effects: kotlinx.coroutines.flow.SharedFlow<Pair<Int, com.yaz.dialer.ui.effects.ScreenKind>> = _effects
+
+    /** Plays [kind] here and sends it to the other side, through the line (SMS) that carries the call. */
+    fun effect(id: Int, kind: com.yaz.dialer.ui.effects.ScreenKind) {
+        _effects.tryEmit(id to kind)
+        runCatching { calls[id]?.sendCallEvent(EVENT_EFFECT, android.os.Bundle().apply { putString(EXTRA_EFFECT, kind.name) }) }
+    }
 
     /** The camera of a video call: on or off, front or back. */
     data class Camera(val on: Boolean = true, val front: Boolean = true)
@@ -390,3 +406,14 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
         )
     }
 }
+
+/** Between this screen and SMS's encrypted line, through Telecom (YAZ.md). */
+private const val EVENT_EFFECT = "com.yaz.call.EFFECT"
+private const val EXTRA_EFFECT = "effect"
+
+/** The effects offered in a video call, in the order they are offered. */
+val EFFECTS = listOf(
+    com.yaz.dialer.ui.effects.ScreenKind.CONFETTI, com.yaz.dialer.ui.effects.ScreenKind.BALLOONS, com.yaz.dialer.ui.effects.ScreenKind.FIREWORKS,
+    com.yaz.dialer.ui.effects.ScreenKind.LOVE, com.yaz.dialer.ui.effects.ScreenKind.STARS, com.yaz.dialer.ui.effects.ScreenKind.CELEBRATION,
+    com.yaz.dialer.ui.effects.ScreenKind.LASERS
+)
