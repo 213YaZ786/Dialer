@@ -2,6 +2,7 @@ package com.yaz.dialer.core.dial
 
 import android.content.Context
 import android.telecom.PhoneAccountHandle
+import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import java.util.Locale
 
@@ -23,12 +24,23 @@ object SalesCalls {
 
     /**
      * The country a national number is read in: the network of the line
-     * ([account], the call's SIM), then its SIM, then the phone's language.
-     * The network alone is blank on Wi-Fi calling or before it is found.
+     * (the call's [account] or the message's [subscription]), then its SIM,
+     * then the phone's language. The network alone is blank on Wi-Fi calling
+     * or before it is found.
      */
-    fun country(context: Context, account: PhoneAccountHandle? = null): String? {
+    fun country(
+        context: Context,
+        account: PhoneAccountHandle? = null,
+        subscription: Int = SubscriptionManager.INVALID_SUBSCRIPTION_ID
+    ): String? {
         val phone = context.getSystemService(TelephonyManager::class.java)
-        val line = account?.let { runCatching { phone?.createForPhoneAccountHandle(it) }.getOrNull() } ?: phone
+        val line = runCatching {
+            when {
+                account != null -> phone?.createForPhoneAccountHandle(account)
+                SubscriptionManager.isValidSubscriptionId(subscription) -> phone?.createForSubscriptionId(subscription)
+                else -> null
+            }
+        }.getOrNull() ?: phone
         return firstCountry(line?.networkCountryIso, line?.simCountryIso, Locale.getDefault().country)
     }
 
