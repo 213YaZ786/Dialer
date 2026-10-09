@@ -1,5 +1,10 @@
 package com.yaz.dialer.core.dial
 
+import android.content.Context
+import android.telecom.PhoneAccountHandle
+import android.telephony.TelephonyManager
+import java.util.Locale
+
 /**
  * The number ranges a country's regulator keeps for sales calls, so a
  * cold call is known by its number alone, on the phone, with no list to
@@ -15,6 +20,19 @@ object SalesCalls {
 
     /** Countries with ranges, by ISO code. */
     val countries = setOf("fr", "es", "in")
+
+    /**
+     * The country a national number is read in: the network of the line
+     * ([account], the call's SIM), then its SIM, then the phone's language.
+     * The network alone is blank on Wi-Fi calling or before it is found.
+     */
+    fun country(context: Context, account: PhoneAccountHandle? = null): String? {
+        val phone = context.getSystemService(TelephonyManager::class.java)
+        val line = account?.let { runCatching { phone?.createForPhoneAccountHandle(it) }.getOrNull() } ?: phone
+        return firstCountry(line?.networkCountryIso, line?.simCountryIso, Locale.getDefault().country)
+    }
+
+    fun firstCountry(vararg candidates: String?): String? = candidates.firstOrNull { !it.isNullOrBlank() }?.lowercase()
 
     /**
      * Whether [number] is in a range kept for sales calls, read as [country]

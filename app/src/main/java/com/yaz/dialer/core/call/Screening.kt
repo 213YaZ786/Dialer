@@ -4,7 +4,6 @@ import android.telecom.Call
 import android.telecom.Connection
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
-import android.telephony.TelephonyManager
 import com.yaz.dialer.core.dial.SalesCalls
 import com.yaz.dialer.core.dial.ContactLookup
 import com.yaz.dialer.core.system.AdvancedProtection
@@ -40,7 +39,7 @@ class Screening : CallScreeningService(), KoinComponent {
             blockHidden = prefs.blockHidden,
             silenceUnknown = prefs.silenceUnknown,
             salesCall = prefs.blockSalesCalls && !hidden &&
-                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, getSystemService(TelephonyManager::class.java)?.networkCountryIso),
+                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, SalesCalls.country(this, details.accountHandle)),
             strict = AdvancedProtection.isOn(this),
             isContact = { ContactLookup.isContact(this, details.handle.schemeSpecificPart) },
             calledAgain = { calledLately(details.handle.schemeSpecificPart) }

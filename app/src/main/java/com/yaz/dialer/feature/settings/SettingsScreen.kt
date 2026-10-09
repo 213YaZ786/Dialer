@@ -133,11 +133,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                     onChange = viewModel::setBlockHidden
                 )
                 // Only where the country keeps ranges for sales calls.
-                val country = remember {
-                    val phone = context.getSystemService(android.telephony.TelephonyManager::class.java)
-                    listOf(phone?.networkCountryIso, phone?.simCountryIso, java.util.Locale.getDefault().country)
-                        .firstOrNull { !it.isNullOrBlank() }?.lowercase()
-                }
+                val country = remember { SalesCalls.country(context) }
                 if (country in SalesCalls.countries) {
                     SwitchRow(
                         title = "Block sales calls",
