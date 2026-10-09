@@ -15,8 +15,8 @@ android {
         applicationId = "com.yaz.dialer"
         minSdk = 31
         targetSdk = 37
-        versionCode = 30
-        versionName = "0.14.5"
+        versionCode = 31
+        versionName = "0.14.6"
     }
 
     signingConfigs {
