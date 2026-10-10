@@ -1,5 +1,7 @@
 package com.yaz.dialer.feature.dialpad
 
+import kotlinx.coroutines.launch
+
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Context
@@ -157,9 +159,17 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
     }
     fun voicemail() = place { Dialing.voicemail(context) }
 
+    // The easter eggs: what is typed (1876, 76253, 555-01xx), and the key a held # lights.
+    var egg by remember { mutableStateOf<DialEgg?>(null) }
+    LaunchedEffect(number) { eggFor(number)?.let { egg = it } }
+    var lit by remember { mutableStateOf<Char?>(null) }
+    val eggScope = androidx.compose.runtime.rememberCoroutineScope()
     var wide by remember { mutableStateOf(false) }
     val suggestions: @Composable (Modifier) -> Unit = { modifier ->
-        Suggestions(
+        val shownEgg = egg
+        if (shownEgg == DialEgg.SNAKE) EggStage(shownEgg, onDone = { egg = null; number = "" })
+        if (shownEgg != null && shownEgg != DialEgg.SNAKE) EggStage(shownEgg, onDone = { egg = null }, modifier = modifier)
+        else Suggestions(
             typed = number,
             wide = wide,
             matches = matches,
@@ -172,6 +182,7 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
     val keys: @Composable () -> Unit = {
         Keys(
             number = number,
+            lit = lit,
             onKey = { key ->
                 number += key
                 tones.start(key)
@@ -187,6 +198,11 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
                 when {
                     key == '0' -> number = number.dropLast(1) + "+"
                     key == '*' -> number = number.dropLast(1) + ","
+                    // Held alone, # plays the Gran Vals on the keys.
+                    key == '#' && number == "#" && lit == null -> {
+                        number = ""
+                        eggScope.launch { GranVals.play { lit = it } }
+                    }
                     key == '#' -> number = number.dropLast(1) + ";"
                     key == '1' && number == "1" -> {
                         number = ""
@@ -261,6 +277,7 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
 @Composable
 private fun Keys(
     number: String,
+    lit: Char?,
     onKey: (Char) -> Unit,
     onKeyUp: () -> Unit,
     onHeld: (Char) -> Boolean,
@@ -338,7 +355,8 @@ private fun Keys(
             onPress = onKey,
             onRelease = onKeyUp,
             onLongPress = onHeld,
-            voicemail = true
+            voicemail = true,
+            lit = lit
         )
         Spacer(Modifier.height(20.dp))
         Row(

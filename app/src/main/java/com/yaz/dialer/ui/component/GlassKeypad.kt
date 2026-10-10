@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.spring
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -61,13 +62,14 @@ fun GlassKeypad(
     modifier: Modifier = Modifier,
     keySize: Dp = 72.dp,
     onLongPress: (Char) -> Boolean = { false },
-    voicemail: Boolean = false
+    voicemail: Boolean = false,
+    lit: Char? = null
 ) {
     var index = 0
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf("123", "456", "789", "*0#").forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                row.forEach { key -> GlassKey(key, keySize, onPress, onRelease, onLongPress, voicemail && key == '1', order = index++) }
+                row.forEach { key -> GlassKey(key, keySize, onPress, onRelease, onLongPress, voicemail && key == '1', order = index++, lit = lit == key) }
             }
         }
     }
@@ -81,8 +83,12 @@ private fun GlassKey(
     onRelease: () -> Unit,
     onLongPress: (Char) -> Boolean,
     voicemail: Boolean,
-    order: Int
+    order: Int,
+    lit: Boolean = false
 ) {
+    // Lit by a tune played on the keys: it swells and glows in the accent.
+    val glow by androidx.compose.animation.core.animateFloatAsState(if (lit) 1f else 0f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "lit")
+    val accent = MaterialTheme.colorScheme.primary
     // The keys come in one after the other, from the top left, like a
     // wave of drops settling.
     val rise = remember { Animatable(0f) }
@@ -99,7 +105,7 @@ private fun GlassKey(
         modifier = Modifier.graphicsLayer {
             val p = rise.value
             alpha = p.coerceIn(0f, 1f)
-            val s = 0.6f + 0.4f * p
+            val s = (0.6f + 0.4f * p) * (1f + 0.1f * glow)
             scaleX = s
             scaleY = s
         }.then(if (glass != null) base.glassZone(CircleShape, glass, lens = 1f) else base.background(MaterialTheme.colorScheme.zone))
@@ -124,6 +130,7 @@ private fun GlassKey(
                 }
             }
     ) {
+        if (glow > 0.01f) androidx.compose.foundation.Canvas(Modifier.matchParentSize()) { drawCircle(accent.copy(alpha = 0.45f * glow)) }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(key.toString(), fontSize = 30.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp)
             KeyLetters[key]?.let {

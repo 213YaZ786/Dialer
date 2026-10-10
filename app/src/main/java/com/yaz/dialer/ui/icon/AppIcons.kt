@@ -387,6 +387,12 @@ object AppIcons {
         )
     }
 
+    /** Up, as on a keypad's 2. */
+    val ExpandLess: ImageVector by lazy { build("ExpandLess", "M7.41,15.41L12,10.83l4.59,4.58L18,14l-6,-6 -6,6z") }
+
+    /** Down, as on a keypad's 8. */
+    val ExpandMore: ImageVector by lazy { build("ExpandMore", "M16.59,8.59L12,13.17 7.41,8.59 6,10l6,6 6,-6z") }
+
     /** About the app. */
     val Info: ImageVector by lazy {
         build(

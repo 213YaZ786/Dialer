@@ -212,7 +212,8 @@ fun CallIsland(
     // overshoots, the one size a window follows without a jolt. Over other
     // apps the glass frosts while the island changes width ([frost]), as
     // Android's blur covers the whole window and not the island alone.
-    val width = remember { Animatable(target.width.value) }
+    // Inside the app it is born a drop, a third of its width, and stretches into the pill.
+    val width = remember { Animatable(if (role == IslandRole.IN_APP) target.width.value * 0.3f else target.width.value) }
     val height = remember { Animatable(60f) }
     val pinch = remember { Animatable(0.92f) }
     val shown = remember { Animatable(0f) }
@@ -263,7 +264,7 @@ fun CallIsland(
                 launch { pop(target.height.value) }
                 val narrowing = role == IslandRole.WIDE && width.value != target.width.value
                 if (narrowing) frost.animateTo(1f, tween(90)) else if (role == IslandRole.PILL) frost.snapTo(0f)
-                width.animateTo(target.width.value, spring(dampingRatio = 0.86f, stiffness = 650f))
+                width.animateTo(target.width.value, if (role == IslandRole.IN_APP) spring(dampingRatio = 0.55f, stiffness = 380f) else spring(dampingRatio = 0.86f, stiffness = 650f))
                 if (role == IslandRole.WIDE && shape == Shape.SMALL) {
                     // Folded to the pill's place: once the answer's wave has settled, the pill takes over.
                     withTimeoutOrNull(700) { snapshotFlow { wave == null || waveAlpha.value <= 0.05f }.first { it } }
