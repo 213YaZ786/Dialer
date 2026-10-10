@@ -135,7 +135,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
     }
 }
 
-/** Someone called often: a smaller tile of glass, a tap calls, a long press opens their calls. */
+/** Someone called often: a smaller tile of glass; a tap calls, a swipe calls or writes, a long press offers the rest. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: Int, number: String, onOpen: () -> Unit) {
@@ -145,6 +145,18 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
     val press = remember { MutableInteractionSource() }
     val pressed by press.collectIsPressedAsState()
     val sink by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "sink")
+    val menu = rememberPillMenu()
+    fun call() {
+        haptics.firm()
+        if (!Dialing.call(context, number)) dial.open(number)
+    }
+    // Swiped right it calls, left it writes; held, its menu.
+    com.yaz.dialer.ui.component.SwipeRow(
+        start = com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { call() },
+        end = com.yaz.dialer.ui.component.SwipeAction(AppIcons.Message, "Message") { NumberActions.message(context, number) },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+    Box(menu.tracker) {
     val shape = RoundedCornerShape(24.dp)
     ZoneSurface(
         shape = shape,
@@ -159,15 +171,9 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
                 interactionSource = press,
                 indication = null,
                 onClickLabel = "Call",
-                onLongClickLabel = "Calls",
-                onClick = {
-                    haptics.firm()
-                    if (!Dialing.call(context, number)) dial.open(number)
-                },
-                onLongClick = {
-                    haptics.tick()
-                    onOpen()
-                }
+                onLongClickLabel = "More",
+                onClick = ::call,
+                onLongClick = menu::open
             )
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 12.dp, horizontal = 10.dp)) {
@@ -180,6 +186,17 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+    PillMenu(
+        menu,
+        listOfNotNull(
+            PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
+            PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, number) },
+            PillItem(AppIcons.Recents, "Calls", PillMotion.BOUNCE) { onOpen() },
+            if (!known) PillItem(AppIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, number) } else null
+        )
+    )
+    }
     }
 }
 
