@@ -49,7 +49,8 @@ fun LoadingMark(
     val body = ImageBitmap.imageResource(R.drawable.dial_mark_body)
     val shine = ImageBitmap.imageResource(R.drawable.dial_mark_shine)
     val handset = ImageBitmap.imageResource(R.drawable.dial_mark_handset)
-    val accent = MaterialTheme.colorScheme.primary
+    // The launcher icon's own tone (ic_launcher_disc), so the mark is the icon by day and by night.
+    val accent = androidx.compose.ui.res.colorResource(android.R.color.system_accent1_500)
     val tint = remember(accent) { ColorFilter.tint(accent, BlendMode.Modulate) }
 
     val transition = rememberInfiniteTransition(label = "ringing")
