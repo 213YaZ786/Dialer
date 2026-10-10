@@ -1,5 +1,8 @@
 package com.yaz.dialer.feature.call
 
+import com.yaz.dialer.ui.component.GlassWave
+import com.yaz.dialer.ui.component.drawGlassWave
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -61,8 +64,6 @@ import kotlinx.coroutines.launch
 internal val AnswerGreen = Color(0xFF1E8E3E)
 internal val HangUpRed = Color(0xFFC5221F)
 
-/** A wave of tinted glass leaving a button: its colour and where it starts, in the window. */
-class GlassWave(val color: Color, val origin: Offset)
 
 /**
  * Answer or decline an incoming call: two deep panes of glass, tapped like
@@ -190,37 +191,6 @@ fun IncomingChoice(
 }
 
 /**
- * A wave of tinted glass at [progress] (0 to 1) from its origin to past the
- * farthest corner: a light wash of the colour, deeper towards the front, and
- * the front itself lit like the rim of a pane. [alpha] fades it as a whole.
- */
-fun DrawScope.drawGlassWave(wave: GlassWave, progress: Float, alpha: Float) {
-    if (progress <= 0f || alpha <= 0f) return
-    val o = wave.origin
-    val far = maxOf(
-        hypot(o.x, o.y), hypot(size.width - o.x, o.y),
-        hypot(o.x, size.height - o.y), hypot(size.width - o.x, size.height - o.y)
-    )
-    val radius = far * progress
-    if (radius < 1f) return
-    drawCircle(
-        Brush.radialGradient(
-            0f to wave.color.copy(alpha = 0.10f * alpha),
-            0.85f to wave.color.copy(alpha = 0.26f * alpha),
-            1f to wave.color.copy(alpha = 0.34f * alpha),
-            center = o,
-            radius = radius
-        ),
-        radius = radius,
-        center = o
-    )
-    // The front: a soft band of the colour, then a bright hairline on it.
-    val front = 1f - progress * 0.5f
-    drawCircle(wave.color.copy(alpha = 0.22f * alpha * front), radius, o, style = Stroke(width = 22.dp.toPx()))
-    drawCircle(Color.White.copy(alpha = 0.7f * alpha * front), radius, o, style = Stroke(width = 1.5.dp.toPx()))
-}
-
-/**
  * A call button in deep glass: a pane tinted in [color] with a strong lens,
  * a soft halo of the same colour around it whose strength is [glow], [swell]
  * for the scale and [fade] for melting away. With [ripple] set (0 to 1,
@@ -297,7 +267,7 @@ fun GlassCallButton(
             }
         }
         if (labelShown) {
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             Text(label, style = MaterialTheme.typography.labelMedium)
         }
     }

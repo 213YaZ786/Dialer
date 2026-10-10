@@ -489,9 +489,6 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
             }
         }
 
-        // On the dialpad, level with its Close, while a call goes on: back to
-        // the call in one tap. On the tabs it takes the name's place.
-        if (dialpad != null) ReturnToCall(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp))
     }
 }
 

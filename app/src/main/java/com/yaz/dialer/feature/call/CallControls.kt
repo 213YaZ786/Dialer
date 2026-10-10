@@ -90,9 +90,9 @@ import kotlinx.coroutines.delay
 enum class ControlMotion { NONE, TURN, WAVES }
 
 /**
- * The controls of a call, each its own drop of glass, standing free: Mute,
- * Keypad, Speaker, then Hold and Add call, and Hang up below. They rise one
- * after the other when the call screen opens.
+ * The controls of a call, each its own drop of glass, standing free: Speaker,
+ * Add call, Mute, then Hold, Hang up, Keypad. They rise one after the other
+ * when the call screen opens.
  */
 @Composable
 fun CallControls(
@@ -111,30 +111,23 @@ fun CallControls(
     val held = call.phase == CallPhase.HOLDING
     var hangUpAt by remember { mutableStateOf(Offset.Zero) }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(ControlGap), verticalAlignment = Alignment.Top) {
+    // iOS's grid, as the user chose (2026-10-10): two rows of three large drops of glass,
+    // Hang up in the middle of the second, each as wide as a third of the room allows.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val diameter = ((maxWidth - GridGap * 2) / 3 - 16.dp).coerceIn(ControlSize, GridMax)
+        val mute: @Composable () -> Unit = {
             CallControl(
                 icon = if (state.muted) AppIcons.MicOff else AppIcons.Mic,
                 label = if (state.muted) "Unmute" else "Mute",
                 on = state.muted,
                 enabled = call.canMute,
-                order = 0
+                order = 2,
+                diameter = diameter
             ) { actions.mute(!state.muted) }
-            if (call.video) {
-                // A video call: the camera in the keypad's place.
-                val camera by actions.camera.collectAsState()
-                CallControl(
-                    icon = if (camera.on) AppIcons.Videocam else AppIcons.VideocamOff,
-                    label = if (camera.on) "Camera off" else "Camera on",
-                    on = !camera.on,
-                    order = 1
-                ) { actions.camera(call.id, camera.copy(on = !camera.on)) }
-            } else {
-                // Tones mean nothing on an encrypted line: no keypad there.
-                CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted, order = 1, onClick = onKeypad)
-            }
-            // Sound: a tap switches between the ear and the speaker; with a
-            // headset or Bluetooth device about, or held, it offers them all.
+        }
+        // Sound: a tap switches between the ear and the speaker; with a
+        // headset or Bluetooth device about, or held, it offers them all.
+        val speaker: @Composable () -> Unit = {
             CallControl(
                 icon = routeIcon(route?.kind),
                 label = when {
@@ -144,7 +137,8 @@ fun CallControls(
                 },
                 on = route != null && route.kind != AudioRoute.Kind.EARPIECE,
                 motion = if (route?.kind == AudioRoute.Kind.SPEAKER) ControlMotion.WAVES else ControlMotion.NONE,
-                order = 2,
+                order = 0,
+                diameter = diameter,
                 onLongPress = { routes = true },
                 extra = {
                     if (routes) {
@@ -163,43 +157,66 @@ fun CallControls(
                 }
             }
         }
-        Spacer(Modifier.height(ControlGap))
-        Row(horizontalArrangement = Arrangement.spacedBy(ControlGap), verticalAlignment = Alignment.Top) {
-            if (call.video) {
-                val camera by actions.camera.collectAsState()
-                CallControl(AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3) {
-                    actions.camera(call.id, camera.copy(front = !camera.front))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(GridGap), verticalAlignment = Alignment.Top) {
+                speaker()
+                if (call.video) {
+                    // A video call: the camera in the middle.
+                    val camera by actions.camera.collectAsState()
+                    CallControl(
+                        icon = if (camera.on) AppIcons.Videocam else AppIcons.VideocamOff,
+                        label = if (camera.on) "Camera off" else "Camera on",
+                        on = !camera.on,
+                        order = 1,
+                        diameter = diameter
+                    ) { actions.camera(call.id, camera.copy(on = !camera.on)) }
+                } else {
+                    // A second call: the dialpad opens, Telecom holds this one when
+                    // the new one goes out, and Merge joins them after.
+                    CallControl(
+                        AppIcons.AddCall,
+                        "Add call",
+                        on = false,
+                        enabled = state.secondary == null && !call.encrypted,
+                        motion = ControlMotion.TURN,
+                        order = 1,
+                        diameter = diameter,
+                        onClick = onAddCall
+                    )
                 }
-            } else CallControl(
-                icon = if (held) AppIcons.Play else AppIcons.Hold,
-                label = if (held) "Resume" else "Hold",
-                on = held,
-                enabled = call.canHold,
-                order = 3
-            ) { actions.hold(call.id, !held) }
-            // A second call: the dialpad opens, Telecom holds this one when
-            // the new one goes out, and Merge joins them after.
-            CallControl(
-                AppIcons.AddCall,
-                "Add call",
-                on = false,
-                enabled = state.secondary == null && !call.encrypted,
-                motion = ControlMotion.TURN,
-                order = 4,
-                onClick = onAddCall
-            )
-        }
-        Spacer(Modifier.height(32.dp))
-        Appear(order = 5) {
-            GlassCallButton(
-                icon = AppIcons.CallEnd,
-                label = "Hang up",
-                color = HangUpRed,
-                size = 80.dp,
-                glow = 0.35f,
-                onCenter = { hangUpAt = it },
-                onClick = { onHangUp(hangUpAt) }
-            )
+                mute()
+            }
+            Spacer(Modifier.height(GridGap))
+            Row(horizontalArrangement = Arrangement.spacedBy(GridGap), verticalAlignment = Alignment.Top) {
+                if (call.video) {
+                    val camera by actions.camera.collectAsState()
+                    CallControl(AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3, diameter = diameter) {
+                        actions.camera(call.id, camera.copy(front = !camera.front))
+                    }
+                } else CallControl(
+                    icon = if (held) AppIcons.Play else AppIcons.Hold,
+                    label = if (held) "Resume" else "Hold",
+                    on = held,
+                    enabled = call.canHold,
+                    order = 3,
+                    diameter = diameter
+                ) { actions.hold(call.id, !held) }
+                Appear(order = 4) {
+                    Box(Modifier.width(diameter + 16.dp), contentAlignment = Alignment.TopCenter) {
+                        GlassCallButton(
+                            icon = AppIcons.CallEnd,
+                            label = "Hang up",
+                            color = HangUpRed,
+                            size = diameter,
+                            glow = 0.35f,
+                            onCenter = { hangUpAt = it },
+                            onClick = { onHangUp(hangUpAt) }
+                        )
+                    }
+                }
+                // Tones mean nothing on an encrypted line: no keypad there.
+                CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted && !call.video, order = 5, diameter = diameter, onClick = onKeypad)
+            }
         }
     }
 
@@ -296,8 +313,10 @@ fun CallControl(
                             }
                         )
                 ) {
-                    // The accent spreading from the centre, under the icon.
-                    val wash = glass?.accentTint ?: MaterialTheme.colorScheme.primaryContainer
+                    // Light spreading from the centre, under the icon (iOS's chosen control):
+                    // nearly white by night, the accent by day.
+                    val night = glass?.dark ?: androidx.compose.foundation.isSystemInDarkTheme()
+                    val wash = if (night) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.primary
                     Canvas(Modifier.fillMaxSize()) {
                         if (fill > 0.01f) {
                             drawCircle(wash, radius = size.minDimension / 2f * fill.coerceAtMost(1.05f), alpha = fill.coerceIn(0f, 1f))
@@ -314,8 +333,8 @@ fun CallControl(
                         Icon(
                             shown,
                             contentDescription = label,
-                            tint = lerpColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimaryContainer, fill).copy(alpha = alpha),
-                            modifier = Modifier.size(26.dp).graphicsLayer { rotationZ = turn.value }
+                            tint = lerpColor(if (night) Color.White else MaterialTheme.colorScheme.primary, if (night) Color(0xFF1B1B1F) else MaterialTheme.colorScheme.onPrimary, fill).copy(alpha = alpha),
+                            modifier = Modifier.size(diameter * 0.36f).graphicsLayer { rotationZ = turn.value }
                         )
                     }
                 }
@@ -437,4 +456,7 @@ private class Above(val margin: Int) : PopupPositionProvider {
 
 val ControlSize = 72.dp
 val ControlGap = 28.dp
+/** The call's grid: the gap between its drops, and the largest a drop grows on a wide screen. */
+private val GridGap = 20.dp
+private val GridMax = 92.dp
 private const val STAGGER_MS = 45L

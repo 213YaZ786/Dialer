@@ -253,6 +253,12 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
         if (!Dialing.call(context, call.number)) dial.open(call.number)
     }
 
+    // Swiped right it calls back, left it leaves the history (Samsung's and iOS's recents).
+    com.yaz.dialer.ui.component.SwipeRow(
+        start = if (call.hidden) null else com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { callBack() },
+        end = com.yaz.dialer.ui.component.SwipeAction(AppIcons.Delete, "Delete", danger = true) { onDelete() },
+        modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth()
+    ) {
     Box(Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth().then(menu.tracker)) {
         val shape = RoundedCornerShape(22.dp)
         ZoneSurface(
@@ -326,12 +332,13 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
                         add(PillItem(AppIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, call.number) })
                     }
                     if (NumberActions.canBlock(context)) {
-                        add(PillItem(AppIcons.Block, "Block", PillMotion.WIGGLE) { confirmBlock = true })
+                        add(PillItem(AppIcons.Block, "Block", PillMotion.WIGGLE, danger = true) { confirmBlock = true })
                     }
                 }
-                add(PillItem(AppIcons.Delete, "Delete from history", PillMotion.DROP) { onDelete() })
+                add(PillItem(AppIcons.Delete, "Delete from history", PillMotion.DROP, danger = true) { onDelete() })
             }
         )
+    }
     }
 
     if (confirmBlock) {

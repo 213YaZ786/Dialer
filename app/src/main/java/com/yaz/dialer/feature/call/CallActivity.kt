@@ -6,6 +6,11 @@ import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.statusBars
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,20 +67,66 @@ class CallActivity : ComponentActivity() {
                 !keypad
             LaunchedEffect(nearEar) { holdProximity(nearEar) }
 
+            // Back during a call: the screen folds into the island's place at the top, then closes;
+            // the island takes it from there (it grew out of the island on the way in).
+            val fold = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            val folding = primary != null && (primary.phase == CallPhase.ACTIVE || primary.phase == CallPhase.DIALING || primary.phase == CallPhase.HOLDING)
+            androidx.activity.compose.BackHandler(folding && fold.value == 0f) {
+                scope.launch {
+                    fold.animateTo(1f, androidx.compose.animation.core.tween(340, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                    finish()
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+                    else @Suppress("DEPRECATION") overridePendingTransition(0, 0)
+                }
+            }
             DialerSurface {
-                CallScreen(
-                    state = state,
-                    keypadOpen = keypad,
-                    onKeypad = { keypad = it },
-                    onAddCall = {
-                        startActivity(
-                            Intent(this, MainActivity::class.java)
-                                .setAction(Intent.ACTION_DIAL)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                androidx.compose.foundation.layout.BoxWithConstraints(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val statusBars = androidx.compose.foundation.layout.WindowInsets.statusBars
+                    val top = statusBars.getTop(density) + with(density) { 12.dp.toPx() }
+                    val w = constraints.maxWidth.toFloat()
+                    val h = constraints.maxHeight.toFloat()
+                    // The island's size while a call goes on: two thirds of the width up to 300 dp, 60 dp tall.
+                    val pillW = minOf(w * 0.66f, with(density) { 300.dp.toPx() })
+                    val pillH = with(density) { 60.dp.toPx() }
+                    androidx.compose.foundation.layout.Box(
+                        androidx.compose.ui.Modifier.fillMaxSize().graphicsLayer {
+                            val t = fold.value
+                            if (t > 0f) {
+                                // One scale for both sides (nothing is squashed), down to the island's width;
+                                // the top and the bottom close in on the island's line meanwhile.
+                                val middle = top + pillH / 2f
+                                val sc = 1f + (pillW / w - 1f) * t
+                                val tall = h + (pillH / sc - h) * t
+                                val from = (middle - tall / 2f) * t
+                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, (middle / h).coerceIn(0f, 1f))
+                                scaleX = sc
+                                scaleY = sc
+                                shape = androidx.compose.foundation.shape.GenericShape { size, _ ->
+                                    val r = (tall / 2f) * t
+                                    addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, from, size.width, from + tall, androidx.compose.ui.geometry.CornerRadius(r, r)))
+                                }
+                                clip = true
+                                alpha = 1f - t * t * 0.7f
+                            }
+                        }
+                    ) {
+                        CallScreen(
+                            state = state,
+                            keypadOpen = keypad,
+                            onKeypad = { keypad = it },
+                            onAddCall = {
+                                startActivity(
+                                    Intent(this@CallActivity, MainActivity::class.java)
+                                        .setAction(Intent.ACTION_DIAL)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            },
+                            actions = calls
                         )
-                    },
-                    actions = calls
-                )
+                    }
+                }
             }
         }
     }

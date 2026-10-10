@@ -63,7 +63,8 @@ fun NetworkChip(protocol: Protocol, protection: Protection, modifier: Modifier =
         if (protection == Protection.OLD || protection == Protection.UNPROTECTED) add(protection.label)
     }.joinToString(" · ")
     ZoneSurface(shape = CircleShape, onClick = onClick, modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+        // 48 dp tall, the least for a tappable pill, as the call's time beside it.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
             Box(Modifier.size(8.dp).background(color, CircleShape))
             Spacer(Modifier.width(8.dp))
             AnimatedContent(targetState = words, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "network") { text ->

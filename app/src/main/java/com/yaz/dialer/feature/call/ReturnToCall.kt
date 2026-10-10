@@ -81,7 +81,7 @@ fun ReturnToCallPill(call: CallInfo) {
     val photo = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue, call.number) { com.yaz.dialer.data.contacts.PhoneIndex(contacts).find(com.yaz.dialer.core.dial.T9.clean(call.number))?.photo }
     androidx.compose.foundation.layout.BoxWithConstraints(contentAlignment = Alignment.Center) {
         var opened by remember(call.id) { mutableStateOf(false) }
-        CallIsland(state, call, photo, store, onOpenScreen = { openCallScreen(context) }, room = maxWidth, opened = opened, onOpened = { opened = it })
+        CallIsland(state, call, photo, store, onOpenScreen = { openCallScreen(context, it) }, room = maxWidth, opened = opened, onOpened = { opened = it })
     }
 }
 

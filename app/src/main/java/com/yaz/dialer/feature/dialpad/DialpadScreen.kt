@@ -217,7 +217,10 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 BannerAction(icon = AppIcons.ArrowBack, label = "Close", onClick = onClose)
-                Spacer(Modifier.weight(1f))
+                // A call going on (Add call): its island between Close and the network, never over them.
+                Box(Modifier.weight(1f).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                    com.yaz.dialer.feature.call.ReturnToCall()
+                }
                 // The network the call would go over, before it is placed.
                 val cell: CellWatch = koinInject()
                 val sims by cell.sims.collectAsState()

@@ -1,5 +1,8 @@
 package com.yaz.dialer.feature.call
 
+import com.yaz.dialer.ui.component.GlassWave
+import com.yaz.dialer.ui.component.drawGlassWave
+
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
@@ -89,6 +92,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.runtime.snapshotFlow
@@ -131,7 +135,7 @@ fun CallIsland(
     call: CallInfo,
     photo: String?,
     actions: CallStore,
-    onOpenScreen: () -> Unit,
+    onOpenScreen: (IslandSpot) -> Unit,
     room: Dp,
     opened: Boolean,
     onOpened: (Boolean) -> Unit,
@@ -269,6 +273,9 @@ fun CallIsland(
         }
     }
     var origin by remember { mutableStateOf(Offset.Zero) }
+    // Where the island is in its window: the call screen grows out of it.
+    val view = androidx.compose.ui.platform.LocalView.current
+    var spot by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     val density = androidx.compose.ui.platform.LocalDensity.current
     fun let(color: Color, kind: WaveKind, at: Offset) {
         wave = IslandWave(GlassWave(color, at - origin), kind)
@@ -300,7 +307,7 @@ fun CallIsland(
     Box(
         Modifier
             .size(width.value.dp, height.value.dp)
-            .onGloballyPositioned { origin = it.positionInRoot() }
+            .onGloballyPositioned { origin = it.positionInRoot(); spot = it.boundsInRoot() }
             .graphicsLayer {
                 alpha = shown.value
                 // Never past 1: over other apps, the window would cut it.
@@ -323,7 +330,7 @@ fun CallIsland(
                         press.animateTo(0.96f, tween(70))
                         press.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 900f))
                     }
-                    onOpenScreen()
+                    onOpenScreen(IslandSpot(view, spot))
                 },
                 onLongClick = {
                     if (shape != Shape.RING) {
@@ -364,7 +371,7 @@ fun CallIsland(
                         let(AnswerGreen, WaveKind.SETTLE, at)
                         actions.answer(call.id)
                         // A video call answered: its screen at once, where the camera starts and the other side is seen.
-                        if (call.video) onOpenScreen()
+                        if (call.video) onOpenScreen(IslandSpot(view, spot))
                     })
                     Shape.SMALL -> Small(call, photo, twoG)
                     Shape.OPEN -> Open(state, call, photo, actions, twoG, onWave = { color, kind, at ->
@@ -650,7 +657,13 @@ private fun clockOf(call: CallInfo): String {
     }
 }
 
-/** Back to the call's screen. */
-fun openCallScreen(context: Context) {
-    context.startActivity(Intent(context, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+/** The island's place in its window, the view drawing it. */
+class IslandSpot(val view: android.view.View, val bounds: androidx.compose.ui.geometry.Rect)
+
+/** Back to the call's screen; from the island, the screen grows out of it (Android's clip reveal). */
+fun openCallScreen(context: Context, from: IslandSpot? = null) {
+    val options = from?.takeIf { it.bounds.width > 0f }?.let {
+        android.app.ActivityOptions.makeClipRevealAnimation(it.view, it.bounds.left.toInt(), it.bounds.top.toInt(), it.bounds.width.toInt(), it.bounds.height.toInt()).toBundle()
+    }
+    context.startActivity(Intent(context, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options)
 }

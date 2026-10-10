@@ -193,7 +193,7 @@ class IslandWindow(
                     val photo = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue, call.number) { PhoneIndex(contacts).find(T9.clean(call.number))?.photo }
                     CallIsland(
                         state, call, photo, store,
-                        onOpenScreen = { openCallScreen(context) },
+                        onOpenScreen = { openCallScreen(context, it) },
                         room = LocalConfiguration.current.screenWidthDp.dp,
                         opened = open,
                         onOpened = { opened.value = it },

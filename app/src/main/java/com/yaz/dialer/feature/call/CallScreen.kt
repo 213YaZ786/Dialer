@@ -1,5 +1,10 @@
 package com.yaz.dialer.feature.call
 
+import com.yaz.dialer.ui.component.GlassWave
+import com.yaz.dialer.ui.component.drawGlassWave
+
+import androidx.compose.ui.draw.drawWithContent
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
@@ -53,6 +58,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -181,9 +188,17 @@ fun CallScreen(
         return@BoxWithConstraints
     }
     // A video call: the pictures behind the glass; otherwise the photo, blurred.
-    if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions)
-    else if (poster) PosterStage(entry!!)
-    else CallingCard(photo)
+    // With the keypad open the screen behind blurs and dims, as under the long press menu: the keys read over it.
+    val behind by animateFloatAsState(if (compact) 1f else 0f, tween(320), label = "behind")
+    Box(
+        Modifier.fillMaxSize()
+            .then(if (behind > 0f) Modifier.blur((28 * behind).dp) else Modifier)
+            .drawWithContent { drawContent(); drawRect(Color.Black.copy(alpha = 0.22f * behind)) }
+    ) {
+        if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions)
+        else if (poster) PosterStage(entry!!)
+        else CallingCard(photo)
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -194,20 +209,19 @@ fun CallScreen(
     ) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
-        StatusPill(call)
-        // The network the call goes over, red on 2G before anything is said.
-        if (call.encrypted && call.phase != CallPhase.ENDED) {
-            // Over the messaging app's encrypted line: the phone network has nothing to do with it.
-            Spacer(Modifier.height(10.dp))
-            EncryptedChip()
-        } else if (call.phase != CallPhase.ENDED && !compact) {
-            val protocol = callProtocol(call)
-            if (protocol != null) {
-                Spacer(Modifier.height(10.dp))
-                NetworkChip(protocol, CellProtection.protectionOf(protocol), hd = call.hd)
+        // The time and the network the call goes over side by side; the network red on 2G before anything is said.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            StatusPill(call)
+            if (call.encrypted && call.phase != CallPhase.ENDED) {
+                // Over the messaging app's encrypted line: the phone network has nothing to do with it.
+                EncryptedChip()
+            } else if (call.phase != CallPhase.ENDED && !compact) {
+                callProtocol(call)?.let { protocol ->
+                    NetworkChip(protocol, CellProtection.protectionOf(protocol), hd = call.hd)
+                }
             }
-            NetworkAlertBanner(call, protocol)
         }
+        if (!call.encrypted && call.phase != CallPhase.ENDED && !compact) NetworkAlertBanner(call, callProtocol(call))
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
         // A video call: the picture speaks for itself, the caller stays small,
         // on a pane of glass so it reads over any picture.
@@ -290,6 +304,8 @@ fun CallScreen(
         Spacer(Modifier.height(24.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
+    // Back closes the keypad, as its Hide does.
+    androidx.activity.compose.BackHandler(keypadOpen && call.phase != CallPhase.ENDED && call.phase != CallPhase.RINGING) { onKeypad(false) }
     wave?.let { w ->
         Canvas(Modifier.matchParentSize()) { drawGlassWave(w, waveProgress.value, waveAlpha.value) }
     }
@@ -317,7 +333,8 @@ private fun StatusPill(call: CallInfo) {
         shape = CircleShape,
         modifier = Modifier.graphicsLayer { alpha = if (call.phase == CallPhase.HOLDING) breath else 1f }
     ) {
-        Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).animateContentSize()) {
+        // 48 dp tall, as the network pill beside it (a tappable pill is never lower).
+        Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp).animateContentSize()) {
             if (call.phase == CallPhase.ACTIVE) {
                 RollingText(text, MaterialTheme.typography.titleMedium)
             } else {
@@ -619,7 +636,7 @@ private fun Ended(call: CallInfo) {
 @Composable
 private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: () -> Unit) {
     var typed by rememberSaveable { mutableStateOf("") }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             typed.ifEmpty { " " },
             style = MaterialTheme.typography.headlineSmall,
@@ -635,10 +652,11 @@ private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: 
             onRelease = { onTone(null) }
         )
         Spacer(Modifier.height(28.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-            Spacer(Modifier.size(80.dp))
-            BigButton(AppIcons.CallEnd, "Hang up", HangUpRed, onClick = onHangUp)
-            CallControl(AppIcons.Dialpad, "Hide", on = true, onClick = onHide)
+        // In the keys' own columns: Hang up under 0, Hide under #.
+        Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
+            Spacer(Modifier.width(72.dp))
+            Box(Modifier.width(72.dp).wrapContentWidth(unbounded = true)) { BigButton(AppIcons.CallEnd, "Hang up", HangUpRed, size = 72.dp, onClick = onHangUp) }
+            Box(Modifier.width(72.dp).wrapContentWidth(unbounded = true)) { CallControl(AppIcons.Dialpad, "Hide", on = true, onClick = onHide) }
         }
     }
 }
@@ -699,7 +717,8 @@ private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () 
 @Composable
 private fun EncryptedChip() {
     ZoneSurface(shape = androidx.compose.foundation.shape.CircleShape) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+        // As tall as the time beside it (48 dp).
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
             Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text("End-to-end encrypted", style = MaterialTheme.typography.labelLarge)
