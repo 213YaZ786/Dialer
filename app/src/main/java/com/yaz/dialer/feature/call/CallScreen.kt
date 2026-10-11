@@ -223,6 +223,8 @@ fun CallScreen(
         }
         if (!call.encrypted && call.phase != CallPhase.ENDED && !compact) NetworkAlertBanner(call, callProtocol(call))
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
+        // The round picture lower, a third of the free space above it; a poster keeps its name at the top.
+        if (!compact && !poster && !(call.video && call.phase == CallPhase.ACTIVE)) Spacer(Modifier.weight(0.5f))
         // A video call: the picture speaks for itself, the caller stays small,
         // on a pane of glass so it reads over any picture.
         if (call.video && call.phase == CallPhase.ACTIVE) {
@@ -301,7 +303,7 @@ fun CallScreen(
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(if (compact) 24.dp else 56.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
     // Back closes the keypad, as its Hide does.
