@@ -90,8 +90,8 @@ dependencies {
     implementation(libs.koin.compose)
     // Where a number is from and the time there, offline: Google's libphonenumber
     // and its geocoder (Apache-2.0), with their own data, no network.
-    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.40")
-    implementation("com.googlecode.libphonenumber:geocoder:3.40")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.41")
+    implementation("com.googlecode.libphonenumber:geocoder:3.41")
     // A video call's screen effects (the shared ScreenEffect): Google's Noto animated emoji.
     implementation("com.airbnb.android:lottie-compose:6.7.1")
 
