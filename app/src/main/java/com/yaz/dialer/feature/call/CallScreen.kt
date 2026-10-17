@@ -33,6 +33,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -261,7 +262,16 @@ fun CallScreen(
                     keypadOpen -> Panel.KEYPAD
                     else -> Panel.CONTROLS
                 },
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                // Fade through, never both at once: the old panel is gone (90 ms) before the new one shows,
+                // so the controls never sit as ghosts behind the keys; the size follows unclipped, so no
+                // half buttons and the glass keeps its shadow. Compose's AnimatedContent sample,
+                // https://developer.android.com/develop/ui/compose/animation/composables-modifiers#animatedcontent
+                // (fadeIn(tween(220, delayMillis = 90)) + scaleIn(0.92) togetherWith fadeOut(tween(90)), SizeTransform(clip = false)).
+                transitionSpec = {
+                    (fadeIn(tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
+                        .togetherWith(fadeOut(tween(90)))
+                        .using(androidx.compose.animation.SizeTransform(clip = false))
+                },
                 label = "call panel"
             ) { panel ->
                 when (panel) {
