@@ -20,6 +20,9 @@
         <!-- The Contacts app's private names (signature level). -->
         <provider android:authorities="com.yaz.contacts.private" />
         <provider android:authorities="com.yaz.contacts.debug.private" />
+        <!-- SMS, to check that the encrypted line of a call is really its own. -->
+        <package android:name="com.yaz.sms" />
+        <package android:name="com.yaz.sms.debug" />
     </queries>
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

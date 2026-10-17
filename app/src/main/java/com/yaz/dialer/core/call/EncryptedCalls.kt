@@ -5,6 +5,7 @@ import android.content.Context
 import android.provider.CallLog.Calls
 import android.telecom.Call
 import android.telecom.DisconnectCause
+import com.yaz.dialer.core.dial.Sisters
 
 /**
  * Calls over the messaging app's end-to-end encrypted line. Android keeps
@@ -13,12 +14,21 @@ import android.telecom.DisconnectCause
  */
 object EncryptedCalls {
 
-    fun isEncrypted(call: Call): Boolean =
+    /** A call of the line of our SMS, not of an app that only has a package name like it. */
+    fun isEncrypted(context: Context, call: Call): Boolean =
         call.details.hasProperty(Call.Details.PROPERTY_SELF_MANAGED) &&
-            LINE_PACKAGES.any { call.details.accountHandle?.componentName?.packageName?.startsWith(it) == true }
+            isLine(context, call.details.accountHandle?.componentName?.packageName)
 
-    /** The log's mark of a call that went over the encrypted line. */
-    fun isEncrypted(componentName: String?): Boolean = LINE_PACKAGES.any { componentName?.startsWith(it) == true }
+    /** The log's mark of a call that went over the encrypted line: SMS's package exactly, or its old one. */
+    fun isEncrypted(context: Context, componentName: String?): Boolean {
+        val pkg = componentName?.substringBefore('/') ?: return false
+        return pkg == OLD_PACKAGE || isLine(context, pkg)
+    }
+
+    // The package must be SMS's and signed as this app, as PackageManager.checkSignatures
+    // (https://developer.android.com/reference/android/content/pm/PackageManager#checkSignatures(java.lang.String,%20java.lang.String)),
+    // through the phone kit's Sisters.
+    private fun isLine(context: Context, pkg: String?): Boolean = pkg != null && pkg in Sisters.packages("sms") && Sisters.isOurs(context, pkg)
 
     /** The call, ended, into Android's call history; true when it was missed. */
     fun log(context: Context, call: Call): Boolean {
@@ -48,6 +58,6 @@ object EncryptedCalls {
         return type == Calls.MISSED_TYPE
     }
 
-    /** SMS, under its old package and its new one. */
-    private val LINE_PACKAGES = listOf("com.sms.app", "com.yaz.sms")
+    /** SMS before its move: calls it logged then keep their mark. */
+    private const val OLD_PACKAGE = "com.sms.app"
 }

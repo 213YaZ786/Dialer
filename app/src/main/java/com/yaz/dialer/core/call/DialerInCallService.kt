@@ -90,7 +90,7 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
     override fun onCallRemoved(call: Call) {
         store.remove(call)
         // An encrypted call is not in Android's history by itself: written in here.
-        if (EncryptedCalls.isEncrypted(call) && EncryptedCalls.log(this, call)) {
+        if (EncryptedCalls.isEncrypted(this, call) &&EncryptedCalls.log(this, call)) {
             MissedCallNotifier(this).show(1, call.details.handle?.schemeSpecificPart)
         }
     }

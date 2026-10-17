@@ -342,7 +342,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             outgoing = details.callDirection == Call.Details.DIRECTION_OUTGOING,
             wifi = details.hasProperty(Call.Details.PROPERTY_WIFI),
             hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
-            encrypted = EncryptedCalls.isEncrypted(call),
+            encrypted = EncryptedCalls.isEncrypted(context, call),
             video = android.telecom.VideoProfile.isVideo(details.videoState) && call.videoCall != null,
             subId = details.accountHandle?.let { handle ->
                 runCatching { context.getSystemService(android.telephony.TelephonyManager::class.java).getSubscriptionId(handle) }.getOrNull()

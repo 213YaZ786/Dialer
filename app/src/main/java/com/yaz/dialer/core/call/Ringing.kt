@@ -213,11 +213,18 @@ class BypassRinger(private val context: Context) {
         )?.use { c -> c.moveToFirst() && c.getInt(0) == 1 }
     }.getOrNull() == true
 
-    /** The ringtone chosen for this person in their contact, if any. */
+    /**
+     * The ringtone chosen for this person in their contact, if any. Any app with the contacts
+     * permission may write CUSTOM_RINGTONE, and this one plays at the alarm's volume: only a sound
+     * of the phone's media store or of an app's resources, as the look row's tone (YAZ contract),
+     * else the phone's own ringtone.
+     */
     private fun contactRingtone(number: String): android.net.Uri? = runCatching {
         context.contentResolver.query(
             android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number)),
             arrayOf(android.provider.ContactsContract.PhoneLookup.CUSTOM_RINGTONE), null, null, null
-        )?.use { c -> if (c.moveToFirst()) c.getString(0)?.let(android.net.Uri::parse) else null }
+        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            ?.takeIf { it.startsWith("content://media/") || it.startsWith("android.resource://") }
+            ?.let(android.net.Uri::parse)
     }.getOrNull()
 }

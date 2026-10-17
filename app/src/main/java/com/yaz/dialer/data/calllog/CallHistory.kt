@@ -119,7 +119,7 @@ class CallHistory(private val context: Context, private val scope: CoroutineScop
                             isNew = c.getInt(6) == 1,
                             location = c.getString(7)?.takeIf { it.isNotBlank() },
                             hidden = c.getInt(8) != Calls.PRESENTATION_ALLOWED || number.isBlank(),
-                            encrypted = com.yaz.dialer.core.call.EncryptedCalls.isEncrypted(c.getString(9))
+                            encrypted = com.yaz.dialer.core.call.EncryptedCalls.isEncrypted(context, c.getString(9))
                         )
                     )
                 }
