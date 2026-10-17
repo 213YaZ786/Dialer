@@ -254,7 +254,12 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
     val settings by store.settings.collectAsState()
     // Settings > Guide asks for the welcome pages again, then the show.
     LaunchedEffect(settings.welcomeSeen) { if (!settings.welcomeSeen) showWelcome = true }
-    if (!showWelcome && !BuildConfig.DEBUG) UpdatePrompt(settings.updates, BuildConfig.VERSION_NAME)
+    // The update installs when the user leaves the app, never during a call (any call in the store).
+    // Source: Updates.arm's busy check (update kit, ProcessLifecycleOwner).
+    val callStore: com.yaz.dialer.core.call.CallStore = koinInject()
+    if (!showWelcome && !BuildConfig.DEBUG) {
+        UpdatePrompt(settings.updates, BuildConfig.VERSION_NAME, busy = { callStore.state.value.calls.isNotEmpty() })
+    }
 
     LaunchedEffect(pager.settledPage) {
         val page = pager.settledPage

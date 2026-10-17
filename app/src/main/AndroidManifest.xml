@@ -26,6 +26,8 @@
     </queries>
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- An update goes in without a question when the user leaves the app. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- The incoming call and the call in progress are notifications; so is the note after an update. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- An incoming call fills the screen, even locked. Android 14 keeps it for calling and alarm apps. -->

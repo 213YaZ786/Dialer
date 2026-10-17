@@ -15,8 +15,8 @@ android {
         applicationId = "com.yaz.dialer"
         minSdk = 31
         targetSdk = 37
-        versionCode = 43
-        versionName = "0.14.18"
+        versionCode = 44
+        versionName = "0.14.19"
     }
 
     signingConfigs {
@@ -73,6 +73,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
