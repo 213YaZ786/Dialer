@@ -16,7 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,9 +86,9 @@ private fun NetworkDialog(protocol: Protocol, protection: Protection, onDismiss:
         icon = { Box(Modifier.size(14.dp).background(protectionColor(protection), CircleShape)) },
         title = { Text("${if (protocol == Protocol.WIFI) "Wi-Fi calling" else protocol.label}: ${protection.label}") },
         text = { Text(CellProtection.meaning(protection)) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        confirmButton = { BoldButton(filled = true, onClick = onDismiss) { Text("OK") } },
         dismissButton = {
-            TextButton(onClick = {
+            QuietButton(onClick = {
                 onDismiss()
                 for (action in listOf("android.settings.CELLULAR_NETWORK_SECURITY", Settings.ACTION_NETWORK_OPERATOR_SETTINGS)) {
                     if (runCatching { context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) break

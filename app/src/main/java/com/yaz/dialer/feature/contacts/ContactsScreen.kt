@@ -47,7 +47,7 @@ import com.yaz.dialer.core.dial.DialRequests
 import com.yaz.dialer.core.dial.NumberActions
 import com.yaz.dialer.core.dial.Numbers
 import com.yaz.dialer.ui.component.ZoneAlertDialog
-import androidx.compose.material3.TextButton
+import com.yaz.dialer.ui.component.QuietButton
 import com.yaz.dialer.core.dial.People
 import com.yaz.dialer.core.dial.Person
 import com.yaz.dialer.data.contacts.PhoneBook
@@ -277,6 +277,6 @@ fun NumberChooser(person: Person, onDismiss: () -> Unit, onPick: (String) -> Uni
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { QuietButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

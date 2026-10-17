@@ -26,7 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.yaz.dialer.ui.component.BoldButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -223,13 +223,13 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             title = { Text("Delete these calls?") },
             text = { Text("The ${calls.size} calls with ${contact?.name ?: shown} leave the call history.") },
             confirmButton = {
-                TextButton(onClick = {
+                BoldButton(filled = true, onClick = {
                     confirmDelete = false
                     history.delete(calls.map { it.id })
                     onBack()
                 }) { Text("Delete") }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
+            dismissButton = { QuietButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
         )
     }
 }

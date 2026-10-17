@@ -25,7 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.yaz.dialer.ui.component.BoldButton
+import com.yaz.dialer.ui.component.QuietButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -357,8 +358,8 @@ fun BlockDialog(who: String, onDismiss: () -> Unit, onBlock: () -> Unit) {
         icon = { Icon(AppIcons.Block, contentDescription = null) },
         title = { Text("Block $who?") },
         text = { Text("Calls and texts from this number will no longer reach you.") },
-        confirmButton = { TextButton(onClick = onBlock) { Text("Block") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { BoldButton(filled = true, onClick = onBlock) { Text("Block") } },
+        dismissButton = { QuietButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 

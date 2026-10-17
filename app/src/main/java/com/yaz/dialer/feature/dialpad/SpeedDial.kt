@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +29,7 @@ import com.yaz.dialer.core.dial.People
 import com.yaz.dialer.core.dial.Person
 import com.yaz.dialer.feature.contacts.StarGold
 import com.yaz.dialer.ui.component.ContactAvatar
+import com.yaz.dialer.ui.component.QuietButton
 import com.yaz.dialer.ui.component.SearchPill
 import com.yaz.dialer.ui.component.ZoneAlertDialog
 import com.yaz.dialer.ui.icon.AppIcons
@@ -73,6 +73,6 @@ fun SpeedDialDialog(digit: Int, people: List<Person>, onPick: (String) -> Unit, 
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { QuietButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

@@ -298,7 +298,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
         title = { androidx.compose.material3.Text("Keep your calls in sight") },
         text = { androidx.compose.material3.Text("During a call, a small island at the top of the screen shows its time and controls in every app. Android asks you to allow it once.") },
         confirmButton = {
-            androidx.compose.material3.TextButton(onClick = {
+            com.yaz.dialer.ui.component.BoldButton(filled = true, onClick = {
                 offerIsland = false
                 store.update { it.copy(islandOffered = true) }
                 runCatching {
@@ -309,7 +309,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
             }) { androidx.compose.material3.Text("Allow") }
         },
         dismissButton = {
-            androidx.compose.material3.TextButton(onClick = {
+            com.yaz.dialer.ui.component.QuietButton(onClick = {
                 offerIsland = false
                 store.update { it.copy(islandOffered = true) }
             }) { androidx.compose.material3.Text("Not now") }
