@@ -132,7 +132,15 @@ fun CallScreen(
     actions: CallStore
 ) {
     val call = state.primary ?: return
-    val compact = keypadOpen && call.phase != CallPhase.ENDED
+    val wantsCompact = keypadOpen && call.phase != CallPhase.ENDED
+    // The name grows back only once the keypad has faded out (the panel's fade through below: 90 ms out,
+    // then in), never while the keys still show. Compose's AnimatedContent timing,
+    // https://developer.android.com/develop/ui/compose/animation/composables-modifiers#animatedcontent
+    var compact by remember { mutableStateOf(wantsCompact) }
+    LaunchedEffect(wantsCompact) {
+        if (!wantsCompact && call.phase != CallPhase.ENDED) kotlinx.coroutines.delay(90)
+        compact = wantsCompact
+    }
     val haptics = rememberHaptics()
 
     // The contact's photo when the number is saved with one: on the
