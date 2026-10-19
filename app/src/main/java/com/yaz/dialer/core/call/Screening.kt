@@ -4,6 +4,7 @@ import android.telecom.Call
 import android.telecom.Connection
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
+import android.os.UserManager
 import com.yaz.dialer.core.dial.SalesCalls
 import com.yaz.dialer.core.dial.ContactLookup
 import com.yaz.dialer.core.system.AdvancedProtection
@@ -29,7 +30,13 @@ class Screening : CallScreeningService(), KoinComponent {
             respondToCall(details, allow)
             return
         }
-        val prefs = settings.current
+        // Telecom binds this service before the first unlock after a boot too (it is direct boot
+        // aware, as the LineageOS Dialer's call service is): the settings and the contacts live in
+        // storage that is still locked then, so only the copy of the four choices is read, and a
+        // number is never taken for an unknown one.
+        val unlocked = getSystemService(UserManager::class.java).isUserUnlocked
+        val prefs = if (unlocked) ScreeningPrefs.of(settings.current) else ScreeningPrefs.kept(this)
+        val allowedNumbers = if (unlocked) settings.current.salesAllowed else emptySet()
         val hidden = details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED ||
             details.handle?.schemeSpecificPart.isNullOrBlank()
         val verdict = ScreeningRules.verdict(
@@ -37,12 +44,13 @@ class Screening : CallScreeningService(), KoinComponent {
             spoofed = details.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED,
             blockSpoofed = prefs.blockSpoofed,
             blockHidden = prefs.blockHidden,
-            silenceUnknown = prefs.silenceUnknown,
+            silenceUnknown = prefs.silenceUnknown && unlocked,
             salesCall = prefs.blockSalesCalls && !hidden &&
-                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, SalesCalls.country(this, details.accountHandle)),
+                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, SalesCalls.country(this, details.accountHandle)) &&
+                !ScreeningRules.isAllowed(allowedNumbers, details.handle.schemeSpecificPart),
             strict = AdvancedProtection.isOn(this),
-            isContact = { ContactLookup.isContact(this, details.handle.schemeSpecificPart) },
-            calledAgain = { calledLately(details.handle.schemeSpecificPart) }
+            isContact = { unlocked && ContactLookup.isContact(this, details.handle.schemeSpecificPart) },
+            calledAgain = { unlocked && calledLately(details.handle.schemeSpecificPart) }
         )
         val response = when (verdict) {
             Verdict.REJECT -> CallResponse.Builder()
@@ -78,6 +86,31 @@ enum class Verdict { ALLOW, SILENCE, REJECT }
 object ScreeningRules {
     /** How soon a second call from an unknown number rings through. */
     const val AGAIN_MS = 3 * 60 * 1000L
+
+    /**
+     * Whether [number] is one the user said is not a sales call. Numbers are
+     * compared by their last nine digits, as [calledLately] does, so +33 2 70…
+     * and 02 70… are the same: Android's PhoneNumberUtils.compare, which the
+     * blocked list uses, reads the digits from the right too
+     * (https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/telephony/common/android/telephony/PhoneNumberUtils.java).
+     */
+    fun isAllowed(allowed: Set<String>, number: String): Boolean {
+        val key = com.yaz.dialer.core.dial.T9.clean(number).takeLast(9)
+        if (key.length < 6) return false
+        return allowed.any { com.yaz.dialer.core.dial.T9.clean(it).takeLast(9) == key }
+    }
+
+    /**
+     * The allowed numbers with [number] added or taken out, a number written
+     * another way replacing the one kept (same comparison as [isAllowed],
+     * https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/telephony/common/android/telephony/PhoneNumberUtils.java).
+     */
+    fun withAllowed(allowed: Set<String>, number: String, allow: Boolean): Set<String> {
+        val key = com.yaz.dialer.core.dial.T9.clean(number).takeLast(9)
+        if (key.length < 6) return allowed
+        val others = allowed.filterNot { com.yaz.dialer.core.dial.T9.clean(it).takeLast(9) == key }.toSet()
+        return if (allow) others + number else others
+    }
 
     /**
      * A faked number, then a hidden one, are turned away when the user

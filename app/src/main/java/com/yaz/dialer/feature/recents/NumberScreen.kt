@@ -39,7 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.yaz.dialer.core.call.Dialing
+import com.yaz.dialer.core.call.ScreeningRules
 import com.yaz.dialer.core.calllog.CallGrouping
 import com.yaz.dialer.core.calllog.Rhythms
 import com.yaz.dialer.core.dial.DialRequests
@@ -123,6 +126,28 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                     }
                 }
 
+                // A number the sales call block turned away: one touch says it is not one (and back).
+                val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
+                val settings by settingsStore.settings.collectAsState()
+                val allowed = !hidden && ScreeningRules.isAllowed(settings.salesAllowed, number)
+                if (!hidden && (allowed || calls.any { blockedWhy(context, it) == "sales call" })) {
+                    Spacer(Modifier.height(10.dp))
+                    ZoneSurface(
+                        shape = CircleShape,
+                        accent = allowed,
+                        onClick = {
+                            haptics.firm()
+                            settingsStore.update { it.copy(salesAllowed = ScreeningRules.withAllowed(it.salesAllowed, number, !allowed)) }
+                        }
+                    ) {
+                        Text(
+                            "Not a sales call",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).semantics { stateDescription = if (allowed) "On" else "Off" }
+                        )
+                    }
+                }
+
                 if (!hidden) {
                     Spacer(Modifier.height(28.dp))
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -181,7 +206,10 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                                     KindBadge(call.kind, size = 32.dp)
                                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                                        Text(kindLabel(call.kind), style = MaterialTheme.typography.bodyLarge)
+                                        Text(
+                                            kindLabel(call.kind) + (blockedWhy(context, call)?.let { " · $it" }.orEmpty()),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
                                         if (call.duration > 0) {
                                             Text(durationLabel(call.duration), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }

@@ -1,6 +1,7 @@
 package com.yaz.dialer.data.settings
 
 import android.content.Context
+import com.yaz.dialer.core.call.ScreeningPrefs
 import com.yaz.dialer.core.common.writeTextAtomically
 import com.yaz.dialer.core.update.UpdateMode
 import java.io.File
@@ -60,10 +61,10 @@ data class Settings(
     val dialpadY: Float = -1f,
     /** The little show of the dialpad button moving was seen. */
     val dialpadHintSeen: Boolean = false,
-    /** The call island over the other apps was offered once, after a first call. */
-    val islandOffered: Boolean = false,
     /** Calls from the ranges kept for sales calls are turned away. */
     val blockSalesCalls: Boolean = false,
+    /** Numbers the user said are not sales calls: they ring, whatever the range. Never in Android's blocked list. */
+    val salesAllowed: Set<String> = emptySet(),
     /** Held keys 2 to 9 of the dialpad call these numbers. */
     val speedDial: Map<Int, String> = emptyMap()
 )
@@ -72,13 +73,18 @@ data class Settings(
  * Small preference file, plain JSON written atomically, like the other apps.
  * Nothing here is a secret, and none of it leaves the device.
  */
-class SettingsStore(context: Context) {
+class SettingsStore(private val context: Context) {
 
     private val file = File(context.filesDir, "settings.json")
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
     private val _settings = MutableStateFlow(load())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
+
+    // The screening choices are copied where a call before the first unlock can read them.
+    init {
+        ScreeningPrefs.keep(context, ScreeningPrefs.of(_settings.value))
+    }
 
     val current: Settings get() = _settings.value
 
@@ -92,5 +98,6 @@ class SettingsStore(context: Context) {
         val updated = transform(_settings.value)
         _settings.value = updated
         runCatching { file.writeTextAtomically(json.encodeToString(updated)) }
+        ScreeningPrefs.keep(context, ScreeningPrefs.of(updated))
     }
 }

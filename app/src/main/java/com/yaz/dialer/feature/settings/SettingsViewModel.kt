@@ -22,6 +22,9 @@ class SettingsViewModel(private val store: SettingsStore) : ViewModel() {
     fun setHideInRecents(on: Boolean) = store.update { it.copy(hideInRecents = on) }
     fun setBlockHidden(on: Boolean) = store.update { it.copy(blockHidden = on) }
     fun setBlockSalesCalls(on: Boolean) = store.update { it.copy(blockSalesCalls = on) }
+    // A setter like the others (https://developer.android.com/topic/libraries/architecture/viewmodel).
+    fun removeSalesAllowed(number: String) =
+        store.update { it.copy(salesAllowed = com.yaz.dialer.core.call.ScreeningRules.withAllowed(it.salesAllowed, number, false)) }
     fun setFlipToSilence(on: Boolean) = store.update { it.copy(flipToSilence = on) }
     fun setAnnounce(mode: AnnounceMode) = store.update { it.copy(announce = mode) }
     fun setVibrateOnAnswer(on: Boolean) = store.update { it.copy(vibrateOnAnswer = on) }

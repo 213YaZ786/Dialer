@@ -57,16 +57,11 @@ fun ReturnToCall(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * The call going on, taken or dialling, or null; null too when the island
- * floats over every app (the user allowed it), so it is not shown twice.
- */
+/** The call going on, taken or dialling, or null. */
 @Composable
 fun ongoingCall(): CallInfo? {
     val store: CallStore = koinInject()
     val state by store.state.collectAsState()
-    val context = LocalContext.current
-    if (android.provider.Settings.canDrawOverlays(context)) return null
     return state.primary?.takeIf { it.phase != CallPhase.ENDED && it.phase != CallPhase.RINGING }
 }
 

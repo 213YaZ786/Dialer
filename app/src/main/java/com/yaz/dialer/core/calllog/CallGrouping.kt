@@ -27,7 +27,11 @@ data class CallEntry(
     /** Hidden, payphone or unknown: no number to call back. */
     val hidden: Boolean,
     /** Over the messaging app's end-to-end encrypted line. */
-    val encrypted: Boolean = false
+    val encrypted: Boolean = false,
+    /** For a blocked call: why Android's call log says it was (CallLog.Calls.BLOCK_REASON_*), 0 when not blocked. */
+    val blockReason: Int = 0,
+    /** For a call a screening app turned away: its package (CALL_SCREENING_COMPONENT_NAME), else null. */
+    val screenedBy: String? = null
 ) {
     /** The digits, to compare numbers written differently. */
     val key: String get() = if (hidden) "hidden" else T9.clean(number)

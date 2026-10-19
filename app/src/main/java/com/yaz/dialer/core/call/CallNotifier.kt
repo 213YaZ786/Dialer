@@ -71,17 +71,10 @@ class CallNotifier(private val context: Context) {
             Notification.Builder(context, CHANNEL_ONGOING)
                 .setSmallIcon(R.drawable.ic_stat_dialer)
                 .setCategory(Notification.CATEGORY_CALL)
-                .apply {
-                    // With the call island over the other apps, a plain notice:
-                    // Android's call style would add its own chip to the status
-                    // bar, the same call shown twice.
-                    if (android.provider.Settings.canDrawOverlays(context)) {
-                        setContentTitle(call.title)
-                        addAction(Notification.Action.Builder(null, "Hang up", action(ACTION_HANG_UP, call.id)).build())
-                    } else {
-                        setStyle(Notification.CallStyle.forOngoingCall(person, action(ACTION_HANG_UP, call.id)))
-                    }
-                }
+                // Android's call style: the system shows the call as its own chip in the
+                // status bar, with the timer, and a tap brings the call screen back
+                // (https://developer.android.com/develop/ui/views/notifications/call-style).
+                .setStyle(Notification.CallStyle.forOngoingCall(person, action(ACTION_HANG_UP, call.id)))
                 .setContentText(statusOf(call))
                 .apply {
                     if (call.connectedAt > 0) setWhen(call.connectedAt).setUsesChronometer(true).setShowWhen(true)

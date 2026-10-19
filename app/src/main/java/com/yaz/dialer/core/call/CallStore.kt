@@ -128,11 +128,6 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     val screenShown: StateFlow<Boolean> = _screenShown.asStateFlow()
     fun screenShown(shown: Boolean) { _screenShown.value = shown }
 
-    /** The island over the other apps holds a ringing call: no banner on top of it. */
-    private val _islandShown = MutableStateFlow(false)
-    val islandShown: StateFlow<Boolean> = _islandShown.asStateFlow()
-    fun islandShown(shown: Boolean) { _islandShown.value = shown }
-
     private val _state = MutableStateFlow(CallsState())
     val state: StateFlow<CallsState> = _state.asStateFlow()
 

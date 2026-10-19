@@ -43,7 +43,6 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
     private var announcedId = -1
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var notifier: CallNotifier
-    private lateinit var island: IslandWindow
     private var watching: Job? = null
     private var foreground = false
 
@@ -52,17 +51,15 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
     override fun onCreate() {
         super.onCreate()
         notifier = CallNotifier(this)
-        island = IslandWindow(this, store, get(), settings)
         store.controls = this
         flip = FlipToSilence(this) { store.silence() }
         announcer = CallerAnnouncer(this)
         bypass = BypassRinger(this)
-        // The call screen, or the island ringing over another app, take the banner's place.
+        // The call screen takes the banner's place.
         watching = scope.launch {
-            combine(store.state, store.screenShown, store.islandShown) { state, shown, island -> state to (shown || island || this@DialerInCallService.island.covers()) }
+            combine(store.state, store.screenShown) { state, shown -> state to shown }
                 .collect { (state, shown) -> show(state, shown) }
         }
-        island.start(scope)
         scope.launch {
             combine(store.state, store.silenced) { state, silenced -> state to silenced }
                 .collect { (state, silenced) -> ringing(state, silenced) }
@@ -70,7 +67,6 @@ class DialerInCallService : InCallService(), KoinComponent, CallStore.Controls {
     }
 
     override fun onDestroy() {
-        island.stop()
         flip.stop()
         announcer.release()
         bypass.stop()

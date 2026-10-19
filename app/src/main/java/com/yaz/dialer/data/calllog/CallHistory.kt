@@ -91,9 +91,13 @@ class CallHistory(private val context: Context, private val scope: CoroutineScop
     }
 
     private fun load(): List<CallEntry> = runCatching {
+        // BLOCK_REASON and CALL_SCREENING_COMPONENT_NAME are written by Telecom for a call it turned
+        // away (AOSP Telecom CallScreeningServiceFilter.disallowCall and CallLogManager), as the
+        // LineageOS Dialer reads them for a blocked call.
         val columns = arrayOf(
             Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION,
-            Calls.NEW, Calls.GEOCODED_LOCATION, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_COMPONENT_NAME
+            Calls.NEW, Calls.GEOCODED_LOCATION, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_COMPONENT_NAME,
+            Calls.BLOCK_REASON, Calls.CALL_SCREENING_COMPONENT_NAME
         )
         val uri = Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, LIMIT.toString()).build()
         context.contentResolver.query(uri, columns, null, null, "${Calls.DATE} DESC")?.use { c ->
@@ -119,7 +123,9 @@ class CallHistory(private val context: Context, private val scope: CoroutineScop
                             isNew = c.getInt(6) == 1,
                             location = c.getString(7)?.takeIf { it.isNotBlank() },
                             hidden = c.getInt(8) != Calls.PRESENTATION_ALLOWED || number.isBlank(),
-                            encrypted = com.yaz.dialer.core.call.EncryptedCalls.isEncrypted(context, c.getString(9))
+                            encrypted = com.yaz.dialer.core.call.EncryptedCalls.isEncrypted(context, c.getString(9)),
+                            blockReason = if (kind == CallKind.BLOCKED) c.getInt(10) else 0,
+                            screenedBy = android.content.ComponentName.unflattenFromString(c.getString(11).orEmpty())?.packageName
                         )
                     )
                 }

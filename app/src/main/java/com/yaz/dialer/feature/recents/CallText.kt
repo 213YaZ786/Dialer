@@ -1,7 +1,10 @@
 package com.yaz.dialer.feature.recents
 
 import android.content.Context
+import android.provider.CallLog
 import android.text.format.DateFormat
+import com.yaz.dialer.core.calllog.CallEntry
+import com.yaz.dialer.core.dial.SalesCalls
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -60,6 +63,43 @@ fun kindWord(kind: CallKind): String = when (kind) {
     CallKind.REJECTED -> "Declined"
     CallKind.BLOCKED -> "Blocked"
     CallKind.VOICEMAIL -> "Voicemail"
+}
+
+/**
+ * Why a blocked call was blocked, in two or three words after "Blocked".
+ * The call log keeps one system reason (CallLog.Calls.BLOCK_REASON_*,
+ * https://developer.android.com/reference/android/provider/CallLog.Calls#BLOCK_REASON_CALL_SCREENING_SERVICE),
+ * and for a screening app only that it was one, so what this app turned
+ * away is told from the number: hidden, in a sales range, else faked.
+ */
+fun blockedWhy(reason: Int, ours: Boolean, hidden: Boolean, salesRange: Boolean, otherApp: String? = null): String? = when (reason) {
+    CallLog.Calls.BLOCK_REASON_CALL_SCREENING_SERVICE -> when {
+        !ours -> otherApp?.let { "by $it" } ?: "screening app"
+        hidden -> "hidden number"
+        salesRange -> "sales call"
+        else -> "faked number"
+    }
+    CallLog.Calls.BLOCK_REASON_BLOCKED_NUMBER -> "blocked number"
+    CallLog.Calls.BLOCK_REASON_UNKNOWN_NUMBER -> "unknown number"
+    CallLog.Calls.BLOCK_REASON_RESTRICTED_NUMBER -> "hidden number"
+    CallLog.Calls.BLOCK_REASON_PAY_PHONE -> "payphone"
+    CallLog.Calls.BLOCK_REASON_NOT_IN_CONTACTS -> "not in contacts"
+    else -> null
+}
+
+/** [blockedWhy] for a line of the log. */
+fun blockedWhy(context: Context, call: CallEntry): String? {
+    if (call.kind != CallKind.BLOCKED) return null
+    val ours = call.screenedBy == context.packageName
+    val other = if (ours || call.screenedBy == null) null else runCatching {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(call.screenedBy, 0)).toString()
+    }.getOrNull()
+    return blockedWhy(
+        call.blockReason, ours, call.hidden,
+        salesRange = !call.hidden && SalesCalls.isSalesCall(call.number, SalesCalls.country(context)),
+        otherApp = other
+    )
 }
 
 /**

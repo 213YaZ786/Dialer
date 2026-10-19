@@ -70,7 +70,7 @@ import com.yaz.dialer.ui.theme.TEXT_SCALES
 import com.yaz.dialer.ui.theme.textScaleLabel
 import org.koin.androidx.compose.koinViewModel
 
-private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE }
+private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, NOT_SALES }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewModel()) {
@@ -94,21 +94,6 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             Spacer(Modifier.height(padding.calculateTopPadding()))
 
             Section("Calls") {
-                // Android's own switch for drawing over other apps, asked from here.
-                val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-                val resumed by lifecycle.currentStateFlow.collectAsState()
-                val island = remember(resumed) { android.provider.Settings.canDrawOverlays(context) }
-                SettingRow(
-                    title = "Call island over other apps",
-                    summary = if (island) "On: the call stays at the top of the screen in every app." else "Off: the call shows at the top in this app only.",
-                    onClick = {
-                        runCatching {
-                            context.startActivity(
-                                android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + context.packageName))
-                            )
-                        }
-                    }
-                )
                 SwitchRow(
                     title = "Silence unknown callers",
                     summary = "Numbers not in your contacts ring without sound.",
@@ -140,6 +125,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                         summary = "Numbers reserved for cold calls are rejected, unless saved in your contacts.",
                         checked = settings.blockSalesCalls,
                         onChange = viewModel::setBlockSalesCalls
+                    )
+                }
+                // Numbers said to be no sales call (from Recents): kept here, never in Android's blocked list.
+                if (settings.salesAllowed.isNotEmpty()) {
+                    SettingRow(
+                        title = "Not sales calls",
+                        summary = "${settings.salesAllowed.size} number" + (if (settings.salesAllowed.size > 1) "s" else "") + " always ring.",
+                        onClick = { dialog = OpenDialog.NOT_SALES }
                     )
                 }
                 SwitchRow(
@@ -315,6 +308,24 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             selected = settings.announce,
             onSelect = viewModel::setAnnounce,
             onDismiss = { dialog = OpenDialog.NONE }
+        )
+        OpenDialog.NOT_SALES -> ZoneAlertDialog(
+            onDismissRequest = { dialog = OpenDialog.NONE },
+            title = { Text("Not sales calls") },
+            text = {
+                Column {
+                    settings.salesAllowed.sorted().forEach { number ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Text(com.yaz.dialer.core.dial.Numbers.format(context, number), modifier = Modifier.weight(1f))
+                            QuietButton(onClick = {
+                                viewModel.removeSalesAllowed(number)
+                                if (settings.salesAllowed.size <= 1) dialog = OpenDialog.NONE
+                            }) { Text("Remove") }
+                        }
+                    }
+                }
+            },
+            confirmButton = { QuietButton(onClick = { dialog = OpenDialog.NONE }) { Text("Done") } }
         )
         OpenDialog.NONE -> Unit
     }

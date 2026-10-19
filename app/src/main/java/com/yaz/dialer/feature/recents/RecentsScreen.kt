@@ -116,6 +116,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
     // Who still waits for a call back, above all calls when nothing filters
     // them: each card once, kept as seen when the tab is left, back with a new missed call.
     val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
+    val settings by settingsStore.settings.collectAsState()
     var seenAtOpen by remember { mutableStateOf(settingsStore.current.callBackSeen) }
     val waiting = remember(entries, missedOnly, query, seenAtOpen) {
         if (missedOnly || query.isNotBlank()) emptyList() else CallBacks.toShow(entries, System.currentTimeMillis(), seenAtOpen)
@@ -198,9 +199,12 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                                 )
                             }
                             items(section.groups, key = { "call/${it.first.id}" }) { group ->
-                                CallLine(group, index, onOpen = { onOpenNumber(group.first.number) }, onDelete = {
-                                    history.delete(group.calls.map { it.id })
-                                })
+                                CallLine(
+                                    group, index, salesAllowed = settings.salesAllowed,
+                                    onOpen = { onOpenNumber(group.first.number) },
+                                    onDelete = { history.delete(group.calls.map { it.id }) },
+                                    onNotSales = { number, allow -> settingsStore.update { it.copy(salesAllowed = com.yaz.dialer.core.call.ScreeningRules.withAllowed(it.salesAllowed, number, allow)) } }
+                                )
                             }
                         }
                     }
@@ -237,11 +241,18 @@ private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: Str
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, onDelete: () -> Unit) {
+private fun CallLine(
+    group: CallGroup, index: PhoneIndex, salesAllowed: Set<String>,
+    onOpen: () -> Unit, onDelete: () -> Unit, onNotSales: (String, Boolean) -> Unit
+) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val dial: DialRequests = koinInject()
     val call = group.first
+    // For a blocked call, why: "Blocked · sales call". A sales call can be allowed from here.
+    val why = remember(call.id, call.blockReason) { blockedWhy(context, call) }
+    val isSales = why == "sales call"
+    val allowedNow = isSales && com.yaz.dialer.core.call.ScreeningRules.isAllowed(salesAllowed, call.number)
     val contact = if (call.hidden) null else index.find(call.key)
     val name = contact?.name ?: call.cachedName
     val shown = if (call.hidden) "Private number" else Numbers.format(context, call.number)
@@ -256,7 +267,12 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
 
     // Swiped right it calls back, left it leaves the history (Samsung's and iOS's recents).
     com.yaz.dialer.ui.component.SwipeRow(
-        start = if (call.hidden) null else com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { callBack() },
+        // A sales call turned away: swiped right it is allowed (Not a sales call); the line stays, marked.
+        start = when {
+            isSales && !allowedNow -> com.yaz.dialer.ui.component.SwipeAction(AppIcons.CheckCircle, "Not a sales call", removes = false) { onNotSales(call.number, true) }
+            call.hidden -> null
+            else -> com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { callBack() }
+        },
         end = com.yaz.dialer.ui.component.SwipeAction(AppIcons.Delete, "Delete", danger = true) { onDelete() },
         modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth()
     ) {
@@ -298,7 +314,8 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // The kind in its colour, then the rest quieter.
                         Text(
-                            kindWord(call.kind) + if (group.count > 1) " ×${group.count}" else "",
+                            kindWord(call.kind) + (why?.let { " · $it" }.orEmpty()) + (if (allowedNow) " (allowed)" else "") +
+                                if (group.count > 1) " ×${group.count}" else "",
                             style = MaterialTheme.typography.bodyMedium,
                             color = kindTint(call.kind),
                             maxLines = 1
@@ -325,6 +342,15 @@ private fun CallLine(group: CallGroup, index: PhoneIndex, onOpen: () -> Unit, on
         PillMenu(
             menu,
             buildList {
+                if (isSales) {
+                    // A number in a sales range that is not one: it rings from now on (saved in Settings, not in Android's blocked list).
+                    add(
+                        PillItem(AppIcons.Call, if (allowedNow) "Sales call again" else "Not a sales call", PillMotion.BOUNCE) {
+                            haptics.firm()
+                            onNotSales(call.number, !allowedNow)
+                        }
+                    )
+                }
                 if (!call.hidden) {
                     add(PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { callBack() })
                     add(PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, call.number) })

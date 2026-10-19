@@ -5,8 +5,6 @@
     <!-- The camera of an encrypted video call: Android lets only the phone app
          showing the call pick it; asked at the first video call. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- The call island over the other apps, when the user allows it in Android's settings. -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- What the Contacts app may ask about the calls (keep in touch), and the private names it keeps: apps signed with the same key only. -->
@@ -163,9 +161,13 @@
         </receiver>
 
         <!-- Looks at incoming calls before they ring: hidden numbers and
-             unknown callers, as the user chose. Bound by Telecom only. -->
+             unknown callers, as the user chose. Bound by Telecom only. Direct boot
+             aware: before the first unlock Telecom's lookup (queryIntentServicesAsUser,
+             flags 0) lists only these, or finds no screening service and lets the call
+             through. See LineageOS Dialer's manifest, whose call service is too. -->
         <service
             android:name=".core.call.Screening"
+            android:directBootAware="true"
             android:exported="true"
             android:permission="android.permission.BIND_SCREENING_SERVICE">
             <intent-filter>
