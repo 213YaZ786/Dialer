@@ -3,6 +3,15 @@ package com.yaz.dialer.feature.recents
 import com.yaz.dialer.ui.component.FloatingAction
 import com.yaz.dialer.ui.component.FloatingFrame
 import com.yaz.dialer.ui.component.FloatingTop
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.onLongClick
+import com.yaz.dialer.ui.component.PillItem
+import com.yaz.dialer.ui.component.PillMenu
+import com.yaz.dialer.ui.component.PillMotion
+import com.yaz.dialer.ui.component.rememberPillMenu
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,7 +88,10 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
     val book: PhoneBook = koinInject()
     val dial: DialRequests = koinInject()
     LaunchedEffect(Unit) { history.refresh() }
-    val entries by history.entries.collectAsState()
+    val everyCall by history.entries.collectAsState()
+    // One call deleted waits a few seconds for "Undo" before the log is touched (UndoDelete).
+    val undo = rememberUndoDelete(history)
+    val entries = remember(everyCall, undo.hidden) { if (undo.hidden.isEmpty()) everyCall else everyCall.filter { it.id !in undo.hidden } }
     val contacts by book.entries.collectAsState()
     val key = remember(number) { T9.clean(number) }
     val hidden = key.isEmpty()
@@ -100,7 +112,8 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
 
     FloatingFrame(
         bottom = 0.dp,
-        top = { FloatingTop(null, leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) }
+        top = { FloatingTop(null, leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) },
+        overlay = { UndoBar(undo, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp) }
     ) { padding ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             // The person's light behind the top of the page, under the glass.
@@ -218,24 +231,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                         Column(Modifier.padding(vertical = 6.dp)) {
                             calls.forEachIndexed { i, call ->
                                 if (i > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                                    KindBadge(call.kind, size = 32.dp)
-                                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                                        Text(
-                                            kindLabel(call.kind) + (blockedWhy(context, call, prefixes)?.let { " · $it" }.orEmpty()),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                        if (call.duration > 0) {
-                                            Text(durationLabel(call.duration), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                    val day = Instant.ofEpochMilli(call.date).atZone(ZoneId.systemDefault()).toLocalDate()
-                                    Text(
-                                        "${dayLabel(day)}, ${timeLabel(context, call.date)}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                HistoryRow(call, blockedWhy(context, call, prefixes)) { undo.delete(listOf(call.id)) }
                             }
                         }
                     }
@@ -287,5 +283,50 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             },
             dismissButton = { QuietButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
         )
+    }
+}
+
+/**
+ * One call of a number's history. Swiped left or held, it can be deleted (the bar then offers Undo).
+ * Source: Recents' CallLine in RecentsScreen.kt (SwipeRow end action, PillMenu with its tracker); the long
+ * press through detectTapGestures and a long-click semantic, as Compose's tap-and-press docs show
+ * (https://developer.android.com/develop/ui/compose/touch-input/pointer-input/tap-and-press).
+ */
+@Composable
+private fun HistoryRow(call: com.yaz.dialer.core.calllog.CallEntry, why: String?, onDelete: () -> Unit) {
+    val context = LocalContext.current
+    val menu = rememberPillMenu()
+    com.yaz.dialer.ui.component.SwipeRow(
+        start = null,
+        end = com.yaz.dialer.ui.component.SwipeAction(AppIcons.Delete, "Delete", danger = true) { onDelete() },
+        modifier = Modifier.fillMaxWidth().clipToBounds()
+    ) {
+        Box(Modifier.fillMaxWidth().then(menu.tracker)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .semantics { onLongClick("More") { menu.open(); true } }
+                    .pointerInput(Unit) { detectTapGestures(onLongPress = { menu.open() }) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                KindBadge(call.kind, size = 32.dp)
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text(
+                        kindLabel(call.kind) + (why?.let { " · $it" }.orEmpty()),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (call.duration > 0) {
+                        Text(durationLabel(call.duration), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                val day = Instant.ofEpochMilli(call.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                Text(
+                    "${dayLabel(day)}, ${timeLabel(context, call.date)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            PillMenu(menu, listOf(PillItem(AppIcons.Delete, "Delete from history", PillMotion.DROP, danger = true) { onDelete() }))
+        }
     }
 }

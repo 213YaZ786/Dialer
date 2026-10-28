@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.yaz.dialer.BuildConfig
 import com.yaz.dialer.core.update.UpdateMode
 import com.yaz.dialer.core.update.Updates
+import com.yaz.dialer.data.settings.SwipeChoice
 import com.yaz.dialer.data.settings.ThemeMode
 import com.yaz.dialer.navigation.LocalReadableInset
 import com.yaz.dialer.ui.component.ZoneAlertDialog
@@ -74,7 +75,7 @@ import com.yaz.dialer.ui.theme.TEXT_SCALES
 import com.yaz.dialer.ui.theme.textScaleLabel
 import org.koin.androidx.compose.koinViewModel
 
-private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, NOT_SALES, PREFIXES, ADD_PREFIX }
+private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, SWIPE_RIGHT, SWIPE_LEFT, NOT_SALES, PREFIXES, ADD_PREFIX }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewModel()) {
@@ -178,6 +179,21 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                     title = "Blocked numbers",
                     summary = "The list Android keeps for every app",
                     onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
+                )
+            }
+
+            Section("Recents") {
+                // Each side of a call in Recents is chosen, as One UI's Phone settings do (swipe right, swipe left);
+                // same rows and ChoiceDialog as Theme and Updates above.
+                SettingRow(
+                    title = "Swipe right",
+                    summary = settings.swipeRight.label,
+                    onClick = { dialog = OpenDialog.SWIPE_RIGHT }
+                )
+                SettingRow(
+                    title = "Swipe left",
+                    summary = settings.swipeLeft.label,
+                    onClick = { dialog = OpenDialog.SWIPE_LEFT }
                 )
             }
 
@@ -329,6 +345,20 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             options = AnnounceMode.entries.map { it to announceLabel(it) },
             selected = settings.announce,
             onSelect = viewModel::setAnnounce,
+            onDismiss = { dialog = OpenDialog.NONE }
+        )
+        OpenDialog.SWIPE_RIGHT -> ChoiceDialog(
+            title = "Swipe right",
+            options = SwipeChoice.entries.map { it to it.label },
+            selected = settings.swipeRight,
+            onSelect = viewModel::setSwipeRight,
+            onDismiss = { dialog = OpenDialog.NONE }
+        )
+        OpenDialog.SWIPE_LEFT -> ChoiceDialog(
+            title = "Swipe left",
+            options = SwipeChoice.entries.map { it to it.label },
+            selected = settings.swipeLeft,
+            onSelect = viewModel::setSwipeLeft,
             onDismiss = { dialog = OpenDialog.NONE }
         )
         OpenDialog.NOT_SALES -> ZoneAlertDialog(

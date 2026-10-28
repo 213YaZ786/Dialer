@@ -338,7 +338,14 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                 beyondViewportPageCount = tabs.size - 1,
                 // With the side dock a sideways swipe would only fight
                 // horizontal gestures in the wide content.
-                userScrollEnabled = !side,
+                // While Recents is settled in front and its rows swipe, a sideways drag belongs to the rows:
+                // the pager does not move, so a swipe between tabs cannot call or delete a call (tabs change
+                // with the dock there). A drag starting on another tab still moves the pager into Recents.
+                // Source: Pager's userScrollEnabled, https://developer.android.com/develop/ui/compose/layouts/pager
+                userScrollEnabled = !side && !(
+                    pager.settledPage == tabs.indexOf(TopDestination.RECENTS) &&
+                        (settings.swipeLeft != com.yaz.dialer.data.settings.SwipeChoice.NONE || settings.swipeRight != com.yaz.dialer.data.settings.SwipeChoice.NONE)
+                    ),
                 modifier = modifier.graphicsLayer {
                     val shrink = 1f - 0.08f * backProgress
                     scaleX = shrink

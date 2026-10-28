@@ -91,7 +91,10 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
             if (book.canRead()) book.refresh()
         }
     }
-    val entries by history.entries.collectAsState()
+    val everyCall by history.entries.collectAsState()
+    // A deleted call waits a few seconds for "Undo" before the log is touched: it is out of the list meanwhile.
+    val undo = rememberUndoDelete(history)
+    val entries = remember(everyCall, undo.hidden) { if (undo.hidden.isEmpty()) everyCall else everyCall.filter { it.id !in undo.hidden } }
     val loaded by history.loaded.collectAsState()
     val contacts by book.entries.collectAsState()
     val index = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue) { PhoneIndex(contacts) }
@@ -154,6 +157,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
             }
         }
     ) { padding ->
+      Box(Modifier.fillMaxSize()) {
         when {
             !allowed -> EmptyZone(
                 title = "Your calls show here",
@@ -201,8 +205,11 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                             items(section.groups, key = { "call/${it.first.id}" }) { group ->
                                 CallLine(
                                     group, index, salesAllowed = settings.salesAllowed,
+                                    swipeRight = settings.swipeRight, swipeLeft = settings.swipeLeft,
+                                    // Rows follow a swipe only while this tab is settled in front: not while the pager moves.
+                                    swipes = visible,
                                     onOpen = { onOpenNumber(group.first.number) },
-                                    onDelete = { history.delete(group.calls.map { it.id }) },
+                                    onDelete = { undo.delete(group.calls.map { it.id }) },
                                     onNotSales = { number, allow -> settingsStore.update { it.copy(salesAllowed = com.yaz.dialer.core.call.ScreeningRules.withAllowed(it.salesAllowed, number, allow)) } }
                                 )
                             }
@@ -211,6 +218,8 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                 }
             }
         }
+        UndoBar(undo, bottom = padding.calculateBottomPadding() + 8.dp)
+      }
     }
 }
 
@@ -243,6 +252,7 @@ private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: Str
 @Composable
 private fun CallLine(
     group: CallGroup, index: PhoneIndex, salesAllowed: Set<String>,
+    swipeRight: com.yaz.dialer.data.settings.SwipeChoice, swipeLeft: com.yaz.dialer.data.settings.SwipeChoice, swipes: Boolean,
     onOpen: () -> Unit, onDelete: () -> Unit, onNotSales: (String, Boolean) -> Unit
 ) {
     val context = LocalContext.current
@@ -266,15 +276,32 @@ private fun CallLine(
         if (!Dialing.call(context, call.number)) dial.open(call.number)
     }
 
-    // Swiped right it calls back, left it leaves the history (Samsung's and iOS's recents).
+    // What each side does is chosen in Settings. Source: SMS's swipe choice mapped to a row's sides
+    // (https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/conversations/ConversationsScreen.kt,
+    // `left = SwipeAction.of(settings.swipeLeft ...)`), the choices of Samsung One UI Phone (iOS keeps Delete,
+    // Google none). A hidden number has no call, message or block; "Nothing" leaves the side still.
+    val canBlock = remember { NumberActions.canBlock(context) }
+    fun swipeOf(choice: com.yaz.dialer.data.settings.SwipeChoice): com.yaz.dialer.ui.component.SwipeAction? = when {
+        !swipes -> null
+        choice == com.yaz.dialer.data.settings.SwipeChoice.DELETE ->
+            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Delete, "Delete", danger = true) { onDelete() }
+        call.hidden -> null
+        choice == com.yaz.dialer.data.settings.SwipeChoice.CALL ->
+            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { callBack() }
+        choice == com.yaz.dialer.data.settings.SwipeChoice.MESSAGE ->
+            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Message, "Message", removes = false) { NumberActions.message(context, call.number) }
+        choice == com.yaz.dialer.data.settings.SwipeChoice.BLOCK && canBlock ->
+            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Block, "Block", danger = true, removes = false) { confirmBlock = true }
+        else -> null
+    }
     com.yaz.dialer.ui.component.SwipeRow(
         // A sales call turned away: swiped right it is allowed (Not a sales call); the line stays, marked.
-        start = when {
-            isSales && !allowedNow -> com.yaz.dialer.ui.component.SwipeAction(AppIcons.CheckCircle, "Not a sales call", removes = false) { onNotSales(call.number, true) }
-            call.hidden -> null
-            else -> com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { callBack() }
+        start = if (swipes && isSales && !allowedNow && swipeRight != com.yaz.dialer.data.settings.SwipeChoice.NONE) {
+            com.yaz.dialer.ui.component.SwipeAction(AppIcons.CheckCircle, "Not a sales call", removes = false) { onNotSales(call.number, true) }
+        } else {
+            swipeOf(swipeRight)
         },
-        end = com.yaz.dialer.ui.component.SwipeAction(AppIcons.Delete, "Delete", danger = true) { onDelete() },
+        end = swipeOf(swipeLeft),
         modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth()
     ) {
     Box(Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth().then(menu.tracker)) {

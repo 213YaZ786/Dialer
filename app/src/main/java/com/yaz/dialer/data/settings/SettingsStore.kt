@@ -18,6 +18,16 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 @Serializable
 enum class AnnounceMode { OFF, HEADPHONES, ALWAYS }
 
+/**
+ * What a swipe on a call of Recents does, chosen for each side in Settings. Ported from SMS's
+ * SwipeAction enum: https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/core/sms/Lists.kt
+ * (same label and name pairs), with Samsung One UI Phone's choices.
+ */
+@Serializable
+enum class SwipeChoice(val label: String) {
+    CALL("Call"), MESSAGE("Message"), DELETE("Delete"), BLOCK("Block"), NONE("Nothing")
+}
+
 @Serializable
 data class Settings(
     /** To call back cards already shown once (CallBacks.key), so each shows once. */
@@ -69,7 +79,11 @@ data class Settings(
     /** Numbers the user said are not sales calls: they ring, whatever the range. Never in Android's blocked list. */
     val salesAllowed: Set<String> = emptySet(),
     /** Held keys 2 to 9 of the dialpad call these numbers. */
-    val speedDial: Map<Int, String> = emptyMap()
+    val speedDial: Map<Int, String> = emptyMap(),
+    /** A swipe to the right on a call of Recents. */
+    val swipeRight: SwipeChoice = SwipeChoice.CALL,
+    /** A swipe to the left on a call of Recents. */
+    val swipeLeft: SwipeChoice = SwipeChoice.DELETE
 )
 
 /**
