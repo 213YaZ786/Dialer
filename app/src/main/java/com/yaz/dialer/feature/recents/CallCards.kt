@@ -72,7 +72,9 @@ internal fun LastCallBubble(group: CallGroup, why: String?, allowed: Boolean, ti
     }
     val answered = (call.kind == CallKind.INCOMING || call.kind == CallKind.OUTGOING) && call.duration > 0
     val duration = if (answered) durationLabel(call.duration) else null
-    ZoneSurface(shape = CALL_BUBBLE, modifier = modifier) {
+    // No bubble inside the card (the user, 2026-10-28, variant A): the words sit straight in the card's capsule,
+    // as Google's and Apple's recents rows; only the card is a zone, the tap target.
+    androidx.compose.foundation.layout.Box(modifier) {
         // The time rides the last line of the words when it fits there, else goes under them: SMS's WithFooter
         // on its card bubble (LastMessageBubble), the glyph's room (8 + 22 + 6 dp) counted as the content's start.
         WithFooter(
