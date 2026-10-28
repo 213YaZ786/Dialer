@@ -122,25 +122,42 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             val color by androidx.compose.runtime.produceState<Int?>(null, contact?.contactId) {
                 value = contact?.contactId?.let { id -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.yaz.dialer.core.dial.ContactLook.of(context, id)?.color } }
             }
-            HeroGlow(contact?.photo, height = padding.calculateTopPadding() + 340.dp, color = color?.let { androidx.compose.ui.graphics.Color(it) })
+            HeroGlow(contact?.photo, height = padding.calculateTopPadding() + 180.dp, color = color?.let { androidx.compose.ui.graphics.Color(it) })
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 Spacer(Modifier.height(8.dp))
-                ContactAvatar(contact?.name, contact?.photo, 128.dp, look = contact?.look)
-                Spacer(Modifier.height(18.dp))
-                Text(
-                    contact?.name ?: shown,
-                    style = MaterialTheme.typography.displaySmall,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2
-                )
-                if (contact != null) {
-                    Text(shown, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                // The header as AOSP Dialer's call details: the face at the start, a block to its end with the
+                // name, the number and the place, centred on the face. Ported from
+                // https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calldetails/res/layout/contact_container.xml
+                // (QuickContactBadge, then contact_name, phone_number, network toEndOf the photo) and its dimens.xml
+                // (Apache-2.0); Row mirrors in right-to-left.
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    ContactAvatar(contact?.name, contact?.photo, 80.dp, look = contact?.look)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                        Text(
+                            contact?.name ?: shown,
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Start,
+                            maxLines = 2,
+                            overflow = if (contact == null && !hidden) androidx.compose.ui.text.style.TextOverflow.MiddleEllipsis else androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        if (contact != null) {
+                            Text(
+                                shown,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.MiddleEllipsis
+                            )
+                        }
+                        // Where the number is from and the time there, from the number itself.
+                        if (!hidden) com.yaz.dialer.ui.component.PlaceLine(number, known = contact != null, modifier = Modifier.padding(top = 4.dp))
+                    }
                 }
-                // Where the number is from and the time there, from the number itself.
-                if (!hidden) com.yaz.dialer.ui.component.PlaceLine(number, known = contact != null, modifier = Modifier.padding(top = 4.dp))
                 if (blocked) {
                     Spacer(Modifier.height(8.dp))
                     ZoneSurface(shape = CircleShape) {
