@@ -177,6 +177,26 @@ private fun WelcomeZone(
     action: String?,
     onAction: () -> Unit
 ) {
+    // A zone means a tap (the user, 2026-10-28): with nothing to tap, no action, it is plain text on
+    // the page, icon, title and message. Ported from SMS's WelcomeZone
+    // (/home/yghouar/Claude Code/APK/YAZ/SMS/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt).
+    if (done || action == null) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (done) AppIcons.CheckCircle else icon,
+                    contentDescription = if (done) "Done" else null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
+            }
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
     ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),

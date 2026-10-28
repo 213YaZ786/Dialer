@@ -11,7 +11,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,7 +32,6 @@ import com.yaz.dialer.ui.component.FloatingAction
 import com.yaz.dialer.ui.component.FloatingFrame
 import com.yaz.dialer.ui.component.FloatingTop
 import com.yaz.dialer.ui.component.LocalDockPadding
-import com.yaz.dialer.ui.component.TitlePill
 import com.yaz.dialer.ui.icon.AppIcons
 
 /**
@@ -60,7 +65,16 @@ fun TabFrame(
                         var last by remember { mutableStateOf(call) }
                         call?.let { last = it }
                         val shown = last
-                        if (inCall && shown != null) ReturnToCallPill(shown) else TitlePill(title)
+                        // The name does nothing: plain centred text, the same as FloatingTop's own title
+                        // (ui/component/FloatingPane.kt), no zone. Only the way back to the call is a tap target.
+                        if (inCall && shown != null) ReturnToCallPill(shown) else Text(
+                            title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.semantics { heading() }
+                        )
                     }
                 }
             )
@@ -69,6 +83,8 @@ fun TabFrame(
             controls?.invoke()
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(horizontal = inset)) { content(padding) }
+        // The content takes the whole width, as SMS's TabFrame (feature/main/TabFrame.kt): Recents' grid of
+        // cards fills a wide window; the screens that want a readable column apply LocalReadableInset themselves.
+        Box(Modifier.fillMaxSize()) { content(padding) }
     }
 }

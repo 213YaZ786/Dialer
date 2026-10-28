@@ -35,6 +35,9 @@ check for a new version on GitHub, which you can turn off in Settings.
 
 ## Licence
 
-MIT. Icons from Google's Material Icons, Apache License 2.0. Video call
+AGPL-3.0 (MIT up to 0.14.22). The time inside the recents' bubbles ports
+Element X's ContentAvoidingLayout (AGPL-3.0); the keypad's grouping uses
+libphonenumber (Apache License 2.0); the spam prefixes follow SpamBlocker's
+rules (MIT). Icons from Google's Material Icons, Apache License 2.0. Video call
 effects move with Google's Noto Animated Emoji, CC BY 4.0, played by
 Lottie (Airbnb), Apache License 2.0.

@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.res.imageResource
@@ -31,13 +30,12 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Dialer's loading mark, the launcher icon in motion: the disc breathes,
- * rings of its colour leave it as a phone rings, and the handset rocks a
- * little on each ring. The disc is the icon's: a grey body multiplied by
+ * Dialer's loading mark, the launcher icon in motion: the disc breathes
+ * and the handset rocks a little, as a phone rings. The disc is the icon's: a grey body multiplied by
  * the theme's accent, its white rim over it, the handset on top.
  *
- * [progress] from 0 to 1 sends the rings out as far as a gesture has gone.
- * While [running] it rings on its own.
+ * [progress] from 0 to 1 moves the handset as far as a gesture has gone.
+ * While [running] it moves on its own.
  */
 @Composable
 fun LoadingMark(
@@ -64,13 +62,7 @@ fun LoadingMark(
 
     Canvas(modifier.size(size)) {
         val r = this.size.minDimension / 2f * DISC
-        // Two rings leaving the disc, half a loop apart.
-        for (k in 0 until 2) {
-            val p = (t * 2f + k / 2f) % 1f
-            val fade = (1f - p) * (1f - p)
-            drawCircle(accent.copy(alpha = 0.45f * fade), r * (1f + 0.42f * p), style = Stroke(width = r * 0.07f * (1f - 0.5f * p)))
-        }
-        // The disc breathes with the rings, the handset rocks on each one.
+        // The disc breathes and the handset rocks; no rings around the mark (SMS's LoadingMark, 2026-10-28).
         val breath = 1f + 0.035f * sin(2f * PI.toFloat() * t * 2f)
         val rock = 4f * sin(2f * PI.toFloat() * t * 4f) * (if (running) 1f else progress)
         scale(breath) {
@@ -92,6 +84,6 @@ private fun DrawScope.layer(image: ImageBitmap, r: Float, filter: ColorFilter?) 
     )
 }
 
-/** The disc's share of the mark, leaving room for the rings around it. */
+/** The disc's share of the mark. */
 private const val DISC = 0.70f
 private const val LOOP_MILLIS = 2400

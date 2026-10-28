@@ -97,7 +97,13 @@ fun blockedWhy(
 fun blockedWhy(context: Context, call: CallEntry, prefixes: List<BlockedPrefix> = emptyList()): String? {
     if (call.kind != CallKind.BLOCKED) return null
     val country = SalesCalls.country(context)
-    val prefix = if (call.hidden) null else PrefixRules.match(prefixes, call.number, country)?.label
+    // The prefix as the user's country writes a number, never the raw "+3328103": DialFormat's AsYouTypeFormatter
+    // (libphonenumber), fed the label's digits; a label that is not a plain number stays as typed.
+    val prefix = if (call.hidden) null else PrefixRules.match(prefixes, call.number, country)?.label?.let { label ->
+        val digits = label.filterNot(Char::isWhitespace)
+        val plain = digits.isNotEmpty() && digits.withIndex().all { (i, c) -> c in '0'..'9' || (c == '+' && i == 0) }
+        if (plain) com.yaz.dialer.feature.dialpad.DialFormat.asYouType(digits, country.orEmpty().ifEmpty { "ZZ" }) else label
+    }
     val ours = call.screenedBy == context.packageName
     val other = if (ours || call.screenedBy == null) null else runCatching {
         val pm = context.packageManager

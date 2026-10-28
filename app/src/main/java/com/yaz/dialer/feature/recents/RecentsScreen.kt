@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -68,7 +71,8 @@ import com.yaz.dialer.ui.component.ZoneSurface
 import com.yaz.dialer.ui.component.rememberHaptics
 import com.yaz.dialer.ui.component.rememberPillMenu
 import com.yaz.dialer.ui.icon.AppIcons
-import com.yaz.dialer.core.calllog.CallBacks
+import com.yaz.dialer.navigation.LocalReadableInset
+import com.yaz.dialer.ui.component.SideDockClearance
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
@@ -116,26 +120,18 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
         )
     }
 
-    // Who still waits for a call back, above all calls when nothing filters
-    // them: each card once, kept as seen when the tab is left, back with a new missed call.
     val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
     val settings by settingsStore.settings.collectAsState()
-    var seenAtOpen by remember { mutableStateOf(settingsStore.current.callBackSeen) }
-    val waiting = remember(entries, missedOnly, query, seenAtOpen) {
-        if (missedOnly || query.isNotBlank()) emptyList() else CallBacks.toShow(entries, System.currentTimeMillis(), seenAtOpen)
-    }
-    val shownCards by androidx.compose.runtime.rememberUpdatedState(waiting)
-    // A new card to call back comes in on top: in sight when the list was at its top.
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    LaunchedEffect(waiting.firstOrNull()?.let(CallBacks::key)) {
-        if (waiting.isNotEmpty() && listState.firstVisibleItemIndex <= 1) listState.animateScrollToItem(0)
-    }
-    LaunchedEffect(visible) {
-        if (visible) seenAtOpen = settingsStore.current.callBackSeen
-        else if (shownCards.isNotEmpty()) {
-            val keys = shownCards.map(CallBacks::key)
-            val alive = CallBacks.pending(entries, System.currentTimeMillis()).map(CallBacks::key).toSet()
-            settingsStore.update { s -> s.copy(callBackSeen = (s.callBackSeen + keys).filter { it in alive }.toSet()) }
+    // The starred contacts, up to nine, as faces on top (the way feature/favorites reads them: People.of, starred).
+    // A missed call not yet seen (Android's NEW flag, cleared once the tab has been in front a moment) counts on
+    // its person's face.
+    val faces = remember(contacts) { People.of(contacts).filter { it.starred }.take(FAVORITE_FACES_MAX) }
+    val faceMissed = remember(faces, entries) {
+        faces.associate { person ->
+            person.id to entries.count { c ->
+                c.kind == CallKind.MISSED && c.isNew && !c.hidden && person.numbers.any { CallGrouping.sameDigits(it.digits, c.key) }
+            }
         }
     }
 
@@ -183,35 +179,65 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                         modifier = Modifier.fillMaxSize().padding(padding)
                     )
                 } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        if (waiting.isNotEmpty()) {
-                            item(key = "callbacks") { CallBackStrip(waiting, index, LINE_WIDTH, onOpenNumber) }
-                        }
-                        sections.forEach { section ->
-                            item(key = "day/${section.day}") {
-                                Text(
-                                    dayLabel(section.day),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth().padding(start = 8.dp, top = 12.dp, bottom = 2.dp)
-                                )
+                    // As many columns as fit, each card at least 280 dp, as SMS's conversation list
+                    // (ConversationsScreen.kt, after Android's "Feed" canonical layout, GridCells.Adaptive(minSize):
+                    // https://developer.android.com/guide/topics/large-screens/large-screen-canonical-layouts):
+                    // one column on a phone upright.
+                    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+                        val gap = 8.dp
+                        // The side dock (DialerApp draws it over the tabs' left margin when the readable column
+                        // leaves room, ui/component/FloatingDock.kt SideDockClearance = 96 dp) is cleared on both
+                        // sides so the grid stays centred under the search row; with less room DialerApp already
+                        // pads the tab by that clearance. Insets as Material 3 navigation rail guidance puts it:
+                        // content beside the rail, never under it
+                        // (https://m3.material.io/components/navigation-rail/guidelines).
+                        val rail = if (LocalReadableInset.current >= SideDockClearance) SideDockClearance else 0.dp
+                        val inner = maxWidth - 32.dp - rail * 2
+                        val columns = ((inner + gap) / (CARD_MIN_WIDTH + gap)).toInt().coerceIn(1, 4)
+                        val cell = (inner - gap * (columns - 1)) / columns
+                        val wide = if (columns == 1) Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth() else Modifier.fillMaxWidth()
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp + rail, end = 16.dp + rail, top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding()),
+                            verticalArrangement = Arrangement.spacedBy(gap),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Hidden while searching and in the Missed filter.
+                            if (faces.isNotEmpty() && !missedOnly && query.isBlank()) {
+                                item(key = "favorites") {
+                                    FavoriteFaces(faces, faceMissed, wide, onOpen = { onOpenNumber(it.number) })
+                                }
                             }
-                            items(section.groups, key = { "call/${it.first.id}" }) { group ->
-                                CallLine(
-                                    group, index, salesAllowed = settings.salesAllowed,
-                                    swipeRight = settings.swipeRight, swipeLeft = settings.swipeLeft,
-                                    // Rows follow a swipe only while this tab is settled in front: not while the pager moves.
-                                    swipes = visible,
-                                    onOpen = { onOpenNumber(group.first.number) },
-                                    onDelete = { undo.delete(group.calls.map { it.id }) },
-                                    onNotSales = { number, allow -> settingsStore.update { it.copy(salesAllowed = com.yaz.dialer.core.call.ScreeningRules.withAllowed(it.salesAllowed, number, allow)) } }
-                                )
+                            sections.forEach { section ->
+                                item(key = "day/${section.day}") {
+                                    Text(
+                                        dayLabel(section.day),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = wide.padding(start = 8.dp, top = 12.dp, bottom = 2.dp)
+                                    )
+                                }
+                                val line: @Composable (CallGroup, Modifier) -> Unit = { group, m ->
+                                    CallLine(
+                                        group, index, salesAllowed = settings.salesAllowed,
+                                        swipeRight = settings.swipeRight, swipeLeft = settings.swipeLeft,
+                                        // Rows follow a swipe only while this tab is settled in front: not while the pager moves.
+                                        swipes = visible,
+                                        onOpen = { onOpenNumber(group.first.number) },
+                                        onDelete = { undo.delete(group.calls.map { it.id }) },
+                                        onNotSales = { number, allow -> settingsStore.update { it.copy(salesAllowed = com.yaz.dialer.core.call.ScreeningRules.withAllowed(it.salesAllowed, number, allow)) } },
+                                        modifier = m,
+                                        even = columns > 1
+                                    )
+                                }
+                                if (columns == 1) {
+                                    items(section.groups, key = { "call/${it.first.id}" }) { group -> line(group, wide) }
+                                } else {
+                                    items(section.groups.chunked(columns), key = { row -> "call/${row.first().first.id}" }) { row ->
+                                        CardRow(row, cell, gap, line)
+                                    }
+                                }
                             }
                         }
                     }
@@ -253,7 +279,11 @@ private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: Str
 private fun CallLine(
     group: CallGroup, index: PhoneIndex, salesAllowed: Set<String>,
     swipeRight: com.yaz.dialer.data.settings.SwipeChoice, swipeLeft: com.yaz.dialer.data.settings.SwipeChoice, swipes: Boolean,
-    onOpen: () -> Unit, onDelete: () -> Unit, onNotSales: (String, Boolean) -> Unit
+    onOpen: () -> Unit, onDelete: () -> Unit, onNotSales: (String, Boolean) -> Unit,
+    /** The card's outer size: a column's width, or a grid cell's. */
+    modifier: Modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth(),
+    /** In a grid of several columns every card has the same least height; in one column each is as tall as it needs. */
+    even: Boolean = false
 ) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
@@ -302,9 +332,9 @@ private fun CallLine(
             swipeOf(swipeRight)
         },
         end = swipeOf(swipeLeft),
-        modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth()
+        modifier = modifier
     ) {
-    Box(Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth().then(menu.tracker)) {
+    Box(Modifier.fillMaxWidth().then(menu.tracker)) {
         val shape = RoundedCornerShape(22.dp)
         ZoneSurface(
             shape = shape,
@@ -318,47 +348,33 @@ private fun CallLine(
                 onLongClick = menu::open
             )
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
-                Box {
-                    ContactAvatar(name, contact?.photo, 48.dp, look = contact?.look)
-                    KindBadge(call.kind, Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), unseen = group.unseen)
-                }
-                Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                    // Over the encrypted line: a lock beside the name, as in SMS.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            name ?: shown,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        if (call.encrypted) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(AppIcons.Lock, contentDescription = "End-to-end encrypted", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
-                        }
+            // The person card, as SMS's conversation card (ConversationsScreen.kt ConversationLine): a fixed column
+            // for the face with its name under it on one line, the last call as a bubble beside it, the call button
+            // at the end. Every card has the same least height so a grid row stays even.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.heightIn(min = if (even) CARD_HEIGHT else 0.dp).padding(start = 6.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(CARD_FACE_COLUMN)) {
+                    Box {
+                        ContactAvatar(name, contact?.photo, 48.dp, look = contact?.look)
+                        if (call.encrypted) CallFaceMark(AppIcons.Lock, "End-to-end encrypted", Modifier.align(Alignment.BottomEnd).offset(x = 2.dp, y = 2.dp))
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // The kind in its colour, then the rest quieter.
-                        Text(
-                            kindWord(call.kind) + (why?.let { " · $it" }.orEmpty()) + (if (allowedNow) " (allowed)" else "") +
-                                if (group.count > 1) " ×${group.count}" else "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = kindTint(call.kind),
-                            maxLines = 1
-                        )
-                        val parts = listOfNotNull(call.location, timeLabel(context, call.date))
-                        Text(
-                            " · " + parts.joinToString(" · "),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        name ?: shown,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (group.unseen) FontWeight.Bold else FontWeight.Normal,
+                        color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        // One line, as SMS's cards; a number without a name wraps at its groups on two.
+                        maxLines = if (name == null) 2 else 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                    )
                 }
+                LastCallBubble(group, why, allowedNow, timeLabel(context, call.date), Modifier.weight(1f).padding(start = 6.dp))
                 if (!call.hidden) {
+                    Spacer(Modifier.width(6.dp))
                     ZoneSurface(shape = CircleShape, onClick = ::callBack, modifier = Modifier.size(44.dp)) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(AppIcons.Call, contentDescription = "Call", tint = AnswerGreen)

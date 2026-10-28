@@ -98,6 +98,8 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
             }
         }
     ) { padding ->
+      // TabFrame gives the whole width (as SMS's); the list keeps its readable column here.
+      Box(Modifier.fillMaxSize().padding(horizontal = com.yaz.dialer.navigation.LocalReadableInset.current)) {
         if (!allowed) {
             EmptyZone(
                 title = "Your contacts show here",
@@ -167,6 +169,7 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 }
             }
         }
+      }
     }
 }
 
