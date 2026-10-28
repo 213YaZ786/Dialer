@@ -355,24 +355,26 @@ private fun CallLine(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.heightIn(min = if (even) CARD_HEIGHT else 0.dp).padding(start = 6.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(CARD_FACE_COLUMN)) {
-                    Box {
-                        ContactAvatar(name, contact?.photo, 48.dp, look = contact?.look)
-                        if (call.encrypted) CallFaceMark(AppIcons.Lock, "End-to-end encrypted", Modifier.align(Alignment.BottomEnd).offset(x = 2.dp, y = 2.dp))
-                    }
+                // AOSP Dialer's call log entry (new_call_log_entry.xml,
+                // https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllog/ui/res/layout/new_call_log_entry.xml):
+                // the photo, then the name on the first line and the call's type and time on the second, the call
+                // button at the end, so the words take the card's whole width (the user, 2026-10-28: room wasted
+                // beside a short "Missed", a long reason cramped under the face).
+                Box(Modifier.padding(start = 6.dp)) {
+                    ContactAvatar(name, contact?.photo, 48.dp, look = contact?.look)
+                    if (call.encrypted) CallFaceMark(AppIcons.Lock, "End-to-end encrypted", Modifier.align(Alignment.BottomEnd).offset(x = 2.dp, y = 2.dp))
+                }
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(
                         name ?: shown,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (group.unseen) FontWeight.Bold else FontWeight.Normal,
                         color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        // One line, as SMS's cards; a number without a name wraps at its groups on two.
-                        maxLines = if (name == null) 2 else 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    LastCallBubble(group, why, allowedNow, timeLabel(context, call.date), Modifier.fillMaxWidth())
                 }
-                LastCallBubble(group, why, allowedNow, timeLabel(context, call.date), Modifier.weight(1f).padding(start = 6.dp))
                 if (!call.hidden) {
                     Spacer(Modifier.width(6.dp))
                     ZoneSurface(shape = CircleShape, onClick = ::callBack, modifier = Modifier.size(44.dp)) {

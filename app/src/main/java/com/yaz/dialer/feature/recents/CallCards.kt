@@ -84,17 +84,18 @@ internal fun LastCallBubble(group: CallGroup, why: String?, allowed: Boolean, ti
                     style = MaterialTheme.typography.labelSmall,
                     color = secondary,
                     maxLines = 1,
-                    modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = if (duration != null) 6.dp else 8.dp)
+                    modifier = Modifier.padding(start = 8.dp, bottom = 1.dp)
                 )
             },
             modifier = Modifier.fillMaxWidth(),
             words = words.text + duration.orEmpty()
         ) { onLayout ->
-            val measure = measureLastLine(onLayout, extraStart = 36.dp)
+            // AOSP's second line: a small call type icon, then the words (new_call_log_entry.xml call_type_icon).
+            val measure = measureLastLine(onLayout, extraStart = 22.dp)
             val unmeasured: (androidx.compose.ui.text.TextLayoutResult) -> Unit = remember { {} }
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp)) {
-                KindBadge(call.kind, size = 22.dp, unseen = group.unseen)
-                Spacer(Modifier.width(6.dp))
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = 2.dp)) {
+                KindBadge(call.kind, size = 18.dp, unseen = group.unseen)
+                Spacer(Modifier.width(4.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
                         words,
