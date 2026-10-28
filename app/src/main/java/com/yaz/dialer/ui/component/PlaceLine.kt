@@ -76,7 +76,7 @@ fun placeWords(place: Place?, known: Boolean): PlaceWords? {
     return PlaceWords(name, time, differs && Places.isNight(there!!.hour))
 }
 
-/** The place line under a number: "Madrid, Spain · 23:40 there", the time in amber with a moon at night. */
+/** The place line under a number: "Madrid, Spain" then "23:40 there" after a gap, the time in amber with a moon at night. */
 @Composable
 fun PlaceLine(number: String, known: Boolean, modifier: Modifier = Modifier, small: Boolean = false) {
     val words = placeWords(rememberPlace(number), known)
@@ -95,7 +95,8 @@ fun PlaceLine(number: String, known: Boolean, modifier: Modifier = Modifier, sma
             w.name?.let {
                 Text(it, style = style, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             }
-            if (w.name != null && w.time != null) Text(" · ", style = style, color = muted)
+            // A gap between the place and the time, no sign (the user's rule: plain text, 2026-10-28).
+            if (w.name != null && w.time != null) Spacer(Modifier.width(12.dp))
             w.time?.let {
                 if (w.night) {
                     Icon(AppIcons.Night, contentDescription = "Night there", tint = NightAmber, modifier = Modifier.size(if (small) 12.dp else 14.dp))

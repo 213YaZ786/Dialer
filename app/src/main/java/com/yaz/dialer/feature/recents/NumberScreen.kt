@@ -312,7 +312,7 @@ private fun HistoryRow(call: com.yaz.dialer.core.calllog.CallEntry, why: String?
                 KindBadge(call.kind, size = 32.dp)
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     Text(
-                        kindLabel(call.kind) + (why?.let { " · $it" }.orEmpty()),
+                        kindLabel(call.kind) + (why?.let { ", $it" }.orEmpty()),
                         style = MaterialTheme.typography.bodyLarge
                     )
                     if (call.duration > 0) {

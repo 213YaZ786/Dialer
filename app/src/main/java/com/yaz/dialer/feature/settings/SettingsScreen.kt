@@ -76,7 +76,6 @@ import com.yaz.dialer.core.update.UpdateMode
 import com.yaz.dialer.core.update.Updates
 import com.yaz.dialer.data.settings.AnnounceMode
 import com.yaz.dialer.data.settings.PrefixAction
-import com.yaz.dialer.data.settings.SwipeChoice
 import com.yaz.dialer.data.settings.ThemeMode
 import com.yaz.dialer.feature.main.Setup
 import com.yaz.dialer.feature.main.SetupStep
@@ -101,7 +100,7 @@ import com.yaz.dialer.ui.theme.textScaleLabel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
-private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, SWIPE_RIGHT, SWIPE_LEFT, NOT_SALES, PREFIXES, ADD_PREFIX }
+private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, NOT_SALES, PREFIXES, ADD_PREFIX }
 
 /**
  * The groups of settings: folded one under another on a phone, a list and the open one's page on a wide window.
@@ -109,7 +108,6 @@ private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, SWIPE
  */
 private enum class SettingsSection(val title: String, val icon: ImageVector) {
     CALLS("Calls", AppIcons.Call),
-    RECENTS("Recents", AppIcons.Recents),
     NETWORK("Network security", AppIcons.Lock),
     PHONE("Phone", AppIcons.Smartphone),
     APPEARANCE("Appearance", AppIcons.Palette),
@@ -266,19 +264,6 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
             )
         ),
-        SettingsSection.RECENTS to listOf(
-            // Each side of a call in Recents is chosen, as One UI's Phone settings do (swipe right, swipe left).
-            ActionTile(
-                id = "swipeRight", name = "Swipe right", title = "Swipe right", icon = AppIcons.SwipeRight,
-                value = settings.swipeRight.label, summary = settings.swipeRight.label,
-                onClick = { dialog = OpenDialog.SWIPE_RIGHT }
-            ),
-            ActionTile(
-                id = "swipeLeft", name = "Swipe left", title = "Swipe left", icon = AppIcons.SwipeLeft,
-                value = settings.swipeLeft.label, summary = settings.swipeLeft.label,
-                onClick = { dialog = OpenDialog.SWIPE_LEFT }
-            )
-        ),
         SettingsSection.NETWORK to run {
             val simTiles = if (sims.isEmpty()) {
                 listOf(
@@ -398,8 +383,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                     "Settings",
                     status = when {
                         setup.screeningMissing -> "Spam calls can ring"
-                        salesHere && settings.blockSalesCalls -> "Spam filter on · sales calls blocked"
-                        else -> "Spam filter on"
+                        salesHere && settings.blockSalesCalls -> "Sales calls blocked"
+                        // The same state the tiles read: a switch turned on or off changes this at once.
+                        settings.silenceUnknown || settings.blockSpoofed || strict || settings.blockHidden ||
+                            prefixes.isNotEmpty() -> "Spam filter on"
+                        else -> "Spam filter off"
                     }
                 )
             ) { padding ->
@@ -468,20 +456,6 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             options = AnnounceMode.entries.map { it to announceLabel(it) },
             selected = settings.announce,
             onSelect = viewModel::setAnnounce,
-            onDismiss = { dialog = OpenDialog.NONE }
-        )
-        OpenDialog.SWIPE_RIGHT -> ChoiceDialog(
-            title = "Swipe right",
-            options = SwipeChoice.entries.map { it to it.label },
-            selected = settings.swipeRight,
-            onSelect = viewModel::setSwipeRight,
-            onDismiss = { dialog = OpenDialog.NONE }
-        )
-        OpenDialog.SWIPE_LEFT -> ChoiceDialog(
-            title = "Swipe left",
-            options = SwipeChoice.entries.map { it to it.label },
-            selected = settings.swipeLeft,
-            onSelect = viewModel::setSwipeLeft,
             onDismiss = { dialog = OpenDialog.NONE }
         )
         OpenDialog.NOT_SALES -> ZoneAlertDialog(

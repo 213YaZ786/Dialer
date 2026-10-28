@@ -224,9 +224,6 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                                 val line: @Composable (CallGroup, Modifier) -> Unit = { group, m ->
                                     CallLine(
                                         group, index, salesAllowed = settings.salesAllowed,
-                                        swipeRight = settings.swipeRight, swipeLeft = settings.swipeLeft,
-                                        // Rows follow a swipe only while this tab is settled in front: not while the pager moves.
-                                        swipes = visible,
                                         onOpen = { onOpenNumber(group.first.number) },
                                         onDelete = { undo.delete(group.calls.map { it.id }) },
                                         onNotSales = { number, allow -> settingsStore.update { it.copy(salesAllowed = com.yaz.dialer.core.call.ScreeningRules.withAllowed(it.salesAllowed, number, allow)) } },
@@ -281,7 +278,6 @@ private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: Str
 @Composable
 private fun CallLine(
     group: CallGroup, index: PhoneIndex, salesAllowed: Set<String>,
-    swipeRight: com.yaz.dialer.data.settings.SwipeChoice, swipeLeft: com.yaz.dialer.data.settings.SwipeChoice, swipes: Boolean,
     onOpen: () -> Unit, onDelete: () -> Unit, onNotSales: (String, Boolean) -> Unit,
     /** The card's outer size: a column's width, or a grid cell's. */
     modifier: Modifier = Modifier.widthIn(max = LINE_WIDTH).fillMaxWidth(),
@@ -292,7 +288,7 @@ private fun CallLine(
     val haptics = rememberHaptics()
     val dial: DialRequests = koinInject()
     val call = group.first
-    // For a blocked call, why: "Blocked · sales call". A sales call can be allowed from here.
+    // For a blocked call, why: "Blocked, sales call". A sales call can be allowed from here.
     val prefixes by koinInject<com.yaz.dialer.data.settings.PrefixStore>().rules.collectAsState()
     val why = remember(call.id, call.blockReason, prefixes) { blockedWhy(context, call, prefixes) }
     val isSales = why == "sales call"
@@ -312,34 +308,9 @@ private fun CallLine(
         if (!Dialing.call(context, call.number)) dial.open(call.number)
     }
 
-    // What each side does is chosen in Settings. Source: SMS's swipe choice mapped to a row's sides
-    // (https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/conversations/ConversationsScreen.kt,
-    // `left = SwipeAction.of(settings.swipeLeft ...)`), the choices of Samsung One UI Phone (iOS keeps Delete,
-    // Google none). A hidden number has no call, message or block; "Nothing" leaves the side still.
-    val canBlock = remember { NumberActions.canBlock(context) }
-    fun swipeOf(choice: com.yaz.dialer.data.settings.SwipeChoice): com.yaz.dialer.ui.component.SwipeAction? = when {
-        !swipes -> null
-        choice == com.yaz.dialer.data.settings.SwipeChoice.DELETE ->
-            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Delete, "Delete", danger = true) { onDelete() }
-        call.hidden -> null
-        choice == com.yaz.dialer.data.settings.SwipeChoice.CALL ->
-            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { callBack() }
-        choice == com.yaz.dialer.data.settings.SwipeChoice.MESSAGE ->
-            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Message, "Message", removes = false) { NumberActions.message(context, call.number) }
-        choice == com.yaz.dialer.data.settings.SwipeChoice.BLOCK && canBlock ->
-            com.yaz.dialer.ui.component.SwipeAction(AppIcons.Block, "Block", danger = true, removes = false) { confirmBlock = true }
-        else -> null
-    }
-    com.yaz.dialer.ui.component.SwipeRow(
-        // A sales call turned away: swiped right it is allowed (Not a sales call); the line stays, marked.
-        start = if (swipes && isSales && !allowedNow && swipeRight != com.yaz.dialer.data.settings.SwipeChoice.NONE) {
-            com.yaz.dialer.ui.component.SwipeAction(AppIcons.CheckCircle, "Not a sales call", removes = false) { onNotSales(call.number, true) }
-        } else {
-            swipeOf(swipeRight)
-        },
-        end = swipeOf(swipeLeft),
-        modifier = modifier
-    ) {
+    // No swipe on a row (Google's Phone: a row is tapped or held, the pager swipes between tabs); its actions
+    // stay in the long press menu below.
+    Box(modifier) {
     Box(Modifier.fillMaxWidth().then(menu.tracker)) {
         val shape = RoundedCornerShape(22.dp)
         ZoneSurface(
@@ -386,7 +357,9 @@ private fun CallLine(
                             fontWeight = if (group.unseen) FontWeight.Bold else FontWeight.Normal,
                             color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            // A number is cut in its middle, so its last digits, the ones that tell it apart, stay
+                            // (Compose's TextOverflow.MiddleEllipsis, single line).
+                            overflow = if (name == null) TextOverflow.MiddleEllipsis else TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f).alignByBaseline()
                         )
                         Spacer(Modifier.width(8.dp))

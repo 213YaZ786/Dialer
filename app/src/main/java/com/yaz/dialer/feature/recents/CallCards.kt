@@ -38,8 +38,8 @@ internal val CARD_FACE_COLUMN = 80.dp
 
 /**
  * The card's second line: the kind's glyph (KindBadge: missed red, incoming green, outgoing in the accent,
- * blocked grey), then the words: the kind's word, "×3" when the group holds several calls, " · reason" for a
- * blocked call, " (allowed)", " · 3 min 20 s" when it was answered. The time is not here: it ends the name's line
+ * blocked grey), then the words: the kind's word, "×3" when the group holds several calls, ", reason" for a
+ * blocked call, " (allowed)", ", 3 min 20 s" when it was answered. The time is not here: it ends the name's line
  * (CallLine). AOSP Dialer's secondary line joins type and reason in one text under the name
  * (CallLogEntryText.java,
  * https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java),
@@ -59,9 +59,9 @@ internal fun LastCallBubble(group: CallGroup, why: String?, allowed: Boolean, mo
         withStyle(SpanStyle(color = if (blocked) secondary else kindTint(call.kind))) { append(kindWord(call.kind)) }
         withStyle(SpanStyle(color = secondary)) {
             if (group.count > 1) append(" ${countLabel(group.count)}")
-            if (blocked && why != null) append(" · $why")
+            if (blocked && why != null) append(", $why")
             if (allowed) append(" (allowed)")
-            if (answered) append(" · ${durationLabel(call.duration)}")
+            if (answered) append(", ${durationLabel(call.duration)}")
         }
     }
     Row(verticalAlignment = Alignment.Top, modifier = modifier) {

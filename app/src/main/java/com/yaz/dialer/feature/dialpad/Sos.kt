@@ -75,7 +75,7 @@ fun SosButton(onCall: (String) -> Unit) {
     }
     val left = ceil(HOLD_SECONDS * (1f - fill.value)).toInt().coerceAtLeast(1)
     val label = when {
-        holding -> "$number · $left"
+        holding -> "$number, $left"
         hint -> "Hold to call $number"
         else -> "SOS"
     }

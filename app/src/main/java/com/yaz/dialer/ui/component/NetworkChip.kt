@@ -60,7 +60,7 @@ fun NetworkChip(protocol: Protocol, protection: Protection, modifier: Modifier =
         add(if (protocol == Protocol.WIFI) "Wi-Fi calling" else protocol.label)
         if (hd) add("HD")
         if (protection == Protection.OLD || protection == Protection.UNPROTECTED) add(protection.label)
-    }.joinToString(" · ")
+    }.joinToString(", ")
     ZoneSurface(shape = CircleShape, onClick = onClick, modifier = modifier) {
         // 48 dp tall, the least for a tappable pill, as the call's time beside it.
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {

@@ -231,7 +231,7 @@ private fun TopLine(call: CallInfo) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                Text("  ·  ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(16.dp))
                 if (call.phase == CallPhase.ACTIVE) RollingText(elapsed(call.connectedAt), MaterialTheme.typography.titleMedium)
                 else Text("Calling", style = MaterialTheme.typography.titleMedium)
             }

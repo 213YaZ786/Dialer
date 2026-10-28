@@ -8,7 +8,6 @@ import com.yaz.dialer.data.settings.PrefixStore
 import com.yaz.dialer.data.settings.AnnounceMode
 import com.yaz.dialer.data.settings.Settings
 import com.yaz.dialer.data.settings.SettingsStore
-import com.yaz.dialer.data.settings.SwipeChoice
 import com.yaz.dialer.data.settings.ThemeMode
 import kotlinx.coroutines.flow.StateFlow
 
@@ -38,7 +37,5 @@ class SettingsViewModel(private val store: SettingsStore, private val prefixStor
     fun setAnnounce(mode: AnnounceMode) = store.update { it.copy(announce = mode) }
     fun setVibrateOnAnswer(on: Boolean) = store.update { it.copy(vibrateOnAnswer = on) }
     // Setters like the others (https://developer.android.com/topic/libraries/architecture/viewmodel).
-    fun setSwipeRight(choice: SwipeChoice) = store.update { it.copy(swipeRight = choice) }
-    fun setSwipeLeft(choice: SwipeChoice) = store.update { it.copy(swipeLeft = choice) }
     fun replayGuide() = store.update { it.copy(welcomeSeen = false, dialpadHintSeen = false) }
 }

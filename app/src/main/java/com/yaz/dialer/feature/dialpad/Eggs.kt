@@ -244,7 +244,7 @@ private fun Snake(onDone: () -> Unit) {
     Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         DialogPane {
             Column(Modifier.padding(20.dp).widthIn(max = 360.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(if (over) "Game over · ${body.size - 3}" else "Snake · ${body.size - 3}", style = MaterialTheme.typography.titleLarge)
+                Text(if (over) "Game over, score ${body.size - 3}" else "Score ${body.size - 3}", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(12.dp))
                 Canvas(
                     Modifier.fillMaxWidth().aspectRatio(cols / rows.toFloat()).pointerInput(Unit) {

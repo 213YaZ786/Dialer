@@ -460,7 +460,7 @@ private fun Ringing(call: CallInfo, photo: String?, twoG: Boolean, onDecline: (O
                     Spacer(Modifier.width(3.dp))
                 }
                 Text(
-                    from?.let { listOfNotNull(it.time?.removeSuffix(" there"), it.name).joinToString(" · ") }
+                    from?.let { listOfNotNull(it.time?.removeSuffix(" there"), it.name).joinToString(", ") }
                         ?: if (call.encrypted) (if (call.video) "Encrypted video" else "Encrypted") else if (call.video) "Video" else "Mobile",
                     style = MaterialTheme.typography.labelMedium,
                     color = if (from?.night == true) com.yaz.dialer.ui.component.NightAmber else MaterialTheme.colorScheme.onSurfaceVariant,
