@@ -32,12 +32,22 @@ fun dayLabel(day: LocalDate, today: LocalDate = LocalDate.now()): String = when 
 /** The time of day, in 24 hours or with AM and PM as the phone is set. */
 fun timeLabel(context: Context, millis: Long): String = DateFormat.getTimeFormat(context).format(Date(millis))
 
-/** 45 s, 3 min 20 s, 1 h 05 min. */
-fun durationLabel(seconds: Long): String = when {
-    seconds < 60 -> "$seconds s"
-    seconds < 3600 -> if (seconds % 60 == 0L) "${seconds / 60} min" else "${seconds / 60} min ${seconds % 60} s"
-    else -> "%d h %02d min".format(seconds / 3600, (seconds % 3600) / 60)
+/** 45 s, 3 min 20 s, 1 h 05 min; a negative duration reads 0 s. */
+fun durationLabel(seconds: Long): String {
+    val s = seconds.coerceAtLeast(0)
+    return when {
+        s < 60 -> "$s s"
+        s < 3600 -> if (s % 60 == 0L) "${s / 60} min" else "${s / 60} min ${s % 60} s"
+        else -> "%d h %02d min".format(java.util.Locale.ROOT, s / 3600, (s % 3600) / 60)
+    }
 }
+
+/**
+ * "×3" for a group of calls, "×99+" from a hundred on so a long run never widens the line: Material's badge
+ * cut at its maxCharacterCount with a "+" (BadgeDrawable, DEFAULT_EXCEED_MAX_BADGE_NUMBER_SUFFIX,
+ * https://github.com/material-components/material-components-android/blob/master/lib/java/com/google/android/material/badge/BadgeDrawable.java).
+ */
+fun countLabel(count: Int): String = if (count > 99) "×99+" else "×$count"
 
 fun kindLabel(kind: CallKind): String = when (kind) {
     CallKind.INCOMING -> "Incoming call"

@@ -44,6 +44,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.style.TextDirection
 import com.yaz.dialer.core.call.Dialing
 import com.yaz.dialer.core.calllog.CallGroup
 import com.yaz.dialer.core.calllog.CallGrouping
@@ -295,8 +298,11 @@ private fun CallLine(
     val isSales = why == "sales call"
     val allowedNow = isSales && com.yaz.dialer.core.call.ScreeningRules.isAllowed(salesAllowed, call.number)
     val contact = if (call.hidden) null else index.find(call.key)
-    val name = contact?.name ?: call.cachedName
-    val shown = if (call.hidden) "Private number" else Numbers.format(context, call.number)
+    // An empty name (a log line or a contact saved with ""), as blank, falls back to the number.
+    val name = (contact?.name ?: call.cachedName)?.takeIf { it.isNotBlank() }
+    // AOSP's primary text: "Private" for a hidden number, the formatted number, else "Unknown"
+    // (CallLogEntryText.java, https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calllogutils/CallLogEntryText.java).
+    val shown = if (call.hidden) "Private number" else Numbers.format(context, call.number).ifBlank { "Unknown" }
     val menu = rememberPillMenu()
     var confirmBlock by remember { mutableStateOf(false) }
 
@@ -365,15 +371,35 @@ private fun CallLine(
                     if (call.encrypted) CallFaceMark(AppIcons.Lock, "End-to-end encrypted", Modifier.align(Alignment.BottomEnd).offset(x = 2.dp, y = 2.dp))
                 }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(
-                        name ?: shown,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (group.unseen) FontWeight.Bold else FontWeight.Normal,
-                        color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    LastCallBubble(group, why, allowedNow, timeLabel(context, call.date), Modifier.fillMaxWidth())
+                    // First line: the name, then the time at its end (iOS Phone's recents put the time on the name's
+                    // line). The name takes what the time leaves and is cut with an ellipsis; the time is never cut
+                    // and never wraps. Baselines aligned as the two sizes differ.
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            name ?: shown,
+                            // The name starts at the face's side whatever its script: an Arabic name in a
+                            // left-to-right app would otherwise end up against the time (Compose's TextDirection,
+                            // https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:compose/ui/ui-text/src/commonMain/kotlin/androidx/compose/ui/text/style/TextDirection.kt).
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                textDirection = if (LocalLayoutDirection.current == LayoutDirection.Rtl) TextDirection.Rtl else TextDirection.Ltr
+                            ),
+                            fontWeight = if (group.unseen) FontWeight.Bold else FontWeight.Normal,
+                            color = if (call.kind == CallKind.MISSED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).alignByBaseline()
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            timeLabel(context, call.date),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.alignByBaseline()
+                        )
+                    }
+                    LastCallBubble(group, why, allowedNow, Modifier.fillMaxWidth())
                 }
                 if (!call.hidden) {
                     Spacer(Modifier.width(6.dp))
