@@ -294,7 +294,9 @@ private fun CallLine(
     // stay in the long press menu below.
     Box(modifier) {
     Box(Modifier.fillMaxWidth().then(menu.tracker)) {
-        val shape = RoundedCornerShape(22.dp)
+        // The list card of every app: Material 3's extraLarge corner (ShapeTokens.CornerExtraLarge, 28 dp,
+        // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/tokens/ShapeTokens.kt).
+        val shape = MaterialTheme.shapes.extraLarge
         ZoneSurface(
             shape = shape,
             modifier = Modifier.fillMaxWidth().clip(shape).combinedClickable(
