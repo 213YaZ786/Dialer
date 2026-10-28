@@ -126,18 +126,6 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
     val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
     val settings by settingsStore.settings.collectAsState()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    // The starred contacts, up to nine, as faces on top (the way feature/favorites reads them: People.of, starred).
-    // A missed call not yet seen (Android's NEW flag, cleared once the tab has been in front a moment) counts on
-    // its person's face.
-    val faces = remember(contacts) { People.of(contacts).filter { it.starred }.take(FAVORITE_FACES_MAX) }
-    val faceMissed = remember(faces, entries) {
-        faces.associate { person ->
-            person.id to entries.count { c ->
-                c.kind == CallKind.MISSED && c.isNew && !c.hidden && person.numbers.any { CallGrouping.sameDigits(it.digits, c.key) }
-            }
-        }
-    }
-
     // Seen once the tab has been in front a moment: the dots then shrink
     // away and the system's missed call notification goes.
     LaunchedEffect(visible, entries) {
@@ -206,12 +194,6 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                             verticalArrangement = Arrangement.spacedBy(gap),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Hidden while searching and in the Missed filter.
-                            if (faces.isNotEmpty() && !missedOnly && query.isBlank()) {
-                                item(key = "favorites") {
-                                    FavoriteFaces(faces, faceMissed, wide, onOpen = { onOpenNumber(it.number) })
-                                }
-                            }
                             sections.forEach { section ->
                                 item(key = "day/${section.day}") {
                                     Text(
