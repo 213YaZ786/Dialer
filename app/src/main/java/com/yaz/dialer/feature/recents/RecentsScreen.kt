@@ -336,12 +336,8 @@ private fun CallLine(
     ) {
     Box(Modifier.fillMaxWidth().then(menu.tracker)) {
         val shape = RoundedCornerShape(22.dp)
-        // No capsule around the card (the user, 2026-10-28, variant B): the face and the bubble sit on the page,
-        // as a conversation's; the whole row stays the tap target.
-        androidx.compose.material3.Surface(
+        ZoneSurface(
             shape = shape,
-            color = androidx.compose.ui.graphics.Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth().clip(shape).combinedClickable(
                 onClickLabel = "Details",
                 onLongClickLabel = "More",
