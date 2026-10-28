@@ -8,6 +8,8 @@ import android.os.UserManager
 import com.yaz.dialer.core.dial.SalesCalls
 import com.yaz.dialer.core.dial.ContactLookup
 import com.yaz.dialer.core.system.AdvancedProtection
+import com.yaz.dialer.data.settings.PrefixAction
+import com.yaz.dialer.data.settings.PrefixStore
 import com.yaz.dialer.data.settings.SettingsStore
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -23,6 +25,7 @@ import org.koin.core.component.inject
 class Screening : CallScreeningService(), KoinComponent {
 
     private val settings: SettingsStore by inject()
+    private val prefixes: PrefixStore by inject()
 
     override fun onScreenCall(details: Call.Details) {
         val allow = CallResponse.Builder().build()
@@ -39,14 +42,22 @@ class Screening : CallScreeningService(), KoinComponent {
         val allowedNumbers = if (unlocked) settings.current.salesAllowed else emptySet()
         val hidden = details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED ||
             details.handle?.schemeSpecificPart.isNullOrBlank()
+        // The user's blocked prefixes live in the app's files, locked before the first unlock like the contacts.
+        val country = SalesCalls.country(this, details.accountHandle)
+        val prefix = if (unlocked && !hidden) {
+            runCatching { PrefixRules.match(prefixes.current, details.handle.schemeSpecificPart, country)?.action }.getOrNull()
+        } else {
+            null
+        }
         val verdict = ScreeningRules.verdict(
+            prefix = prefix,
             hidden = hidden,
             spoofed = details.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED,
             blockSpoofed = prefs.blockSpoofed,
             blockHidden = prefs.blockHidden,
             silenceUnknown = prefs.silenceUnknown && unlocked,
             salesCall = prefs.blockSalesCalls && !hidden &&
-                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, SalesCalls.country(this, details.accountHandle)) &&
+                SalesCalls.isSalesCall(details.handle.schemeSpecificPart, country) &&
                 !ScreeningRules.isAllowed(allowedNumbers, details.handle.schemeSpecificPart),
             strict = AdvancedProtection.isOn(this),
             isContact = { unlocked && ContactLookup.isContact(this, details.handle.schemeSpecificPart) },
@@ -127,11 +138,14 @@ object ScreeningRules {
         silenceUnknown: Boolean,
         strict: Boolean,
         salesCall: Boolean = false,
+        prefix: PrefixAction? = null,
         calledAgain: () -> Boolean = { false },
         isContact: () -> Boolean
     ): Verdict = when {
         spoofed && (blockSpoofed || strict) -> Verdict.REJECT
         hidden && (blockHidden || strict) -> Verdict.REJECT
+        // A prefix the user blocks or silences, never for a saved contact; before the sales ranges.
+        prefix != null && !isContact() -> if (prefix == PrefixAction.BLOCK) Verdict.REJECT else Verdict.SILENCE
         // A number in a sales range, unless the user saved it.
         salesCall && !isContact() -> Verdict.REJECT
         // Not saved, silent, unless they call again within minutes: then it rings.

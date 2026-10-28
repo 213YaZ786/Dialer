@@ -38,7 +38,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.runtime.collectAsState
+import com.yaz.dialer.core.dial.SalesCalls
 import com.yaz.dialer.core.update.Updates
+import com.yaz.dialer.data.settings.SettingsStore
+import com.yaz.dialer.ui.component.GlassSwitch
+import com.yaz.dialer.ui.component.rememberHaptics
+import org.koin.compose.koinInject
 import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.LoadingMark
 import com.yaz.dialer.ui.component.ZoneSurface
@@ -98,11 +104,42 @@ fun WelcomeScreen(onStart: () -> Unit) {
         WelcomeZone(
             icon = AppIcons.Call,
             title = step?.title ?: "Dialer is your phone app",
-            message = step?.message ?: "Calls and phone links open in Dialer.",
+            message = ((step?.let(setup::warning) ?: step?.message) ?: "Calls and phone links open in Dialer."),
             done = step == null,
-            action = step?.action,
+            action = step?.let(setup::action),
             onAction = { step?.let(setup.run) }
         )
+        // Sales calls from the official ranges are turned away by default: shown on here, a switch to turn it off.
+        val country = remember { SalesCalls.country(context) }
+        if (country in SalesCalls.countries) {
+            Spacer(Modifier.height(16.dp))
+            val store: SettingsStore = koinInject()
+            val settings by store.settings.collectAsState()
+            val haptics = rememberHaptics()
+            ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)
+                ) {
+                    Icon(AppIcons.Block, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text("Reject sales calls", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Numbers reserved for cold calls never ring, unless saved in your contacts.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    GlassSwitch(
+                        checked = settings.blockSalesCalls,
+                        onCheckedChange = { on ->
+                            haptics.toggle(on)
+                            store.update { it.copy(blockSalesCalls = on) }
+                        }
+                    )
+                }
+            }
+        }
         // Nothing to bring over: Android keeps calls, contacts and blocked numbers for every phone app.
         Spacer(Modifier.height(16.dp))
         WelcomeZone(

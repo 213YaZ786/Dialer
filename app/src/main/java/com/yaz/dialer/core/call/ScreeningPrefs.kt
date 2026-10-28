@@ -15,7 +15,7 @@ import com.yaz.dialer.data.settings.Settings
 data class ScreeningPrefs(
     val blockSpoofed: Boolean = true,
     val blockHidden: Boolean = false,
-    val blockSalesCalls: Boolean = false,
+    val blockSalesCalls: Boolean = true,
     val silenceUnknown: Boolean = false
 ) {
     companion object {
@@ -49,7 +49,7 @@ data class ScreeningPrefs(
             ScreeningPrefs(
                 blockSpoofed = f.getBoolean("spoofed", true),
                 blockHidden = f.getBoolean("hidden", false),
-                blockSalesCalls = f.getBoolean("sales", false),
+                blockSalesCalls = f.getBoolean("sales", true),
                 silenceUnknown = f.getBoolean("silence", false)
             )
         }.getOrDefault(ScreeningPrefs())

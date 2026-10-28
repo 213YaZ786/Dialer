@@ -1,6 +1,10 @@
 package com.yaz.dialer.feature.settings
 
 import com.yaz.dialer.core.dial.SalesCalls
+import com.yaz.dialer.data.settings.PrefixAction
+import com.yaz.dialer.feature.main.SetupStep
+import com.yaz.dialer.feature.main.rememberSetup
+import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.FloatingAction
 import com.yaz.dialer.ui.component.FloatingFrame
 import com.yaz.dialer.ui.component.FloatingTop
@@ -70,11 +74,14 @@ import com.yaz.dialer.ui.theme.TEXT_SCALES
 import com.yaz.dialer.ui.theme.textScaleLabel
 import org.koin.androidx.compose.koinViewModel
 
-private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, NOT_SALES }
+private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, NOT_SALES, PREFIXES, ADD_PREFIX }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewModel()) {
     val settings by viewModel.settings.collectAsState()
+    val prefixes by viewModel.prefixes.collectAsState()
+    val setup = rememberSetup()
+    val region = rememberPrefixRegion()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var dialog by rememberSaveable { mutableStateOf(OpenDialog.NONE) }
@@ -94,6 +101,15 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             Spacer(Modifier.height(padding.calculateTopPadding()))
 
             Section("Calls") {
+                // Another app is the caller ID and spam app: Telecom never asks Dialer to screen, so spam can ring.
+                if (setup.screeningMissing) {
+                    ListItem(
+                        headlineContent = { Text("Spam calls can ring", color = MaterialTheme.colorScheme.error) },
+                        supportingContent = { Text("Dialer is not the caller ID & spam app", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        trailingContent = { BoldButton(filled = true, onClick = { setup.run(SetupStep.SCREENING) }) { Text(setup.action(SetupStep.SCREENING)) } },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
                 SwitchRow(
                     title = "Silence unknown callers",
                     summary = "Numbers not in your contacts ring without sound.",
@@ -135,6 +151,12 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                         onClick = { dialog = OpenDialog.NOT_SALES }
                     )
                 }
+                // Starts of numbers the user blocks or silences (added from a number's page or here).
+                SettingRow(
+                    title = "Blocked prefixes",
+                    summary = if (prefixes.isEmpty()) "None" else "${prefixes.size} prefix" + (if (prefixes.size > 1) "es" else ""),
+                    onClick = { dialog = OpenDialog.PREFIXES }
+                )
                 SwitchRow(
                     title = "Flip to silence",
                     summary = "Turn the phone face down to stop the ringing.",
@@ -326,6 +348,41 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 }
             },
             confirmButton = { QuietButton(onClick = { dialog = OpenDialog.NONE }) { Text("Done") } }
+        )
+        OpenDialog.PREFIXES -> ZoneAlertDialog(
+            onDismissRequest = { dialog = OpenDialog.NONE },
+            title = { Text("Blocked prefixes") },
+            text = {
+                Column {
+                    if (prefixes.isEmpty()) {
+                        Text("None yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    prefixes.forEach { rule ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text(rule.label)
+                                Text(
+                                    if (rule.action == PrefixAction.BLOCK) "Block" else "Silence",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            QuietButton(onClick = { viewModel.removePrefix(rule.prefix) }) { Text("Remove") }
+                        }
+                    }
+                }
+            },
+            confirmButton = { QuietButton(onClick = { dialog = OpenDialog.NONE }) { Text("Done") } },
+            dismissButton = { QuietButton(onClick = { dialog = OpenDialog.ADD_PREFIX }) { Text("Add") } }
+        )
+        OpenDialog.ADD_PREFIX -> PrefixDialog(
+            initial = "",
+            region = region,
+            onDismiss = { dialog = OpenDialog.PREFIXES },
+            onSave = {
+                viewModel.addPrefix(it)
+                dialog = OpenDialog.PREFIXES
+            }
         )
         OpenDialog.NONE -> Unit
     }

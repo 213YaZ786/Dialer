@@ -5,7 +5,6 @@ import kotlinx.coroutines.launch
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Context
-import android.telephony.PhoneNumberUtils
 import android.telephony.TelephonyManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -294,7 +293,7 @@ private fun Keys(
         context.getSystemService(TelephonyManager::class.java)?.networkCountryIso?.takeIf { it.isNotBlank() }?.uppercase()
             ?: Locale.getDefault().country
     }
-    val shown = remember(number) { PhoneNumberUtils.formatNumber(number, iso) ?: number }
+    val shown = remember(number) { DialFormat.asYouType(number, iso) }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 440.dp)) {
         // The number; held, it takes a number copied elsewhere. Before
         // anything is typed, Voicemail and SOS stand in its place.

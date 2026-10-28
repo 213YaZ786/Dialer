@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,7 +23,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +42,11 @@ internal enum class SetupStep(val title: String, val message: String, val action
     ROLE(
         "Make Dialer your phone app",
         "To make and receive calls with it.",
+        "Choose Dialer"
+    ),
+    SCREENING(
+        "Filter spam calls",
+        "Spam and sales calls are turned away before they ring. Choose Dialer as the caller ID and spam app.",
         "Choose Dialer"
     ),
     NOTIFICATIONS(
@@ -57,7 +66,22 @@ internal enum class SetupStep(val title: String, val message: String, val action
  * each time the app comes back, since each can be changed in Android at
  * any time; and [run] to start a step.
  */
-internal class Setup(val step: SetupStep?, val run: (SetupStep) -> Unit)
+internal class Setup(
+    val step: SetupStep?,
+    val run: (SetupStep) -> Unit,
+    /** Another app (or none) is the caller ID and spam app: Telecom does not ask Dialer to screen calls. */
+    val screeningMissing: Boolean,
+    /** Android no longer shows the question for the screening role. */
+    val screeningBlocked: Boolean
+) {
+    /** The label of [step]'s button: Android's page once it no longer asks. */
+    fun action(step: SetupStep): String =
+        if (step == SetupStep.SCREENING && screeningBlocked) "Open settings" else step.action
+
+    /** What stays true while the step is refused, or null. */
+    fun warning(step: SetupStep): String? =
+        if (step == SetupStep.SCREENING && screeningBlocked) "Android no longer asks. Choose Dialer as the caller ID and spam app in its settings." else null
+}
 
 @Composable
 internal fun rememberSetup(): Setup {
@@ -68,6 +92,20 @@ internal fun rememberSetup(): Setup {
         onPauseOrDispose { }
     }
     val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { checks++ }
+    // Asked as SpamBlocker asks (Permission.CallScreening: createRequestRoleIntent(ROLE_CALL_SCREENING), checked with
+    // isRoleHeld, https://github.com/aj3423/SpamBlocker/blob/main/app/src/main/java/spam/blocker/util/Permission.kt).
+    // An answer back in under 250 ms is Android refusing without asking, as SMS's SetupZone and AOSP Messaging's
+    // PermissionCheckActivity read it: its default apps page is where the user then decides.
+    var screeningBlocked by rememberSaveable { mutableStateOf(false) }
+    var screeningAskedAt by remember { mutableLongStateOf(0L) }
+    val screening = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val held = context.getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+        if (!held && SystemClock.elapsedRealtime() - screeningAskedAt < NO_QUESTION_MS) {
+            screeningBlocked = true
+            openDefaultApps(context)
+        }
+        checks++
+    }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         // Refused now or before: Android will not ask again, its own page is
         // the only way left, and the user decides there.
@@ -75,11 +113,21 @@ internal fun rememberSetup(): Setup {
         checks++
     }
     val step = remember(checks) { nextStep(context) }
-    return Setup(step) { wanted ->
+    val screeningMissing = remember(checks) { screeningMissing(context) }
+    return Setup(step, screeningMissing = screeningMissing, screeningBlocked = screeningBlocked, run = { wanted ->
         when (wanted) {
             SetupStep.ROLE -> role.launch(
                 context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_DIALER)
             )
+            SetupStep.SCREENING ->
+                if (screeningBlocked) {
+                    openDefaultApps(context)
+                } else {
+                    screeningAskedAt = SystemClock.elapsedRealtime()
+                    screening.launch(
+                        context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
+                    )
+                }
             SetupStep.NOTIFICATIONS ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -90,7 +138,7 @@ internal fun rememberSetup(): Setup {
                 Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}"))
             )
         }
-    }
+    })
 }
 
 /**
@@ -119,8 +167,11 @@ fun SetupZone(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+            setup.warning(step)?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            }
             Row(Modifier.padding(top = 4.dp)) {
-                BoldButton(filled = true, onClick = { setup.run(step) }) { Text(step.action) }
+                BoldButton(filled = true, onClick = { setup.run(step) }) { Text(setup.action(step)) }
             }
         }
     }
@@ -129,12 +180,31 @@ fun SetupZone(modifier: Modifier = Modifier) {
 private fun nextStep(context: Context): SetupStep? {
     val roles = context.getSystemService(RoleManager::class.java)
     if (roles.isRoleAvailable(RoleManager.ROLE_DIALER) && !roles.isRoleHeld(RoleManager.ROLE_DIALER)) return SetupStep.ROLE
+    if (screeningMissing(context)) return SetupStep.SCREENING
     val notifications = context.getSystemService(NotificationManager::class.java)
     if (!notifications.areNotificationsEnabled()) return SetupStep.NOTIFICATIONS
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !notifications.canUseFullScreenIntent()) {
         return SetupStep.FULL_SCREEN
     }
     return null
+}
+
+/** The caller ID and spam role exists on this phone and Dialer does not hold it (SpamBlocker's Permission.CallScreening.check). */
+private fun screeningMissing(context: Context): Boolean {
+    val roles = context.getSystemService(RoleManager::class.java)
+    return roles.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) && !roles.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+}
+
+private const val NO_QUESTION_MS = 250L
+
+/**
+ * Android's default apps page, where the caller ID and spam app is chosen when the role is no longer asked:
+ * Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
+ * (https://developer.android.com/reference/android/provider/Settings#ACTION_MANAGE_DEFAULT_APPS_SETTINGS), started as
+ * SMS's SetupZone.openDefaultApps starts it.
+ */
+private fun openDefaultApps(context: Context) {
+    runCatching { context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }
 }
 
 private fun openNotificationSettings(context: Context) {

@@ -3,7 +3,9 @@ package com.yaz.dialer.feature.recents
 import android.content.Context
 import android.provider.CallLog
 import android.text.format.DateFormat
+import com.yaz.dialer.core.call.PrefixRules
 import com.yaz.dialer.core.calllog.CallEntry
+import com.yaz.dialer.data.settings.BlockedPrefix
 import com.yaz.dialer.core.dial.SalesCalls
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -72,10 +74,14 @@ fun kindWord(kind: CallKind): String = when (kind) {
  * and for a screening app only that it was one, so what this app turned
  * away is told from the number: hidden, in a sales range, else faked.
  */
-fun blockedWhy(reason: Int, ours: Boolean, hidden: Boolean, salesRange: Boolean, otherApp: String? = null): String? = when (reason) {
+fun blockedWhy(
+    reason: Int, ours: Boolean, hidden: Boolean, salesRange: Boolean, otherApp: String? = null, prefix: String? = null
+): String? = when (reason) {
     CallLog.Calls.BLOCK_REASON_CALL_SCREENING_SERVICE -> when {
         !ours -> otherApp?.let { "by $it" } ?: "screening app"
         hidden -> "hidden number"
+        // Screening checks the user's prefixes before the sales ranges.
+        prefix != null -> "prefix $prefix"
         salesRange -> "sales call"
         else -> "faked number"
     }
@@ -88,8 +94,10 @@ fun blockedWhy(reason: Int, ours: Boolean, hidden: Boolean, salesRange: Boolean,
 }
 
 /** [blockedWhy] for a line of the log. */
-fun blockedWhy(context: Context, call: CallEntry): String? {
+fun blockedWhy(context: Context, call: CallEntry, prefixes: List<BlockedPrefix> = emptyList()): String? {
     if (call.kind != CallKind.BLOCKED) return null
+    val country = SalesCalls.country(context)
+    val prefix = if (call.hidden) null else PrefixRules.match(prefixes, call.number, country)?.label
     val ours = call.screenedBy == context.packageName
     val other = if (ours || call.screenedBy == null) null else runCatching {
         val pm = context.packageManager
@@ -97,8 +105,9 @@ fun blockedWhy(context: Context, call: CallEntry): String? {
     }.getOrNull()
     return blockedWhy(
         call.blockReason, ours, call.hidden,
-        salesRange = !call.hidden && SalesCalls.isSalesCall(call.number, SalesCalls.country(context)),
-        otherApp = other
+        salesRange = !call.hidden && SalesCalls.isSalesCall(call.number, country),
+        otherApp = other,
+        prefix = prefix
     )
 }
 

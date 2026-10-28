@@ -61,8 +61,11 @@ data class Settings(
     val dialpadY: Float = -1f,
     /** The little show of the dialpad button moving was seen. */
     val dialpadHintSeen: Boolean = false,
-    /** Calls from the ranges kept for sales calls are turned away. */
-    val blockSalesCalls: Boolean = false,
+    /**
+     * Calls from the ranges kept for sales calls are turned away, on unless the user turned it off
+     * (Google's Phone filters spam calls by default too).
+     */
+    val blockSalesCalls: Boolean = true,
     /** Numbers the user said are not sales calls: they ring, whatever the range. Never in Android's blocked list. */
     val salesAllowed: Set<String> = emptySet(),
     /** Held keys 2 to 9 of the dialpad call these numbers. */

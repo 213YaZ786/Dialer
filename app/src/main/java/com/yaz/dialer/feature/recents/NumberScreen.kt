@@ -42,7 +42,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.yaz.dialer.core.call.Dialing
+import com.yaz.dialer.core.call.PrefixRules
 import com.yaz.dialer.core.call.ScreeningRules
+import com.yaz.dialer.data.settings.PrefixStore
+import com.yaz.dialer.feature.settings.PrefixDialog
+import com.yaz.dialer.feature.settings.rememberPrefixRegion
 import com.yaz.dialer.core.calllog.CallGrouping
 import com.yaz.dialer.core.calllog.Rhythms
 import com.yaz.dialer.core.dial.DialRequests
@@ -87,6 +91,11 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
 
     var blocked by remember(number) { mutableStateOf(!hidden && NumberActions.isBlocked(context, number)) }
     var confirmBlock by remember { mutableStateOf(false) }
+    // The user's blocked prefixes (Settings lists them): this page can add one, starting from this number.
+    val prefixStore: PrefixStore = koinInject()
+    val prefixes by prefixStore.rules.collectAsState()
+    val prefixRegion = rememberPrefixRegion()
+    var askPrefix by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     FloatingFrame(
@@ -130,7 +139,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
                 val settings by settingsStore.settings.collectAsState()
                 val allowed = !hidden && ScreeningRules.isAllowed(settings.salesAllowed, number)
-                if (!hidden && (allowed || calls.any { blockedWhy(context, it) == "sales call" })) {
+                if (!hidden && (allowed || calls.any { blockedWhy(context, it, prefixes) == "sales call" })) {
                     Spacer(Modifier.height(10.dp))
                     ZoneSurface(
                         shape = CircleShape,
@@ -178,6 +187,12 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                                 }
                             }
                         }
+                        // A whole range of spam numbers (not an official sales range): the start of this number.
+                        QuietButton(onClick = { askPrefix = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                            Icon(AppIcons.Block, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Block numbers starting like this")
+                        }
                     }
                 }
 
@@ -207,7 +222,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                                     KindBadge(call.kind, size = 32.dp)
                                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
                                         Text(
-                                            kindLabel(call.kind) + (blockedWhy(context, call)?.let { " · $it" }.orEmpty()),
+                                            kindLabel(call.kind) + (blockedWhy(context, call, prefixes)?.let { " · $it" }.orEmpty()),
                                             style = MaterialTheme.typography.bodyLarge
                                         )
                                         if (call.duration > 0) {
@@ -244,6 +259,19 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             NumberActions.block(context, number)
             blocked = NumberActions.isBlocked(context, number)
         }
+    }
+    if (askPrefix) {
+        // The number as the user reads it (national at home), its first digits to be shortened.
+        val digits = remember(number) { T9.clean(Numbers.format(context, number)) }
+        PrefixDialog(
+            initial = digits.take(if (digits.startsWith("+")) 7 else 6),
+            region = prefixRegion,
+            onDismiss = { askPrefix = false },
+            onSave = {
+                askPrefix = false
+                prefixStore.update { rules -> PrefixRules.with(rules, it) }
+            }
+        )
     }
     if (confirmDelete) {
         ZoneAlertDialog(

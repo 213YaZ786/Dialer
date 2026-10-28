@@ -250,7 +250,8 @@ private fun CallLine(
     val dial: DialRequests = koinInject()
     val call = group.first
     // For a blocked call, why: "Blocked · sales call". A sales call can be allowed from here.
-    val why = remember(call.id, call.blockReason) { blockedWhy(context, call) }
+    val prefixes by koinInject<com.yaz.dialer.data.settings.PrefixStore>().rules.collectAsState()
+    val why = remember(call.id, call.blockReason, prefixes) { blockedWhy(context, call, prefixes) }
     val isSales = why == "sales call"
     val allowedNow = isSales && com.yaz.dialer.core.call.ScreeningRules.isAllowed(salesAllowed, call.number)
     val contact = if (call.hidden) null else index.find(call.key)
