@@ -70,7 +70,7 @@ import org.koin.compose.koinInject
  * then the people called most these last weeks, saved or not.
  */
 @Composable
-fun FavoritesScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
+fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
     val book: PhoneBook = koinInject()
     val history: CallHistory = koinInject()
     val settings: SettingsStore = koinInject()
@@ -127,9 +127,6 @@ fun FavoritesScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: 
                         known = frequent.person != null,
                         calls = frequent.calls,
                         number = frequent.number,
-                        // Tiles follow a swipe only while this tab is settled in front: not while the pager moves
-                        // (the same fix as Recents' rows, RecentsScreen's `swipes = visible`).
-                        swipes = visible,
                         onOpen = { onOpenNumber(frequent.number) }
                     )
                 }
@@ -139,10 +136,10 @@ fun FavoritesScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: 
     }
 }
 
-/** Someone called often: a smaller tile of glass; a tap calls, a swipe calls or writes, a long press offers the rest. */
+/** Someone called often: a smaller tile of glass; a tap calls, a long press offers the rest (no swipe: it would fight the tabs' pager). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: Int, number: String, swipes: Boolean, onOpen: () -> Unit) {
+private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: Int, number: String, onOpen: () -> Unit) {
     val context = LocalContext.current
     val haptics = rememberHaptics()
     val dial: DialRequests = koinInject()
@@ -154,12 +151,6 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
         haptics.firm()
         if (!Dialing.call(context, number)) dial.open(number)
     }
-    // Swiped right it calls, left it writes; held, its menu.
-    com.yaz.dialer.ui.component.SwipeRow(
-        start = if (swipes) com.yaz.dialer.ui.component.SwipeAction(AppIcons.Call, "Call") { call() } else null,
-        end = if (swipes) com.yaz.dialer.ui.component.SwipeAction(AppIcons.Message, "Message") { NumberActions.message(context, number) } else null,
-        modifier = Modifier.fillMaxWidth()
-    ) {
     Box(menu.tracker) {
     val shape = RoundedCornerShape(24.dp)
     ZoneSurface(
@@ -200,7 +191,6 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
             if (!known) PillItem(AppIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, number) } else null
         )
     )
-    }
     }
 }
 

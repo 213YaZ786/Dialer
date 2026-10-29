@@ -402,7 +402,6 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit,
                 ReadableScroll {
                     when (tabs[page]) {
                         TopDestination.FAVORITES -> FavoritesScreen(
-                            visible = pager.settledPage == page && dialpad == null && !showWelcome,
                             onOpenSettings = onOpenSettings,
                             onOpenNumber = onOpenNumber
                         )
