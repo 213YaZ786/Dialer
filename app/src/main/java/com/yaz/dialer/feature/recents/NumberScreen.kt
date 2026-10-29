@@ -46,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -66,7 +65,11 @@ import com.yaz.dialer.data.calllog.CallHistory
 import com.yaz.dialer.data.contacts.PhoneBook
 import com.yaz.dialer.data.contacts.PhoneIndex
 import com.yaz.dialer.ui.component.ContactAvatar
+import com.yaz.dialer.ui.component.BlockConfirm
 import com.yaz.dialer.ui.component.HeroGlow
+import com.yaz.dialer.ui.component.PersonActionTile
+import com.yaz.dialer.ui.component.PersonActions
+import com.yaz.dialer.ui.component.PersonHeader
 import com.yaz.dialer.ui.component.QuietButton
 import com.yaz.dialer.ui.component.ZoneAlertDialog
 import com.yaz.dialer.ui.component.ZoneSurface
@@ -130,42 +133,23 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 Spacer(Modifier.height(8.dp))
-                // The header as AOSP Dialer's call details: the face at the start, a block to its end with the
-                // name, the number and the place, centred on the face. Ported from
+                // The shared person header (ui/component/PersonHeader), from AOSP Dialer's call details:
                 // https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calldetails/res/layout/contact_container.xml
-                // (QuickContactBadge, then contact_name, phone_number, network toEndOf the photo) and its dimens.xml
-                // (Apache-2.0); Row mirrors in right-to-left.
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    ContactAvatar(contact?.name, contact?.photo, 80.dp, look = contact?.look)
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-                        Text(
-                            contact?.name ?: shown,
-                            style = MaterialTheme.typography.headlineSmall,
-                            textAlign = TextAlign.Start,
-                            maxLines = 2,
-                            overflow = if (contact == null && !hidden) androidx.compose.ui.text.style.TextOverflow.MiddleEllipsis else androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        if (contact != null) {
-                            Text(
-                                shown,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Start,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.MiddleEllipsis
-                            )
-                        }
-                        // Where the number is from and the time there, from the number itself.
-                        if (!hidden) com.yaz.dialer.ui.component.PlaceLine(number, known = contact != null, modifier = Modifier.padding(top = 4.dp))
-                    }
-                }
-                if (blocked) {
-                    Spacer(Modifier.height(8.dp))
-                    ZoneSurface(shape = CircleShape) {
-                        Text("Blocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
-                    }
-                }
+                // (QuickContactBadge opens the contact, then contact_name, phone_number, network toEndOf the photo; Apache-2.0).
+                PersonHeader(
+                    name = contact?.name ?: shown,
+                    number = if (contact != null) shown else null,
+                    face = { size -> ContactAvatar(contact?.name, contact?.photo, size, look = contact?.look) },
+                    onFace = contact?.contactId?.takeIf { it > 0 }?.let { id -> { NumberActions.openContact(context, id) } },
+                    // Where the number is from and the time there, from the number itself.
+                    extra = if (hidden) null else {
+                        { com.yaz.dialer.ui.component.PlaceLine(number, known = contact != null, modifier = Modifier.padding(top = 4.dp)) }
+                    },
+                    // The mark does nothing when touched, so it has no zone.
+                    badges = if (blocked) {
+                        { Text("Blocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error) }
+                    } else null
+                )
 
                 // A number the sales call block turned away: one touch says it is not one (and back).
                 val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
@@ -192,33 +176,30 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 if (!hidden) {
                     Spacer(Modifier.height(28.dp))
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        CallBar(label = "Call", enabled = true) {
-                            haptics.firm()
-                            if (!Dialing.call(context, number)) {
-                                dial.open(number)
-                                onBack()
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            ActionTile(AppIcons.Message, "Message", Modifier.weight(1f)) { NumberActions.message(context, number) }
-                            // A private person of the Contacts app: nothing to open or add in Android's contacts.
-                            if (contact != null && contact.contactId > 0) {
-                                ActionTile(AppIcons.Person, "Contact", Modifier.weight(1f)) { NumberActions.openContact(context, contact.contactId) }
-                            } else if (contact == null) {
-                                ActionTile(AppIcons.PersonAdd, "Add", Modifier.weight(1f)) { NumberActions.addContact(context, number) }
-                            }
-                            ActionTile(AppIcons.Copy, "Copy", Modifier.weight(1f)) { NumberActions.copy(context, number) }
-                            if (NumberActions.canBlock(context)) {
-                                ActionTile(AppIcons.Block, if (blocked) "Unblock" else "Block", Modifier.weight(1f), tint = MaterialTheme.colorScheme.error) {
-                                    if (blocked) {
-                                        NumberActions.unblock(context, number)
-                                        blocked = NumberActions.isBlocked(context, number)
-                                    } else {
-                                        confirmBlock = true
+                        PersonActions(
+                            number = if (hidden) null else number,
+                            contactId = contact?.contactId,
+                            onCall = {
+                                haptics.firm()
+                                if (!Dialing.call(context, number)) {
+                                    dial.open(number)
+                                    onBack()
+                                }
+                            },
+                            // Blocking is Dialer's own tile, appended to the shared row.
+                            more = {
+                                if (NumberActions.canBlock(context)) {
+                                    PersonActionTile(AppIcons.Block, if (blocked) "Unblock" else "Block", Modifier.weight(1f), tint = MaterialTheme.colorScheme.error) {
+                                        if (blocked) {
+                                            NumberActions.unblock(context, number)
+                                            blocked = NumberActions.isBlocked(context, number)
+                                        } else {
+                                            confirmBlock = true
+                                        }
                                     }
                                 }
                             }
-                        }
+                        )
                         // A whole range of spam numbers (not an official sales range): the start of this number.
                         QuietButton(onClick = { askPrefix = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                             Icon(AppIcons.Block, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -269,7 +250,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
     }
 
     if (confirmBlock) {
-        BlockDialog(contact?.name ?: shown, onDismiss = { confirmBlock = false }) {
+        BlockConfirm(contact?.name ?: shown, onDismiss = { confirmBlock = false }) {
             confirmBlock = false
             NumberActions.block(context, number)
             blocked = NumberActions.isBlocked(context, number)

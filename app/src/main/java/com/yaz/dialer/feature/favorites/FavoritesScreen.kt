@@ -53,7 +53,6 @@ import com.yaz.dialer.feature.call.AnswerGreen
 import com.yaz.dialer.feature.contacts.NumberChooser
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.yaz.dialer.feature.contacts.StarGold
 import com.yaz.dialer.feature.main.TabFrame
 import com.yaz.dialer.ui.component.ContactAvatar
 import com.yaz.dialer.ui.component.EmptyZone
@@ -274,8 +273,8 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
                 PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
                 PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
                 PillItem(AppIcons.Recents, "Calls", PillMotion.BOUNCE) { onOpen() },
-                PillItem(AppIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) },
-                PillItem(AppIcons.StarOutline, "Remove from favorites", PillMotion.DROP, StarGold) { NumberActions.star(context, person.id, false) }
+                // Favourites are set in Contacts (one job each): the menu opens the person there.
+                PillItem(AppIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) }
             )
         )
     }

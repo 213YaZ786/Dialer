@@ -246,12 +246,6 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
                 PillItem(AppIcons.Call, "Call", PillMotion.BOUNCE, AnswerGreen) { call() },
                 PillItem(AppIcons.Message, "Send a message", PillMotion.WIGGLE) { NumberActions.message(context, person.number) },
                 if (!saved) PillItem(AppIcons.PersonAdd, "Add to contacts", PillMotion.BOUNCE) { NumberActions.addContact(context, person.number) } else null,
-                if (saved) PillItem(
-                    if (person.starred) AppIcons.StarOutline else AppIcons.Star,
-                    if (person.starred) "Remove from favorites" else "Add to favorites",
-                    PillMotion.BOUNCE,
-                    StarGold
-                ) { NumberActions.star(context, person.id, !person.starred) } else null,
                 if (saved) PillItem(AppIcons.Person, "Open in Contacts", PillMotion.BOUNCE) { NumberActions.openContact(context, person.id) } else null
             )
         )

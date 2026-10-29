@@ -21,6 +21,24 @@
         <!-- SMS, to check that the encrypted line of a call is really its own. -->
         <package android:name="com.yaz.sms" />
         <package android:name="com.yaz.sms.debug" />
+        <!-- The person page asks whether an app answers each of its tiles, and hides the tile otherwise
+             (https://developer.android.com/training/package-visibility/declaring). -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="com.android.contacts" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.INSERT_OR_EDIT" />
+            <data android:mimeType="vnd.android.cursor.item/contact" />
+        </intent>
     </queries>
     <!-- Only used when the user chooses to install updates from the app; Android asks them then. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

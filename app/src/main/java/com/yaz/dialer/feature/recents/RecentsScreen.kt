@@ -28,8 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import com.yaz.dialer.ui.component.BoldButton
-import com.yaz.dialer.ui.component.QuietButton
+import com.yaz.dialer.ui.component.BlockConfirm
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -69,7 +68,6 @@ import com.yaz.dialer.ui.component.NewDot
 import com.yaz.dialer.ui.component.PillItem
 import com.yaz.dialer.ui.component.PillMenu
 import com.yaz.dialer.ui.component.PillMotion
-import com.yaz.dialer.ui.component.ZoneAlertDialog
 import com.yaz.dialer.ui.component.ZoneSurface
 import com.yaz.dialer.ui.component.rememberHaptics
 import com.yaz.dialer.ui.component.rememberPillMenu
@@ -409,24 +407,11 @@ private fun CallLine(
     }
 
     if (confirmBlock) {
-        BlockDialog(name ?: shown, onDismiss = { confirmBlock = false }) {
+        BlockConfirm(name ?: shown, onDismiss = { confirmBlock = false }) {
             confirmBlock = false
             NumberActions.block(context, call.number)
         }
     }
-}
-
-/** Blocking asks once: a blocked number no longer rings, and texts from it no longer arrive. */
-@Composable
-fun BlockDialog(who: String, onDismiss: () -> Unit, onBlock: () -> Unit) {
-    ZoneAlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(AppIcons.Block, contentDescription = null) },
-        title = { Text("Block $who?") },
-        text = { Text("Calls and texts from this number will no longer reach you.") },
-        confirmButton = { BoldButton(filled = true, onClick = onBlock) { Text("Block") } },
-        dismissButton = { QuietButton(onClick = onDismiss) { Text("Cancel") } }
-    )
 }
 
 private val LINE_WIDTH = 640.dp
