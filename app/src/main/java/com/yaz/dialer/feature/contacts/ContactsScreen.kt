@@ -46,8 +46,7 @@ import com.yaz.dialer.core.call.Dialing
 import com.yaz.dialer.core.dial.DialRequests
 import com.yaz.dialer.core.dial.NumberActions
 import com.yaz.dialer.core.dial.Numbers
-import com.yaz.dialer.ui.component.ZoneAlertDialog
-import com.yaz.dialer.ui.component.QuietButton
+import com.yaz.dialer.ui.component.ChoiceDialog
 import com.yaz.dialer.core.dial.People
 import com.yaz.dialer.core.dial.Person
 import com.yaz.dialer.data.contacts.PhoneBook
@@ -265,22 +264,12 @@ val StarGold = Color(0xFFFFB300)
 @Composable
 fun NumberChooser(person: Person, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val context = LocalContext.current
-    ZoneAlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { ContactAvatar(person.name, person.photo, 56.dp, look = person.look) },
-        title = { Text("Call ${person.name}") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                person.numbers.forEach { entry ->
-                    ZoneSurface(shape = RoundedCornerShape(20.dp), onClick = { onPick(entry.number) }, modifier = Modifier.fillMaxWidth()) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
-                            Text(Numbers.format(context, entry.number), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Icon(AppIcons.Call, contentDescription = null, tint = AnswerGreen)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { QuietButton(onClick = onDismiss) { Text("Cancel") } }
+    // Glass capsules, one per number: Modules' ChoiceDialog (SMS's commit 8de995b is the model); a tap picks and closes.
+    ChoiceDialog(
+        title = "Call ${person.name}",
+        icon = AppIcons.Call,
+        options = person.numbers.distinctBy { it.number }.map { it.number to Numbers.format(context, it.number) },
+        onPick = onPick,
+        onDismiss = onDismiss
     )
 }

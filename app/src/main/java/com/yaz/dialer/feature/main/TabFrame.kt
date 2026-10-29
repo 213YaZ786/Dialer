@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +38,14 @@ import com.yaz.dialer.ui.component.LocalDockPadding
 import com.yaz.dialer.ui.icon.AppIcons
 
 /**
+ * Where a tab hands its content's scroll state up, to DialerApp, which gives the dock the same vertical drag as the
+ * tab's header (state hoisted through a provided callback, as FloatingFrame's LocalFrameScroll hands its drag down).
+ * Source: Material Components' HeaderBehavior, a drag on a bar scrolls the content
+ * (https://github.com/material-components/material-components-android/blob/master/lib/java/com/google/android/material/appbar/HeaderBehavior.java).
+ */
+val LocalTabScroll = staticCompositionLocalOf<((ScrollableState) -> Unit)?> { null }
+
+/**
  * What every tab of the main screen shares. The tab's content takes the
  * whole screen, top to bottom; the tab's name, the way to Settings, the
  * setup steps while any is left and the tab's own [controls] (search,
@@ -50,6 +61,8 @@ fun TabFrame(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val inset = LocalReadableInset.current
+    val handUp = LocalTabScroll.current
+    LaunchedEffect(scroll) { if (scroll != null) handUp?.invoke(scroll) }
     FloatingFrame(
         scroll = scroll,
         bottom = LocalDockPadding.current + 16.dp,

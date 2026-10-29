@@ -50,7 +50,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
@@ -86,7 +85,7 @@ import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.FloatingAction
 import com.yaz.dialer.ui.component.FloatingFrame
 import com.yaz.dialer.ui.component.FloatingTop
-import com.yaz.dialer.ui.component.GlassRadio
+import com.yaz.dialer.ui.component.ChoiceDialog
 import com.yaz.dialer.ui.component.GlassSwitch
 import com.yaz.dialer.ui.component.LargeTitle
 import com.yaz.dialer.ui.component.QuietButton
@@ -438,21 +437,21 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             title = "Theme",
             options = ThemeMode.entries.map { it to themeLabel(it) },
             selected = settings.themeMode,
-            onSelect = viewModel::setTheme,
+            onPick = viewModel::setTheme,
             onDismiss = { dialog = OpenDialog.NONE }
         )
         OpenDialog.TEXT_SIZE -> ChoiceDialog(
             title = "Text size",
             options = TEXT_SCALES.map { it to textScaleLabel(it) },
             selected = settings.textScale,
-            onSelect = viewModel::setTextScale,
+            onPick = viewModel::setTextScale,
             onDismiss = { dialog = OpenDialog.NONE }
         )
         OpenDialog.UPDATES -> ChoiceDialog(
             title = "Updates",
             options = UpdateMode.entries.map { it to updatesLabel(it) },
             selected = settings.updates,
-            onSelect = { mode ->
+            onPick = { mode ->
                 viewModel.setUpdates(mode)
                 // Installing needs Android's leave, asked when chosen.
                 if (mode == UpdateMode.INSTALL && !Updates.canInstall(context)) Updates.allowInstalls(context)
@@ -463,7 +462,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
             title = "Announce the caller",
             options = AnnounceMode.entries.map { it to announceLabel(it) },
             selected = settings.announce,
-            onSelect = viewModel::setAnnounce,
+            onPick = viewModel::setAnnounce,
             onDismiss = { dialog = OpenDialog.NONE }
         )
         OpenDialog.NOT_SALES -> ZoneAlertDialog(
@@ -891,43 +890,6 @@ private fun TileDialog(tile: SwitchTile, onDismiss: () -> Unit) {
             }
         },
         confirmButton = { BoldButton(onClick = onDismiss) { Text("Done") } }
-    )
-}
-
-/** SMS's ChoiceDialog: a long list scrolls inside the dialog, never past the screen. */
-@Composable
-private fun <T> ChoiceDialog(
-    title: String,
-    options: List<Pair<T, String>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    onDismiss: () -> Unit
-) {
-    ZoneAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            val tall = (LocalConfiguration.current.screenHeightDp * 0.55f).dp
-            Column(Modifier.heightIn(max = tall).verticalScroll(rememberScrollState())) {
-                options.forEach { (value, label) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                onSelect(value)
-                                onDismiss()
-                            }
-                            .padding(vertical = 10.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        GlassRadio(selected = value == selected, onClick = null)
-                        Text(label, modifier = Modifier.padding(start = 12.dp))
-                    }
-                }
-            }
-        },
-        confirmButton = { QuietButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 

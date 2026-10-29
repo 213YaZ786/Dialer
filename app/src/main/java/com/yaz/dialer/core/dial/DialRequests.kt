@@ -42,8 +42,19 @@ class DialRequests {
     private val _numberPage = MutableStateFlow<String?>(null)
     val numberPage: StateFlow<String?> = _numberPage.asStateFlow()
 
-    fun showNumber(number: String) {
-        if (number.isNotEmpty()) _numberPage.value = number
+    /**
+     * Asked by another app (referrer not ours): leaving that page gives the screen back to it, as the dialpad does with
+     * [fromOutside]. AOSP Dialer's CallDetailsActivity is a plain activity, so Back returns to whoever opened it
+     * (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calldetails/AndroidManifest.xml).
+     */
+    var numberFromOutside = false
+        private set
+
+    fun showNumber(number: String, outside: Boolean = false) {
+        if (number.isNotEmpty()) {
+            numberFromOutside = outside
+            _numberPage.value = number
+        }
     }
 
     fun numberShown() {

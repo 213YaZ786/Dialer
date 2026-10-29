@@ -110,6 +110,16 @@ import com.yaz.dialer.ui.component.DockClearance
 import com.yaz.dialer.ui.component.DockItem
 import com.yaz.dialer.ui.component.FloatingDock
 import com.yaz.dialer.ui.component.LocalDockPadding
+import com.yaz.dialer.ui.component.LocalFrameScroll
+import com.yaz.dialer.feature.main.LocalTabScroll
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.yaz.dialer.ui.component.SideDockClearance
 import com.yaz.dialer.ui.component.UpdatePrompt
 import com.yaz.dialer.ui.component.rememberHaptics
@@ -134,6 +144,19 @@ fun DialerApp() {
 
 @Composable
 private fun DialerNavHost(navController: NavHostController) {
+    // A number's page asked by another app: leaving it (Back or its back button) pops it and moves the task back, so
+    // the user is in that app again, as the dialpad does with DialRequests.fromOutside. Opened from inside: unchanged.
+    // Source: AOSP Dialer's CallDetailsActivity is a plain activity, Back returns to whoever opened it
+    // (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calldetails/AndroidManifest.xml).
+    var numberFromOutside by rememberSaveable { mutableStateOf(false) }
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    fun leaveNumber() {
+        navController.popBackStack()
+        if (numberFromOutside) {
+            numberFromOutside = false
+            activity?.moveTaskToBack(true)
+        }
+    }
     NavHost(
         navController = navController,
         startDestination = Routes.MAIN,
@@ -152,7 +175,14 @@ private fun DialerNavHost(navController: NavHostController) {
         composable(Routes.MAIN) {
             MainTabs(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenNumber = { number -> navController.navigate(Routes.number(number)) }
+                onOpenNumber = { number ->
+                    numberFromOutside = false
+                    navController.navigate(Routes.number(number))
+                },
+                onShowNumber = { number, outside ->
+                    numberFromOutside = outside
+                    navController.navigate(Routes.number(number))
+                }
             )
         }
         composable(
@@ -161,7 +191,7 @@ private fun DialerNavHost(navController: NavHostController) {
         ) { entry ->
             NumberScreen(
                 number = entry.arguments?.getString("n").orEmpty(),
-                onBack = { navController.popBackStack() }
+                onBack = { leaveNumber() }
             )
         }
         composable(Routes.SETTINGS) {
@@ -173,6 +203,9 @@ private fun DialerNavHost(navController: NavHostController) {
     // After the NavHost, so it takes the back gesture before the NavHost's
     // predictive pop can.
     PlainBack(navController)
+    // After PlainBack, so it is asked first: Back from a number's page opened by another app gives the screen back.
+    val onNumber = navController.currentBackStackEntryAsState().value?.destination?.route == Routes.NUMBER
+    BackHandler(enabled = numberFromOutside && onNumber) { leaveNumber() }
 }
 
 /**
@@ -182,7 +215,7 @@ private fun DialerNavHost(navController: NavHostController) {
  * Recents or Contacts returns to Favorites before leaving the app.
  */
 @Composable
-private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
+private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit, onShowNumber: (String, Boolean) -> Unit) {
     val tabs = TopDestination.entries
     val store: SettingsStore = koinInject()
     // Read once: the app reopens on the tab it was left on. After that the
@@ -228,7 +261,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
         numberPage?.let {
             dialpad = null; forOutside = false
             dial.numberShown()
-            onOpenNumber(it)
+            onShowNumber(it, dial.numberFromOutside)
         }
     }
 
@@ -330,6 +363,22 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
             }
         }
 
+        // Each tab hands up its content's scroll state; the dock drives the current tab's, so a drag that starts on it
+        // scrolls the content (the user, 2026-10-29: "jamais de zone morte"), as FloatingFrame's header does
+        // (ui/component/FloatingPane.kt dragScroll: Scrollable.kt's ScrollableDefaults.reverseDirection and flingBehavior;
+        // Material Components' HeaderBehavior,
+        // https://github.com/material-components/material-components-android/blob/master/lib/java/com/google/android/material/appbar/HeaderBehavior.java).
+        val tabScroll = remember { mutableStateListOf<ScrollableState?>(null, null, null) }
+        val currentScroll = tabScroll[pager.currentPage]
+        val dockDrag: Modifier = if (currentScroll != null) {
+            Modifier.scrollable(
+                state = currentScroll,
+                orientation = Orientation.Vertical,
+                reverseDirection = ScrollableDefaults.reverseDirection(LocalLayoutDirection.current, Orientation.Vertical, false),
+                flingBehavior = ScrollableDefaults.flingBehavior()
+            )
+        } else Modifier
+
         val pages: @Composable (Modifier) -> Unit = { modifier ->
             HorizontalPager(
                 state = pager,
@@ -348,6 +397,8 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                     scaleY = shrink
                 }
             ) { page ->
+                val handUp = remember(page) { { state: ScrollableState -> tabScroll[page] = state } }
+                CompositionLocalProvider(LocalTabScroll provides handUp) {
                 ReadableScroll {
                     when (tabs[page]) {
                         TopDestination.FAVORITES -> FavoritesScreen(
@@ -362,6 +413,7 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                         )
                         TopDestination.CONTACTS -> ContactsScreen(onOpenSettings = onOpenSettings, onOpenNumber = onOpenNumber)
                     }
+                }
                 }
             }
         }
@@ -392,13 +444,15 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                     )
                 }
                 CompositionLocalProvider(LocalGlassBackdrop provides dockBackdrop) {
-                    FloatingDock(
-                        items = items,
-                        position = position,
-                        onSelect = ::go,
-                        vertical = true,
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
-                    )
+                    CompositionLocalProvider(LocalFrameScroll provides dockDrag) {
+                        FloatingDock(
+                            items = items,
+                            position = position,
+                            onSelect = ::go,
+                            vertical = true,
+                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
+                        )
+                    }
                     HintDim(hint)
                     MovableDialpadButton(onClick = { dialpad = "" }, above = 24.dp, demo = hint)
                 }
@@ -409,12 +463,14 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit)
                     pages(Modifier.fillMaxSize().then(tabsSource))
                 }
                 CompositionLocalProvider(LocalGlassBackdrop provides dockBackdrop) {
-                    FloatingDock(
-                        items = items,
-                        position = position,
-                        onSelect = ::go,
-                        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
-                    )
+                    CompositionLocalProvider(LocalFrameScroll provides dockDrag) {
+                        FloatingDock(
+                            items = items,
+                            position = position,
+                            onSelect = ::go,
+                            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+                        )
+                    }
                     HintDim(hint)
                     // At the thumb's side, just above the dock, until moved.
                     MovableDialpadButton(onClick = { dialpad = "" }, above = DockClearance + 4.dp, demo = hint)

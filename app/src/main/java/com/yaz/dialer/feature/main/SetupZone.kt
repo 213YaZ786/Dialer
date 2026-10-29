@@ -72,7 +72,11 @@ internal class Setup(
     /** Another app (or none) is the caller ID and spam app: Telecom does not ask Dialer to screen calls. */
     val screeningMissing: Boolean,
     /** Android no longer shows the question for the screening role. */
-    val screeningBlocked: Boolean
+    val screeningBlocked: Boolean,
+    /** The step the card on Recents shows: [step] without the optional one set aside by "Not now". */
+    val cardStep: SetupStep? = step,
+    /** "Not now" on an optional step: remembered for good, the card moves on at once. */
+    val skip: (SetupStep) -> Unit = {}
 ) {
     /** The label of [step]'s button: Android's page once it no longer asks. */
     fun action(step: SetupStep): String =
@@ -112,9 +116,13 @@ internal fun rememberSetup(): Setup {
         if (!granted) openNotificationSettings(context)
         checks++
     }
-    val step = remember(checks) { nextStep(context) }
+    val step = remember(checks) { nextStep(context, skipOptional = false) }
+    val cardStep = remember(checks) { nextStep(context, skipOptional = true) }
     val screeningMissing = remember(checks) { screeningMissing(context) }
-    return Setup(step, screeningMissing = screeningMissing, screeningBlocked = screeningBlocked, run = { wanted ->
+    return Setup(step, screeningMissing = screeningMissing, screeningBlocked = screeningBlocked, cardStep = cardStep, skip = { skipped ->
+        skip(context, skipped)
+        checks++
+    }, run = { wanted ->
         when (wanted) {
             SetupStep.ROLE -> role.launch(
                 context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_DIALER)
@@ -149,7 +157,7 @@ internal fun rememberSetup(): Setup {
 @Composable
 fun SetupZone(modifier: Modifier = Modifier) {
     val setup = rememberSetup()
-    val step = setup.step ?: return
+    val step = setup.cardStep ?: return
 
     ZoneSurface(
         shape = RoundedCornerShape(24.dp),
@@ -170,17 +178,34 @@ fun SetupZone(modifier: Modifier = Modifier) {
             setup.warning(step)?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
-            Row(Modifier.padding(top = 4.dp)) {
+            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // The optional step: SMS's SetupZone, "Not now" before the action.
+                if (step == SetupStep.SCREENING) {
+                    BoldButton(filled = false, onClick = { setup.skip(step) }) { Text("Not now") }
+                }
                 BoldButton(filled = true, onClick = { setup.run(step) }) { Text(setup.action(step)) }
             }
         }
     }
 }
 
-private fun nextStep(context: Context): SetupStep? {
+/**
+ * The step set aside for good by "Not now" (only an optional one), taken from SMS's SetupZone.skip, which keeps its
+ * bubbles step (/home/yghouar/Claude Code/APK/YAZ/SMS/app/src/main/java/com/yaz/sms/feature/main/SetupZone.kt),
+ * stored as SharedPreferences.Editor.putBoolean
+ * (https://developer.android.com/reference/android/content/SharedPreferences.Editor#putBoolean(java.lang.String,%20boolean)).
+ */
+private fun skip(context: Context, step: SetupStep) {
+    if (step == SetupStep.SCREENING) {
+        context.getSharedPreferences(SETUP, Context.MODE_PRIVATE).edit().putBoolean(SCREENING_SKIPPED, true).apply()
+    }
+}
+
+private fun nextStep(context: Context, skipOptional: Boolean): SetupStep? {
     val roles = context.getSystemService(RoleManager::class.java)
     if (roles.isRoleAvailable(RoleManager.ROLE_DIALER) && !roles.isRoleHeld(RoleManager.ROLE_DIALER)) return SetupStep.ROLE
-    if (screeningMissing(context)) return SetupStep.SCREENING
+    val skipped = skipOptional && context.getSharedPreferences(SETUP, Context.MODE_PRIVATE).getBoolean(SCREENING_SKIPPED, false)
+    if (!skipped && screeningMissing(context)) return SetupStep.SCREENING
     val notifications = context.getSystemService(NotificationManager::class.java)
     if (!notifications.areNotificationsEnabled()) return SetupStep.NOTIFICATIONS
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !notifications.canUseFullScreenIntent()) {
@@ -196,6 +221,8 @@ private fun screeningMissing(context: Context): Boolean {
 }
 
 private const val NO_QUESTION_MS = 250L
+private const val SETUP = "setup"
+private const val SCREENING_SKIPPED = "screening_skipped"
 
 /**
  * Android's default apps page, where the caller ID and spam app is chosen when the role is no longer asked:
