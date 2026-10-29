@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +39,9 @@ fun RhythmCard(rhythm: Rhythm, hourLabel: (Int) -> String) {
     val empty = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     val grow = remember { Animatable(0f) }
     LaunchedEffect(Unit) { grow.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 120f)) }
-    ZoneSurface(shape = RoundedCornerShape(26.dp), modifier = Modifier.fillMaxWidth()) {
+    // A card on the page: Material 3's extra large corner (ShapeDefaults,
+    // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+    ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Stat("${rhythm.calls}", if (rhythm.calls == 1) "call" else "calls", Modifier.weight(1f))

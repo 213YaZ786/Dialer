@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -151,8 +152,10 @@ private fun Alert(change: NetworkAlert.Change, protocol: Protocol?, onClose: () 
             beat.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = 600f))
         }
     }
+    // A zone floating over the call: Material 3's extra large corner (ShapeDefaults,
+    // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
     ZoneSurface(
-        shape = RoundedCornerShape(24.dp),
+        shape = ShapeDefaults.ExtraLarge,
         modifier = Modifier.padding(top = 10.dp).widthIn(max = 440.dp).fillMaxWidth().padding(horizontal = 20.dp)
     ) {
         Box(Modifier.background(color.copy(alpha = 0.14f)).clickable(onClickLabel = "Close", onClick = onClose)) {

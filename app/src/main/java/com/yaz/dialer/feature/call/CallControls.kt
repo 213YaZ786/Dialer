@@ -47,7 +47,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -404,7 +404,9 @@ internal fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDis
             enter = fadeIn(tween(140)) + scaleIn(spring(dampingRatio = 0.6f, stiffness = 500f), initialScale = 0.6f, transformOrigin = TransformOrigin(0.5f, 1f)) +
                 expandVertically(tween(200), expandFrom = Alignment.Bottom)
         ) {
-            ZoneSurface(shape = RoundedCornerShape(28.dp), shadowElevation = 6.dp, modifier = Modifier.widthIn(min = 220.dp, max = 320.dp)) {
+            // A pane over the call: Material 3's extra large corner, its rows the large one (ShapeDefaults,
+            // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+            ZoneSurface(shape = ShapeDefaults.ExtraLarge, shadowElevation = 6.dp, modifier = Modifier.widthIn(min = 220.dp, max = 320.dp)) {
                 Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     state.routes.forEach { option ->
                         val chosen = option == state.route
@@ -412,7 +414,7 @@ internal fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDis
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(22.dp))
+                                .clip(ShapeDefaults.Large)
                                 .background(if (chosen) wash else Color.Transparent)
                                 .clickable {
                                     haptics.tick()

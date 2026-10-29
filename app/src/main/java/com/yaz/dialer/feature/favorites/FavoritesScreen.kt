@@ -23,7 +23,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -152,7 +152,9 @@ private fun FrequentTile(name: String, photo: String?, known: Boolean, calls: In
         if (!Dialing.call(context, number)) dial.open(number)
     }
     Box(menu.tracker) {
-    val shape = RoundedCornerShape(24.dp)
+    // A tile on the page: Material 3's extra large corner (ShapeDefaults,
+    // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+    val shape = ShapeDefaults.ExtraLarge
     ZoneSurface(
         shape = shape,
         modifier = Modifier
@@ -223,7 +225,7 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
         }
     }
     Box(Modifier.then(menu.tracker)) {
-        val shape = RoundedCornerShape(28.dp)
+        val shape = ShapeDefaults.ExtraLarge
         ZoneSurface(
             shape = shape,
             modifier = Modifier

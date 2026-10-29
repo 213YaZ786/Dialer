@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,7 +61,9 @@ fun SpeedDialDialog(digit: Int, people: List<Person>, onPick: (String) -> Unit, 
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
+                                // A row inside a dialog: Material 3's large corner (ShapeDefaults,
+                                // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+                                .clip(ShapeDefaults.Large)
                                 .clickable { onPick(person.number) }
                                 .padding(horizontal = 8.dp, vertical = 8.dp)
                         ) {

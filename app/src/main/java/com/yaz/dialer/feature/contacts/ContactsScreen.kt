@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -206,7 +206,9 @@ fun PersonLine(person: Person, onOpen: () -> Unit, subtitle: String? = null, sav
         }
     }
     Box(Modifier.widthIn(max = 640.dp).fillMaxWidth().then(menu.tracker)) {
-        val shape = RoundedCornerShape(22.dp)
+        // A card on the page: Material 3's extra large corner (ShapeDefaults,
+        // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+        val shape = ShapeDefaults.ExtraLarge
         ZoneSurface(
             shape = shape,
             modifier = Modifier.fillMaxWidth().clip(shape).combinedClickable(

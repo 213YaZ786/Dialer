@@ -32,7 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -414,7 +414,9 @@ private fun Suggestions(
 ) {
     if (!contactsAllowed) {
         Box(modifier, contentAlignment = Alignment.BottomCenter) {
-            ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
+            // A zone on the page: Material 3's extra large corner (ShapeDefaults,
+            // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+            ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -466,7 +468,7 @@ private fun Suggestions(
 private fun MatchRow(match: T9Match, typed: String, onCall: () -> Unit) {
     val haptics = rememberHaptics()
     ZoneSurface(
-        shape = RoundedCornerShape(22.dp),
+        shape = ShapeDefaults.ExtraLarge,
         onClick = {
             haptics.tick()
             onCall()

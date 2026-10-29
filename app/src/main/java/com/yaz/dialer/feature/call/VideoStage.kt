@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -96,7 +96,9 @@ fun VideoStage(call: CallInfo, actions: CallStore) {
             .zIndex(1f)
             .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
             .size(width, height)
-            .clip(RoundedCornerShape(20.dp))
+            // A picture: Material 3's large corner (ShapeDefaults,
+            // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+            .clip(ShapeDefaults.Large)
             .pointerInput(Unit) {
                 detectDragGestures { change, drag ->
                     change.consume()

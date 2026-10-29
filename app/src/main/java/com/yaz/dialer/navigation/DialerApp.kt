@@ -86,7 +86,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -699,7 +699,9 @@ private fun HintDim(on: Boolean) {
 @Composable
 private fun HintCard(modifier: Modifier) {
     val look = LocalGlass.current
-    val shape = RoundedCornerShape(28.dp)
+    // A pane over the screen: Material 3's extra large corner (ShapeDefaults,
+    // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+    val shape = ShapeDefaults.ExtraLarge
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier

@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +64,9 @@ fun PrefixDialog(
         title = { Text("Block numbers starting like this") },
         text = {
             Column {
-                ZoneSurface(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                // Inside a dialog: Material 3's large corner (ShapeDefaults,
+                // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+                ZoneSurface(shape = ShapeDefaults.Large, modifier = Modifier.fillMaxWidth()) {
                     BasicTextField(
                         value = typed,
                         onValueChange = { v ->
@@ -124,7 +126,7 @@ private fun ActionRow(title: String, summary: String, selected: Boolean, onClick
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(ShapeDefaults.Large)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp, horizontal = 4.dp)
     ) {

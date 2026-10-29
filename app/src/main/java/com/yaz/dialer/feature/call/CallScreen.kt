@@ -59,7 +59,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -234,7 +234,9 @@ fun CallScreen(
         // A video call: the picture speaks for itself, the caller stays small,
         // on a pane of glass so it reads over any picture.
         if (call.video && call.phase == CallPhase.ACTIVE) {
-            ZoneSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)) {
+            // Zones over the call: Material 3's extra large corner (ShapeDefaults,
+            // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
+            ZoneSurface(shape = ShapeDefaults.ExtraLarge) {
                 Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true) }
             }
         } else {
@@ -548,7 +550,7 @@ private fun CallingCard(photo: String?) {
 @Composable
 private fun Participants(people: List<Participant>, onSplit: (Int) -> Unit, onHangUp: (Int) -> Unit) {
     val haptics = rememberHaptics()
-    ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
+    ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
         Column(Modifier.padding(vertical = 6.dp)) {
             people.forEach { person ->
                 Row(
@@ -585,7 +587,7 @@ private fun Participants(people: List<Participant>, onSplit: (Int) -> Unit, onHa
 /** The other call, still going on or on hold, with the way to switch to it. */
 @Composable
 private fun OtherCall(call: CallInfo, onSwap: (() -> Unit)?, onMerge: (() -> Unit)?) {
-    ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
+    ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)
@@ -608,7 +610,7 @@ private fun OtherCall(call: CallInfo, onSwap: (() -> Unit)?, onMerge: (() -> Uni
 @Composable
 private fun SimChooser(call: CallInfo, actions: CallStore) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        ZoneSurface(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+        ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(vertical = 8.dp)) {
                 call.sims.forEach { sim ->
                     Text(
@@ -687,7 +689,7 @@ private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () 
         replies.forEachIndexed { index, reply ->
             Appear(order = index) {
                 ZoneSurface(
-                    shape = RoundedCornerShape(22.dp),
+                    shape = ShapeDefaults.ExtraLarge,
                     onClick = { onSend(reply) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -696,7 +698,7 @@ private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () 
             }
         }
         Appear(order = replies.size) {
-            ZoneSurface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+            ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 20.dp, end = 6.dp)) {
                     androidx.compose.foundation.text.BasicTextField(
                         value = own,
