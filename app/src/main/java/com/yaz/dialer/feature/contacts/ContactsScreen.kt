@@ -82,10 +82,12 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(people, query) { People.search(people, query) }
     val context = LocalContext.current
+    val list = rememberLazyListState()
 
     TabFrame(
         title = "Contacts",
         onOpenSettings = onOpenSettings,
+        scroll = list,
         controls = {
             if (allowed && people.isNotEmpty()) {
                 Row(
@@ -128,7 +130,6 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 val groups = remember(shown) { shown.groupBy { initialOf(it.name) } }
                 // A long list gets the letters at its edge to jump through it.
                 val rail = query.isBlank() && shown.size >= RAIL_FROM
-                val list = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 LazyColumn(
                     state = list,

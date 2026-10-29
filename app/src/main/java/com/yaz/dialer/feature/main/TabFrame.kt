@@ -45,10 +45,13 @@ fun TabFrame(
     title: String,
     onOpenSettings: () -> Unit,
     controls: (@Composable () -> Unit)? = null,
+    /** The content's own scroll state: a drag on the header scrolls it (FloatingFrame's `scroll`). */
+    scroll: androidx.compose.foundation.gestures.ScrollableState? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
     val inset = LocalReadableInset.current
     FloatingFrame(
+        scroll = scroll,
         bottom = LocalDockPadding.current + 16.dp,
         top = {
             // While a call goes on, the way back to it takes the name's place.

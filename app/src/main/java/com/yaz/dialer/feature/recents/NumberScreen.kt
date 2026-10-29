@@ -110,12 +110,14 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
     var askPrefix by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
+    val pageScroll = rememberScrollState()
     FloatingFrame(
         bottom = 0.dp,
+        scroll = pageScroll,
         top = { FloatingTop(null, leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) },
         overlay = { UndoBar(undo, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp) }
     ) { padding ->
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll),horizontalAlignment = Alignment.CenterHorizontally) {
             // The person's light behind the top of the page, under the glass.
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             // The person's colour, chosen in the Contacts app, when there is no photo.

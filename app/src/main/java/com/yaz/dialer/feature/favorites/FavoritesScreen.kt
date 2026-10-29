@@ -87,7 +87,8 @@ fun FavoritesScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: 
     val frequents = remember(calls, people) { Frequents.of(calls, people, System.currentTimeMillis()) }
     val context = LocalContext.current
 
-    TabFrame(title = "Favorites", onOpenSettings = onOpenSettings) { padding ->
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    TabFrame(title = "Favorites", onOpenSettings = onOpenSettings, scroll = grid) { padding ->
         if (favorites.isEmpty() && frequents.isEmpty()) {
             EmptyZone(
                 title = "No favorites yet",
@@ -99,6 +100,7 @@ fun FavoritesScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: 
         }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyVerticalGrid(
+            state = grid,
             columns = GridCells.Adaptive(150.dp),
             modifier = Modifier.widthIn(max = 672.dp).fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding()),

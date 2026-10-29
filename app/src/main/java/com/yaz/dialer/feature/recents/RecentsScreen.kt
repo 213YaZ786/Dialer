@@ -138,6 +138,7 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
     TabFrame(
         title = "Recents",
         onOpenSettings = onOpenSettings,
+        scroll = listState,
         controls = {
             if (allowed && loaded && entries.isNotEmpty()) {
                 Filters(missedOnly, onChange = { missedOnly = it }, query = query, onQuery = { query = it })
@@ -358,11 +359,21 @@ private fun CallLine(
                     }
                     LastCallBubble(group, why, allowedNow, Modifier.fillMaxWidth())
                 }
+                Spacer(Modifier.width(6.dp))
                 if (!call.hidden) {
-                    Spacer(Modifier.width(6.dp))
                     ZoneSurface(shape = CircleShape, onClick = ::callBack, modifier = Modifier.size(44.dp)) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(AppIcons.Call, contentDescription = "Call", tint = AnswerGreen)
+                        }
+                    }
+                } else {
+                    // A hidden number cannot be called back: the same button, greyed and inert, so every row keeps
+                    // its time in one column. Material 3's disabled icon: onSurface at 38 % (FilledTonalIconButtonTokens
+                    // DisabledColor / DisabledOpacity,
+                    // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/tokens/FilledTonalIconButtonTokens.kt).
+                    ZoneSurface(shape = CircleShape, modifier = Modifier.size(44.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(AppIcons.Call, contentDescription = "Hidden number, no call back", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
                         }
                     }
                 }
