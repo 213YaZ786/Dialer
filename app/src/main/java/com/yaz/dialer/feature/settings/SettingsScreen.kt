@@ -89,6 +89,16 @@ import com.yaz.dialer.ui.component.ChoiceDialog
 import com.yaz.dialer.ui.component.GlassSwitch
 import com.yaz.dialer.ui.component.LargeTitle
 import com.yaz.dialer.ui.component.QuietButton
+import com.yaz.dialer.ui.component.SettingsActionTile
+import com.yaz.dialer.ui.component.SettingsFoldedSections
+import com.yaz.dialer.ui.component.SettingsHeaderSpacer
+import com.yaz.dialer.ui.component.SettingsListDetail
+import com.yaz.dialer.ui.component.SettingsSection
+import com.yaz.dialer.ui.component.SettingsSectionTitle
+import com.yaz.dialer.ui.component.SettingsSwitchTile
+import com.yaz.dialer.ui.component.SettingsTile
+import com.yaz.dialer.ui.component.SettingsTileDialogs
+import com.yaz.dialer.ui.component.SettingsTileGrid
 import com.yaz.dialer.ui.component.ZoneAlertDialog
 import com.yaz.dialer.ui.component.ZoneSurface
 import com.yaz.dialer.ui.component.protectionColor
@@ -101,60 +111,13 @@ import org.koin.compose.koinInject
 
 private enum class OpenDialog { NONE, THEME, TEXT_SIZE, UPDATES, ANNOUNCE, NOT_SALES, PREFIXES, ADD_PREFIX }
 
-/**
- * The groups of settings: folded one under another on a phone, a list and the open one's page on a wide window.
- * Ported from SMS's SettingsSection (SettingsScreen.kt in /home/yghouar/Claude Code/APK/YAZ/SMS, feature/settings).
- */
-private enum class SettingsSection(val title: String, val icon: ImageVector) {
-    CALLS("Calls", AppIcons.Call),
-    NETWORK("Network security", AppIcons.Lock),
-    PHONE("Phone", AppIcons.Smartphone),
-    APPEARANCE("Appearance", AppIcons.Palette),
-    ABOUT("About", AppIcons.Info)
-}
-
-/** What a tile of Settings shows: an icon, a short name, and under it its state or value (Quick Settings' tile). */
-private sealed interface SettingsTile {
-    val id: String
-    val name: String
-    val title: String
-    val icon: ImageVector
-    val summary: String
-}
-
-/**
- * A setting that is only a switch, shown as a tile (SMS's SwitchTile). [name] is the short name on the tile,
- * [title] the full one (TalkBack, the dialog), [summary] the explanation the long press shows. A tile that
- * [enabled] is false depends on something else (Android's Advanced Protection): it shows, dimmed, and does
- * not toggle.
- */
-private class SwitchTile(
-    override val id: String,
-    override val name: String,
-    override val title: String,
-    override val icon: ImageVector,
-    override val summary: String,
-    val checked: Boolean,
-    val enabled: Boolean = true,
-    val onChange: (Boolean) -> Unit
-) : SettingsTile
-
-/**
- * A setting that opens a choice, a page or a link, shown as a tile (SMS's ActionTile): [value] is its current
- * value, the second line (Quick Settings' secondary label, AOSP SystemUI QSTileViewImpl); [summary] the full
- * text a long press shows. Without [onClick] (a SIM's state, the version) a tap shows the summary too.
- * [iconTint] colours the icon (a SIM's protection level).
- */
-private class ActionTile(
-    override val id: String,
-    override val name: String,
-    override val title: String,
-    override val icon: ImageVector,
-    val value: String,
-    override val summary: String,
-    val iconTint: Color? = null,
-    val onClick: (() -> Unit)? = null
-) : SettingsTile
+/** The groups of settings: folded one under another on a phone, a list and the open one's page on a wide window. */
+private val CALLS = SettingsSection("calls", "Calls", AppIcons.Call)
+private val NETWORK = SettingsSection("network", "Network security", AppIcons.Lock)
+private val PHONE = SettingsSection("phone", "Phone", AppIcons.Smartphone)
+private val APPEARANCE = SettingsSection("appearance", "Appearance", AppIcons.Palette)
+private val ABOUT = SettingsSection("about", "About", AppIcons.Info)
+private val SECTIONS = listOf(CALLS, NETWORK, PHONE, APPEARANCE, ABOUT)
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewModel()) {
@@ -167,13 +130,15 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     var dialog by rememberSaveable { mutableStateOf(OpenDialog.NONE) }
     // The tile whose long press is open (its id), "" when none.
     var tileId by rememberSaveable { mutableStateOf("") }
-    var section by rememberSaveable { mutableStateOf(SettingsSection.CALLS) }
+    var sectionId by rememberSaveable { mutableStateOf(CALLS.id) }
+    val section = SECTIONS.first { it.id == sectionId }
     // On a phone every section starts folded; the one open stays open across a turn of the screen.
-    var openSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
+    var openId by rememberSaveable { mutableStateOf("") }
+    val openSection = SECTIONS.firstOrNull { it.id == openId }
     // The page's scroll, held here so a drag on the header drives it (FloatingFrame's `scroll`): the folded
     // list on a phone, the chosen section's page on a wide window (it starts at the top again for each section).
     val compactScroll = rememberScrollState()
-    val detailScroll = rememberSaveable(section, saver = androidx.compose.foundation.ScrollState.Saver) {
+    val detailScroll = rememberSaveable(sectionId, saver = androidx.compose.foundation.ScrollState.Saver) {
         androidx.compose.foundation.ScrollState(0)
     }
 
@@ -186,51 +151,51 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     val country = remember { SalesCalls.country(context) }
     val salesHere = country in SalesCalls.countries
 
-    val tiles: Map<SettingsSection, List<SwitchTile>> = mapOf(
-        SettingsSection.CALLS to listOfNotNull(
-            SwitchTile(
+    val tiles: Map<SettingsSection, List<SettingsSwitchTile>> = mapOf(
+        CALLS to listOfNotNull(
+            SettingsSwitchTile(
                 id = "silence", name = "Silence unknown", title = "Silence unknown callers", icon = AppIcons.VolumeOff,
                 summary = "Numbers not in your contacts ring without sound.",
                 checked = settings.silenceUnknown, onChange = viewModel::setSilenceUnknown
             ),
-            SwitchTile(
+            SettingsSwitchTile(
                 id = "spoofed", name = "Faked numbers", title = "Block faked numbers", icon = AppIcons.Report,
                 summary = if (strict) byAndroid else "Calls your carrier finds faked are rejected.",
                 checked = settings.blockSpoofed || strict, enabled = !strict, onChange = viewModel::setBlockSpoofed
             ),
-            SwitchTile(
+            SettingsSwitchTile(
                 id = "hidden", name = "Hidden numbers", title = "Block hidden numbers", icon = AppIcons.VisibilityOff,
                 summary = if (strict) byAndroid else "Calls without a number are rejected.",
                 checked = settings.blockHidden || strict, enabled = !strict, onChange = viewModel::setBlockHidden
             ),
-            if (salesHere) SwitchTile(
+            if (salesHere) SettingsSwitchTile(
                 id = "sales", name = "Sales calls", title = "Block sales calls", icon = AppIcons.NotificationsOff,
                 summary = "Numbers reserved for cold calls are rejected, unless saved in your contacts.",
                 checked = settings.blockSalesCalls, onChange = viewModel::setBlockSalesCalls
             ) else null,
-            SwitchTile(
+            SettingsSwitchTile(
                 id = "flip", name = "Flip to silence", title = "Flip to silence", icon = AppIcons.Smartphone,
                 summary = "Turn the phone face down to stop the ringing.",
                 checked = settings.flipToSilence, onChange = viewModel::setFlipToSilence
             ),
-            SwitchTile(
+            SettingsSwitchTile(
                 id = "vibrate", name = "Vibrate on answer", title = "Vibrate when answered", icon = AppIcons.Vibration,
                 summary = "One buzz when the other person answers.",
                 checked = settings.vibrateOnAnswer, onChange = viewModel::setVibrateOnAnswer
             )
         ),
-        SettingsSection.APPEARANCE to listOf(
-            SwitchTile(
+        APPEARANCE to listOf(
+            SettingsSwitchTile(
                 id = "black", name = "Pure black", title = "Pure black", icon = AppIcons.Night,
                 summary = "Black background in dark mode.",
                 checked = settings.pureBlack, onChange = viewModel::setPureBlack
             ),
-            SwitchTile(
+            SettingsSwitchTile(
                 id = "recents", name = "Hide in recents", title = "Hide in recent apps", icon = AppIcons.VisibilityOff,
                 summary = "Dialer's preview stays blank in recent apps.",
                 checked = settings.hideInRecents, onChange = viewModel::setHideInRecents
             ),
-            SwitchTile(
+            SettingsSwitchTile(
                 id = "glass", name = "Glass effects", title = "Glass effects", icon = AppIcons.Sparkles,
                 summary = "Buttons and panes in liquid glass.",
                 checked = settings.glass, onChange = viewModel::setGlass
@@ -239,12 +204,12 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     )
 
     // What opens a choice, a page or a link: tiles of the same grid, the value as the second line.
-    val actions: Map<SettingsSection, List<ActionTile>> = mapOf(
-        SettingsSection.CALLS to listOfNotNull(
+    val actions: Map<SettingsSection, List<SettingsActionTile>> = mapOf(
+        CALLS to listOfNotNull(
             // Numbers said to be no sales call (from Recents): kept here, never in Android's blocked list.
             if (settings.salesAllowed.isNotEmpty()) {
                 val count = settings.salesAllowed.size
-                ActionTile(
+                SettingsActionTile(
                     id = "notSales", name = "Not sales calls", title = "Not sales calls", icon = AppIcons.CheckCircle,
                     value = "$count number" + (if (count > 1) "s" else ""),
                     summary = "$count number" + (if (count > 1) "s" else "") + " always ring.",
@@ -252,34 +217,34 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 )
             } else null,
             // Starts of numbers the user blocks or silences (added from a number's page or here).
-            ActionTile(
+            SettingsActionTile(
                 id = "prefixes", name = "Blocked prefixes", title = "Blocked prefixes", icon = AppIcons.Dialpad,
                 value = if (prefixes.isEmpty()) "None" else "${prefixes.size} prefix" + (if (prefixes.size > 1) "es" else ""),
                 summary = "The start of numbers you block or silence",
                 onClick = { dialog = OpenDialog.PREFIXES }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "announce", name = "Announce caller", title = "Announce the caller", icon = AppIcons.Speaker,
                 value = announceLabel(settings.announce), summary = announceLabel(settings.announce),
                 onClick = { dialog = OpenDialog.ANNOUNCE }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "blocked", name = "Blocked numbers", title = "Blocked numbers", icon = AppIcons.Block,
                 value = "Android's list", summary = "The list Android keeps for every app",
                 onClick = { open(context, context.getSystemService(TelecomManager::class.java).createManageBlockedNumbersIntent()) }
             )
         ),
-        SettingsSection.NETWORK to run {
+        NETWORK to run {
             val simTiles = if (sims.isEmpty()) {
                 listOf(
-                    ActionTile(
+                    SettingsActionTile(
                         id = "nosim", name = "SIM", title = "No SIM", icon = AppIcons.Smartphone,
                         value = "No SIM", summary = "Insert a SIM to see how well its network protects calls."
                     )
                 )
             } else sims.mapIndexed { index, sim ->
                 val protection = sim.protection
-                ActionTile(
+                SettingsActionTile(
                     id = "sim$index", name = sim.name, title = "${sim.name}: ${protection.label}", icon = AppIcons.Smartphone,
                     value = protection.label,
                     summary = buildString {
@@ -291,54 +256,54 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                     iconTint = protectionColor(protection)
                 )
             }
-            simTiles + ActionTile(
+            simTiles + SettingsActionTile(
                 id = "2g", name = "Turn off 2G", title = "Turn off 2G", icon = AppIcons.Warning,
                 value = "Android's settings", summary = "Keeps fake antennas from pushing your phone onto 2G.",
                 onClick = { openFirst(context, "android.settings.CELLULAR_NETWORK_SECURITY", android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS, android.provider.Settings.ACTION_WIRELESS_SETTINGS) }
             )
         },
-        SettingsSection.PHONE to listOf(
-            ActionTile(
+        PHONE to listOf(
+            SettingsActionTile(
                 id = "forwarding", name = "Call settings", title = "Call forwarding, call waiting, caller ID", icon = AppIcons.Call,
                 value = "Your carrier's", summary = "Call forwarding, call waiting, caller ID: your carrier's settings",
                 onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "accounts", name = "SIMs and accounts", title = "SIMs and calling accounts", icon = AppIcons.Smartphone,
                 value = "Which SIM calls", summary = "Which SIM calls, Wi-Fi calling",
                 onClick = { open(context, Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "voicemail", name = "Voicemail", title = "Voicemail", icon = AppIcons.Voicemail,
                 value = "Number, alerts", summary = "Number and notifications",
                 onClick = { open(context, Intent(TelephonyManager.ACTION_CONFIGURE_VOICEMAIL)) }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "ringtone", name = "Ringtone", title = "Ringtone and vibration", icon = AppIcons.Vibration,
                 value = "Android's sound settings", summary = "Ringtone and vibration: Android's sound settings",
                 onClick = { open(context, Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)) }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "accessibility", name = "Accessibility", title = "Accessibility", icon = AppIcons.Headset,
                 value = "Hearing aids, text", summary = "Hearing aids, real-time text",
                 onClick = { open(context, Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS)) }
             )
         ),
-        SettingsSection.APPEARANCE to listOf(
-            ActionTile(
+        APPEARANCE to listOf(
+            SettingsActionTile(
                 id = "theme", name = "Theme", title = "Theme", icon = AppIcons.Brightness,
                 value = themeLabel(settings.themeMode), summary = themeLabel(settings.themeMode),
                 onClick = { dialog = OpenDialog.THEME }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "textSize", name = "Text size", title = "Text size", icon = AppIcons.FormatSize,
                 value = textScaleLabel(settings.textScale),
                 summary = textScaleLabel(settings.textScale) + ", on top of Android's font size",
                 onClick = { dialog = OpenDialog.TEXT_SIZE }
             )
         ),
-        SettingsSection.ABOUT to listOf(
-            ActionTile(
+        ABOUT to listOf(
+            SettingsActionTile(
                 id = "guide", name = "Guide", title = "Guide", icon = AppIcons.Play,
                 value = "Show again", summary = "See the welcome pages and the dialpad button's show again",
                 onClick = {
@@ -346,16 +311,16 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                     onBack()
                 }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "updates", name = "Updates", title = "Updates", icon = AppIcons.Update,
                 value = updatesLabel(settings.updates), summary = updatesLabel(settings.updates),
                 onClick = { dialog = OpenDialog.UPDATES }
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "version", name = "Dialer", title = "Dialer ${BuildConfig.VERSION_NAME}", icon = AppIcons.Info,
                 value = BuildConfig.VERSION_NAME, summary = "A phone app with no account, no tracking and no ads."
             ),
-            ActionTile(
+            SettingsActionTile(
                 id = "source", name = "Source code", title = "Source code", icon = AppIcons.Code,
                 value = "github.com/213YaZ786/Dialer", summary = "github.com/213YaZ786/Dialer",
                 onClick = { uriHandler.openUri("https://github.com/213YaZ786/Dialer") }
@@ -366,13 +331,13 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     // A section's body: its tiles, the switches first, then what opens something. Another app being the caller
     // ID and spam app means Telecom never asks Dialer to screen: the warning stays on top of Calls.
     val body: @Composable (SettingsSection) -> Unit = { which ->
-        if (which == SettingsSection.CALLS && setup.screeningMissing) ScreeningWarning(setup)
+        if (which == CALLS && setup.screeningMissing) ScreeningWarning(setup)
         val list: List<SettingsTile> = tiles[which].orEmpty() + actions[which].orEmpty()
-        if (list.isNotEmpty()) TileGrid(list) { tileId = it.id }
+        if (list.isNotEmpty()) SettingsTileGrid(list) { tileId = it.id }
     }
     // One section's page: its name, then its body.
     val page: @Composable ColumnScope.(SettingsSection) -> Unit = { which ->
-        SectionTitle(which.title)
+        SettingsSectionTitle(which.title)
         body(which)
     }
 
@@ -398,10 +363,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                 )
             ) { padding ->
                 if (wide) {
-                    ListDetail(
+                    SettingsListDetail(
                         padding = padding,
+                        sections = SECTIONS,
                         section = section,
-                        onSection = { section = it },
+                        onSection = { sectionId = it.id },
                         detailScroll = detailScroll,
                         detail = { page(section) }
                     )
@@ -414,9 +380,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
                             .verticalScroll(compactScroll)
                             .padding(horizontal = LocalReadableInset.current)
                     ) {
-                        HeaderSpacer(padding)
+                        SettingsHeaderSpacer(padding)
                         Spacer(Modifier.height(24.dp))
-                        FoldedSections(open = openSection, onOpen = { openSection = it }) { which -> body(which) }
+                        SettingsFoldedSections(SECTIONS, open = openSection, onOpen = { openId = it?.id.orEmpty() }) { which -> body(which) }
                         Spacer(Modifier.height(24.dp))
                         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                     }
@@ -426,10 +392,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     }
 
     (tiles.values.flatten() + actions.values.flatten()).firstOrNull { it.id == tileId }?.let { tile ->
-        when (tile) {
-            is SwitchTile -> TileDialog(tile, onDismiss = { tileId = "" })
-            is ActionTile -> InfoDialog(tile, onDismiss = { tileId = "" })
-        }
+        SettingsTileDialogs(tile, onDismiss = { tileId = "" })
     }
 
     when (dialog) {
@@ -537,360 +500,6 @@ private fun ScreeningWarning(setup: Setup) {
         Text("Dialer is not the caller ID & spam app", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         BoldButton(filled = true, onClick = { setup.run(SetupStep.SCREENING) }) { Text(setup.action(SetupStep.SCREENING)) }
     }
-}
-
-/**
- * The room the floating header takes. It shrinks as the large title collapses, so it is read when the
- * spacer is laid out: reading it in composition would redo the whole page on every frame of the scroll.
- * (SMS's HeaderSpacer.)
- */
-@Composable
-private fun HeaderSpacer(padding: PaddingValues) {
-    Spacer(Modifier.layout { _, constraints -> layout(constraints.minWidth, padding.calculateTopPadding().roundToPx()) {} })
-}
-
-/**
- * List-detail on a wide window: the sections as a list on the left, the chosen one's page on the right,
- * each pane scrolling on its own. SMS's ListDetail, itself after the pattern of Android's large-screen
- * canonical layout "list-detail" as the Reply sample draws it (ReplyListContent: a TwoPane of the list and the
- * opened item),
- * https://github.com/android/compose-samples/blob/main/Reply/app/src/main/java/com/example/reply/ui/ReplyListContent.kt
- * The list takes a third.
- */
-@Composable
-private fun ListDetail(
-    padding: PaddingValues,
-    section: SettingsSection,
-    onSection: (SettingsSection) -> Unit,
-    detailScroll: androidx.compose.foundation.ScrollState,
-    detail: @Composable ColumnScope.() -> Unit
-) {
-    Row(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 8.dp)
-        ) {
-            HeaderSpacer(padding)
-            Spacer(Modifier.height(24.dp))
-            SettingsSection.entries.forEach { SectionListRow(it, selected = it == section) { onSection(it) } }
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-        }
-        // The page starts at the top again for each section.
-        key(section) {
-            Column(
-                Modifier
-                    .weight(2f)
-                    .fillMaxHeight()
-                    .verticalScroll(detailScroll)
-            ) {
-                HeaderSpacer(padding)
-                detail()
-                Spacer(Modifier.height(24.dp))
-                Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-            }
-        }
-    }
-}
-
-/**
- * A section in the list of a wide window: its icon and name, the chosen one washed with the accent.
- * On a phone the same row heads a folded section: [expanded] says whether its tiles are open under it,
- * and TalkBack reads it as a button that is expanded or collapsed (a state description, as Compose's
- * accessibility guide gives a toggling control:
- * https://developer.android.com/develop/ui/compose/accessibility/semantics). From SMS's SectionListRow.
- */
-@Composable
-private fun SectionListRow(section: SettingsSection, selected: Boolean, expanded: Boolean? = null, onClick: () -> Unit) {
-    val haptics = rememberHaptics()
-    ZoneSurface(
-        shape = RoundedCornerShape(20.dp),
-        accent = selected,
-        onClick = {
-            haptics.tick()
-            onClick()
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .semantics {
-                if (expanded == null) this.selected = selected
-                else {
-                    role = Role.Button
-                    stateDescription = if (expanded) "Expanded" else "Collapsed"
-                }
-            }
-    ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(section.icon, contentDescription = null, modifier = Modifier.size(24.dp))
-            Text(section.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp))
-        }
-    }
-}
-
-/**
- * A phone's Settings (SMS's FoldedSections): the sections as the wide window's list shows them, all folded; a
- * tap unfolds that section's tiles right under its row (the others fold, so one is open at a time; a second
- * tap folds it). The tiles slide open with AnimatedVisibility's expandVertically + fadeIn, Compose's recipe for
- * content that appears under a header
- * (https://developer.android.com/develop/ui/compose/animation/composables-modifiers).
- */
-@Composable
-private fun FoldedSections(
-    open: SettingsSection?,
-    onOpen: (SettingsSection?) -> Unit,
-    tilesOf: @Composable (SettingsSection) -> Unit
-) {
-    Column {
-        SettingsSection.entries.forEach { which ->
-            val expanded = which == open
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionListRow(which, selected = expanded, expanded = expanded) { onOpen(if (expanded) null else which) }
-            }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = expanded,
-                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
-            ) {
-                // Room around the grid so the tiles' soft shadows are not cut while it slides.
-                Column(Modifier.padding(top = 8.dp, bottom = 12.dp)) { tilesOf(which) }
-            }
-        }
-    }
-}
-
-/** A section's name, centred, on the page: it does nothing, so it has no zone. (SMS's SectionTitle.) */
-@Composable
-private fun SectionTitle(title: String) {
-    // Centred and at title size: a heading names what lies below.
-    Text(
-        title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 28.dp, end = 28.dp, top = 24.dp, bottom = 10.dp)
-    )
-}
-
-/**
- * The tiles of a section, in equal cells, 2 columns on a phone upright, 3 then 4 as the
- * room grows (a cell is at least 160 dp). The cells of Android's Quick Settings: AOSP SystemUI's TileLayout
- * (equal cells, the column count from the window's size class),
- * https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/qs/TileLayout.java
- * (SMS's TileGrid.) A last row that is not full is centred, so no side is left empty.
- */
-@Composable
-private fun TileGrid(tiles: List<SettingsTile>, onExplain: (SettingsTile) -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        val columns = (maxWidth / 160.dp).toInt().coerceIn(2, 4)
-        // The cell is a column's share of the width, whatever the row holds.
-        val cell = (maxWidth - 12.dp * (columns - 1)) / columns
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            tiles.chunked(columns).forEach { row ->
-                // The tiles of a row are as tall as the tallest (a value on two lines).
-                Row(
-                    Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-                ) {
-                    row.forEach { tile ->
-                        val tileModifier = Modifier.width(cell).fillMaxHeight()
-                        when (tile) {
-                            is SwitchTile -> SwitchTileView(tile, tileModifier) { onExplain(tile) }
-                            is ActionTile -> ActionTileView(tile, tileModifier) { onExplain(tile) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * One switch as a tile of glass, as a Quick Settings tile (SMS's SwitchTileView): the icon over the name, the
- * state under it, a tap toggles, a long press opens the explanation. Android's QSTileViewImpl (icon, label,
- * secondary label; the long press for details; TalkBack reads a Switch, checked or not, with its state),
- * https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/qs/tileimpl/QSTileViewImpl.kt
- */
-@Composable
-private fun SwitchTileView(tile: SwitchTile, modifier: Modifier = Modifier, onExplain: () -> Unit) {
-    val haptics = rememberHaptics()
-    val on = tile.checked
-    val state = if (on) "On" else "Off"
-    TileFace(
-        icon = tile.icon,
-        name = tile.name,
-        state = state,
-        on = on,
-        modifier = modifier,
-        dimmed = !tile.enabled,
-        onClick = {
-            if (tile.enabled) {
-                haptics.toggle(!on)
-                tile.onChange(!on)
-            }
-        },
-        onLongClick = {
-            haptics.firm()
-            onExplain()
-        },
-        semantics = {
-            contentDescription = tile.title
-            role = Role.Switch
-            toggleableState = ToggleableState(on)
-            stateDescription = if (tile.enabled) state else "$state, unavailable"
-        }
-    )
-}
-
-/**
- * One setting that opens something, as a tile of the same look (SMS's ActionTileView): the icon, the name, its
- * current value as the second line (QSTileViewImpl's secondary label), never "On" and never in the accent: only
- * a switch that is on is. A tap does what the row's tap did, a long press shows the full text. TalkBack gets a
- * button with the full name and the value as its state.
- */
-@Composable
-private fun ActionTileView(tile: ActionTile, modifier: Modifier = Modifier, onExplain: () -> Unit) {
-    val haptics = rememberHaptics()
-    TileFace(
-        icon = tile.icon,
-        iconTint = tile.iconTint,
-        name = tile.name,
-        state = tile.value,
-        on = false,
-        modifier = modifier,
-        dimmed = false,
-        onClick = {
-            haptics.tick()
-            val open = tile.onClick
-            if (open != null) open() else onExplain()
-        },
-        onLongClick = {
-            haptics.firm()
-            onExplain()
-        },
-        semantics = {
-            contentDescription = tile.title
-            role = Role.Button
-            stateDescription = tile.value
-        }
-    )
-}
-
-/**
- * The look of a tile, a Quick Settings tile (SMS's TileFace): the icon over the name, the state or value under
- * it on one or two lines. Android's QSTileViewImpl (icon, label, secondary label; the long press for details),
- * https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/qs/tileimpl/QSTileViewImpl.kt
- * Active tiles ([on]) are washed with the accent (ZoneSurface accent). The tap target is the transparent
- * inner area, as Modules' glass note asks.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun TileFace(
-    icon: ImageVector,
-    name: String,
-    state: String,
-    on: Boolean,
-    modifier: Modifier,
-    dimmed: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    semantics: SemanticsPropertyReceiver.() -> Unit,
-    iconTint: Color? = null
-) {
-    // SystemUI's own sizes (res/values/dimens.xml: qs_tile_height 80dp, qs_corner_radius 28dp): a tile is
-    // as tall as its content needs, not square, so a section fits on one screen; our icon stands over the
-    // name instead of beside it, hence 96 dp at least.
-    val shape = RoundedCornerShape(28.dp)
-    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
-    ZoneSurface(shape = shape, accent = on, modifier = modifier.heightIn(min = 96.dp)) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .clip(shape)
-                .combinedClickable(
-                    onLongClickLabel = "Explain",
-                    onLongClick = onLongClick,
-                    onClick = onClick
-                )
-                .semantics(mergeDescendants = true, properties = semantics)
-                .graphicsLayer { alpha = if (dimmed) 0.38f else 1f }
-                .padding(12.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = iconTint ?: if (on) LocalContentColor.current else quiet
-            )
-            Text(
-                name,
-                style = MaterialTheme.typography.labelLarge,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 6.dp)
-            )
-            Text(
-                state,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (on) LocalContentColor.current else quiet,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics {}
-            )
-        }
-    }
-}
-
-/** An action tile's long press (or a tap with nothing to open): the setting's full name and its full text. (SMS's InfoDialog.) */
-@Composable
-private fun InfoDialog(tile: ActionTile, onDismiss: () -> Unit) {
-    ZoneAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tile.title) },
-        text = { Text(tile.summary, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-        confirmButton = { BoldButton(onClick = onDismiss) { Text("Done") } }
-    )
-}
-
-/** A tile's long press: the setting's full name and explanation, and its switch. (SMS's TileDialog.) */
-@Composable
-private fun TileDialog(tile: SwitchTile, onDismiss: () -> Unit) {
-    val haptics = rememberHaptics()
-    val change = { on: Boolean ->
-        haptics.toggle(on)
-        tile.onChange(on)
-    }
-    ZoneAlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tile.title) },
-        text = {
-            Column {
-                Text(tile.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(enabled = tile.enabled) { change(!tile.checked) }
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(if (tile.checked) "On" else "Off")
-                    GlassSwitch(checked = tile.checked, onCheckedChange = change, enabled = tile.enabled)
-                }
-            }
-        },
-        confirmButton = { BoldButton(onClick = onDismiss) { Text("Done") } }
-    )
 }
 
 private fun announceLabel(mode: AnnounceMode): String = when (mode) {
