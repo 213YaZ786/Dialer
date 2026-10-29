@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -69,6 +68,7 @@ import com.yaz.dialer.ui.component.BlockConfirm
 import com.yaz.dialer.ui.component.HeroGlow
 import com.yaz.dialer.ui.component.PersonActionTile
 import com.yaz.dialer.ui.component.PersonActions
+import com.yaz.dialer.ui.component.PersonBadge
 import com.yaz.dialer.ui.component.PersonHeader
 import com.yaz.dialer.ui.component.QuietButton
 import com.yaz.dialer.ui.component.ZoneAlertDialog
@@ -133,6 +133,10 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 Spacer(Modifier.height(8.dp))
+                val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
+                val settings by settingsStore.settings.collectAsState()
+                val allowed = !hidden && ScreeningRules.isAllowed(settings.salesAllowed, number)
+                val salesBadge = !hidden && (allowed || calls.any { blockedWhy(context, it, prefixes) == "sales call" })
                 // The shared person header (ui/component/PersonHeader), from AOSP Dialer's call details:
                 // https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calldetails/res/layout/contact_container.xml
                 // (QuickContactBadge opens the contact, then contact_name, phone_number, network toEndOf the photo; Apache-2.0).
@@ -145,33 +149,22 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                     extra = if (hidden) null else {
                         { com.yaz.dialer.ui.component.PlaceLine(number, known = contact != null, modifier = Modifier.padding(top = 4.dp)) }
                     },
-                    // The mark does nothing when touched, so it has no zone.
-                    badges = if (blocked) {
-                        { Text("Blocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error) }
+                    // "Blocked" does nothing when touched, so it has no zone; "Not a sales call" is a capsule
+                    // (PersonBadge), shown for a number the sales call block turned away: one touch says it is not one (and back).
+                    badges = if (blocked || salesBadge) {
+                        {
+                            if (blocked) Text("Blocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error)
+                            if (salesBadge) PersonBadge(
+                                AppIcons.CheckCircle,
+                                "Not a sales call",
+                                modifier = Modifier.semantics { stateDescription = if (allowed) "On" else "Off" },
+                                accent = allowed
+                            ) {
+                                settingsStore.update { it.copy(salesAllowed = ScreeningRules.withAllowed(it.salesAllowed, number, !allowed)) }
+                            }
+                        }
                     } else null
                 )
-
-                // A number the sales call block turned away: one touch says it is not one (and back).
-                val settingsStore: com.yaz.dialer.data.settings.SettingsStore = koinInject()
-                val settings by settingsStore.settings.collectAsState()
-                val allowed = !hidden && ScreeningRules.isAllowed(settings.salesAllowed, number)
-                if (!hidden && (allowed || calls.any { blockedWhy(context, it, prefixes) == "sales call" })) {
-                    Spacer(Modifier.height(10.dp))
-                    ZoneSurface(
-                        shape = CircleShape,
-                        accent = allowed,
-                        onClick = {
-                            haptics.firm()
-                            settingsStore.update { it.copy(salesAllowed = ScreeningRules.withAllowed(it.salesAllowed, number, !allowed)) }
-                        }
-                    ) {
-                        Text(
-                            "Not a sales call",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).semantics { stateDescription = if (allowed) "On" else "Off" }
-                        )
-                    }
-                }
 
                 if (!hidden) {
                     Spacer(Modifier.height(28.dp))
