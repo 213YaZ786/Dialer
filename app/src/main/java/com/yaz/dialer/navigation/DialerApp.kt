@@ -157,6 +157,20 @@ private fun DialerNavHost(navController: NavHostController) {
             activity?.moveTaskToBack(true)
         }
     }
+    // Another app asks for a number's page while the user is on a page of ours (a number's page, Settings): MainTabs
+    // only hears it on the tabs, so it is taken here and replaces what was open, never stacked over it. popUpTo is
+    // Navigation's own way to drop pages up to a destination
+    // (https://developer.android.com/guide/navigation/backstack#pop).
+    val dial: DialRequests = koinInject()
+    val numberPage by dial.numberPage.collectAsState()
+    val onTabs = navController.currentBackStackEntryAsState().value?.destination?.route == Routes.MAIN
+    LaunchedEffect(numberPage, onTabs) {
+        val number = numberPage ?: return@LaunchedEffect
+        if (onTabs) return@LaunchedEffect
+        dial.numberShown()
+        numberFromOutside = dial.numberFromOutside
+        navController.navigate(Routes.number(number)) { popUpTo(Routes.MAIN) }
+    }
     NavHost(
         navController = navController,
         startDestination = Routes.MAIN,
