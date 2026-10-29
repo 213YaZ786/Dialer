@@ -356,9 +356,9 @@ fun CallControl(
     }
 }
 
-/** Arcs of sound leaving the button on both sides, one after the other, while the speaker is on. */
+/** Arcs of sound leaving the button on both sides, one after the other, while the speaker is on (and the face while dialing). */
 @Composable
-private fun Modifier.soundWaves(color: Color): Modifier {
+internal fun Modifier.soundWaves(color: Color): Modifier {
     val waves = rememberInfiniteTransition(label = "waves")
     val t by waves.animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing)), label = "t")
     return drawBehind {

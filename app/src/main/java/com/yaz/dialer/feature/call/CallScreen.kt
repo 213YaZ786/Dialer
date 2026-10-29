@@ -7,7 +7,6 @@ import androidx.compose.ui.draw.drawWithContent
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -19,10 +18,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -417,8 +414,6 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
     }
     val size = 120.dp
     val accent = MaterialTheme.colorScheme.primary
-    val rings = rememberInfiniteTransition(label = "dialing")
-    val ring by rings.animateFloat(0f, 1f, infiniteRepeatable(tween(2200, easing = LinearEasing)), label = "ring")
     val pop = remember(call.id) { Animatable(1f) }
     var wasDialing by remember(call.id) { mutableStateOf(call.phase == CallPhase.DIALING) }
     LaunchedEffect(call.phase) {
@@ -460,15 +455,8 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
                 scaleY = pop.value
                 alpha = dim
             }
-            .drawBehind {
-                if (!dialing) return@drawBehind
-                val r = this.size.minDimension / 2f
-                for (k in 0 until 3) {
-                    val t = (ring + k / 3f) % 1f
-                    val fade = (1f - t) * (1f - t)
-                    drawCircle(accent.copy(alpha = 0.35f * fade), r * (1f + 0.7f * t), style = Stroke(width = (3f - 2f * t).dp.toPx()))
-                }
-            }
+            // While dialing, the speaker button's arcs of sound on both sides of the face (CallControls' soundWaves).
+            .then(if (dialing) Modifier.soundWaves(accent) else Modifier)
     ) {
         if (call.isConference) {
             ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
