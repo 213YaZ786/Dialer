@@ -423,7 +423,10 @@ internal fun elapsed(since: Long): String {
 @Composable
 private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null, overVideo: Boolean = false) {
     if (compact) {
-        // With the keypad open, the name alone: the keys need the room. Over a video, white with a shadow (VideoControls' VideoTextStyle).
+        // With the keypad open, the name alone: the keys need the room, and a number without a name says
+        // nothing the user needs while typing (the user, 2026-10-30). Over a video, the title, white with a
+        // shadow (VideoControls' VideoTextStyle).
+        if (!overVideo && call.name == null && !call.isConference) return
         Text(
             call.title,
             style = if (overVideo) videoTextStyle(MaterialTheme.typography.titleMedium) else MaterialTheme.typography.titleMedium,
