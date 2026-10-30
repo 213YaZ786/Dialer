@@ -65,7 +65,9 @@ data class CallInfo(
     /** A video call: the other side's picture and one's own. */
     val video: Boolean = false,
     /** The SIM the call goes over, or -1 when it is not known (or not a SIM's call). */
-    val subId: Int = -1
+    val subId: Int = -1,
+    /** Answered here, the other side's line not yet connected: shown as "Connecting", not as ringing. */
+    val connecting: Boolean = false
 ) {
     /** What the screen shows big: the name, else the number. */
     val title: String get() = name?.takeIf { it.isNotBlank() } ?: number
@@ -133,6 +135,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
 
     private val ids = AtomicInteger(0)
     private val answered = HashSet<Int>()
+    private val answeredHere = HashSet<Int>()
     private val calls = LinkedHashMap<Int, Call>()
 
     init {
@@ -187,7 +190,11 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     }
 
     /** Answered as it was offered: a video call stays a video call. */
-    fun answer(id: Int) = calls[id]?.let { it.answer(it.details.videoState) }
+    fun answer(id: Int) = calls[id]?.let {
+        answeredHere.add(id)
+        it.answer(it.details.videoState)
+        publish()
+    }
 
     /**
      * A second call rings during one: the first is hung up, and the new one
@@ -199,7 +206,11 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
         scope.launch {
             val until = System.currentTimeMillis() + 2_000
             while (others.keys.any { it in calls } && System.currentTimeMillis() < until) delay(50)
-            calls[id]?.answer(0)
+            calls[id]?.let {
+                answeredHere.add(id)
+                it.answer(0)
+                publish()
+            }
         }
     }
     fun decline(id: Int) = calls[id]?.reject(false, null)
@@ -292,6 +303,8 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
     private fun idOf(call: Call): Int? = calls.entries.firstOrNull { it.value == call }?.key
 
     private fun publish() {
+        // An answered call stops being "connecting" once it leaves Telecom's ringing state or goes away.
+        answeredHere.retainAll { calls[it]?.details?.state == Call.STATE_RINGING }
         // A call inside a conference is shown as the conference, not alone.
         val live = calls.filter { it.value.parent == null }.map { (id, call) -> info(id, call) }
         _state.update { it.copy(calls = live + ended.values.sortedBy(CallInfo::id)) }
@@ -304,9 +317,15 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
 
     private fun info(id: Int, call: Call): CallInfo {
         val details = call.details
+        // Telecom reports a call answered but not yet connected (a self-managed line that calls
+        // setActive() only when its media connects) as STATE_RINGING: its ANSWERED state is mapped so
+        // (AOSP ParcelableCallUtils.java, https://android.googlesource.com/platform/packages/services/Telecomm/+/refs/heads/main/src/com/android/server/telecom/ParcelableCallUtils.java).
+        // Signal shows "Connecting" from accept until the line is up
+        // (https://github.com/signalapp/Signal-Android/blob/main/app/src/main/java/org/thoughtcrime/securesms/service/webrtc/CallSetupActionProcessorDelegate.java, handleCallConnected).
+        val connecting = details.state == Call.STATE_RINGING && id in answeredHere
         val phase = when (details.state) {
             Call.STATE_SELECT_PHONE_ACCOUNT -> CallPhase.CHOOSE_SIM
-            Call.STATE_RINGING, Call.STATE_SIMULATED_RINGING -> CallPhase.RINGING
+            Call.STATE_RINGING, Call.STATE_SIMULATED_RINGING -> if (connecting) CallPhase.DIALING else CallPhase.RINGING
             Call.STATE_ACTIVE -> CallPhase.ACTIVE
             Call.STATE_HOLDING -> CallPhase.HOLDING
             Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> CallPhase.ENDED
@@ -339,6 +358,7 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             hd = details.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             encrypted = EncryptedCalls.isEncrypted(context, call),
             video = android.telecom.VideoProfile.isVideo(details.videoState) && call.videoCall != null,
+            connecting = connecting,
             subId = details.accountHandle?.let { handle ->
                 runCatching { context.getSystemService(android.telephony.TelephonyManager::class.java).getSubscriptionId(handle) }.getOrNull()
             } ?: -1,

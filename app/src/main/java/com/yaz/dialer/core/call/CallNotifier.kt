@@ -87,7 +87,7 @@ class CallNotifier(private val context: Context) {
     }
 
     private fun statusOf(call: CallInfo): String = when (call.phase) {
-        CallPhase.DIALING -> if (call.encrypted) "Calling, encrypted" else "Calling"
+        CallPhase.DIALING -> (if (call.connecting) "Connecting" else "Calling").let { if (call.encrypted) "$it, encrypted" else it }
         CallPhase.HOLDING -> "On hold"
         CallPhase.CHOOSE_SIM -> "Choose a SIM"
         CallPhase.ENDED -> "Call ended"

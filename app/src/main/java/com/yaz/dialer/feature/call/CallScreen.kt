@@ -339,7 +339,7 @@ private enum class Panel { RINGING, REPLY, SIM, KEYPAD, CONTROLS, ENDED }
 private fun StatusPill(call: CallInfo) {
     val text = when (call.phase) {
         CallPhase.RINGING -> "Incoming call"
-        CallPhase.DIALING -> "Calling"
+        CallPhase.DIALING -> if (call.connecting) "Connecting" else "Calling"
         CallPhase.CHOOSE_SIM -> "Choose a SIM"
         CallPhase.HOLDING -> "On hold"
         CallPhase.ENDED -> "Call ended"

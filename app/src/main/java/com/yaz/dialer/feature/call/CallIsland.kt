@@ -640,7 +640,7 @@ private fun Waves(live: Boolean) {
 /** Each bar's offset and beat, in seconds. */
 private val Beats = listOf(0f to 0.9f, 0.12f to 0.96f, 0.3f to 0.88f, 0.05f to 1.02f, 0.22f to 0.92f, 0.4f to 0.98f, 0.16f to 0.9f, 0.34f to 1f)
 
-/** 0:44, 12:03; "Calling" before it is taken, "On hold" while held. */
+/** 0:44, 12:03; "Calling" before it is taken, "Connecting" once answered, "On hold" while held. */
 @Composable
 private fun clockOf(call: CallInfo): String {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -654,7 +654,7 @@ private fun clockOf(call: CallInfo): String {
         CallPhase.ACTIVE -> if (call.connectedAt > 0) ((now - call.connectedAt) / 1000).coerceAtLeast(0).let { "%d:%02d".format(it / 60, it % 60) } else "0:00"
         CallPhase.HOLDING -> "On hold"
         CallPhase.ENDED -> "Ended"
-        else -> "Calling"
+        else -> if (call.connecting) "Connecting" else "Calling"
     }
 }
 

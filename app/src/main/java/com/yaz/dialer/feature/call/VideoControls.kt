@@ -233,7 +233,7 @@ private fun TopLine(call: CallInfo) {
                 )
                 Spacer(Modifier.width(16.dp))
                 if (call.phase == CallPhase.ACTIVE) RollingText(elapsed(call.connectedAt), MaterialTheme.typography.titleMedium)
-                else Text("Calling", style = MaterialTheme.typography.titleMedium)
+                else Text(if (call.connecting) "Connecting" else "Calling", style = MaterialTheme.typography.titleMedium)
             }
         }
     }
