@@ -232,14 +232,18 @@ fun DialpadScreen(initial: String, onClose: () -> Unit) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 BannerAction(icon = AppIcons.ArrowBack, label = "Close", onClick = onClose)
-                // A call going on (Add call): its island between Close and the network, never over them.
+                // A call going on (Add call): its island alone in the middle, as Google's Phone app shows only
+                // its return-to-call bar over the keypad; the network chip would squeeze it (the user, 2026-10-30).
+                val inCall = com.yaz.dialer.feature.call.ongoingCall() != null
                 Box(Modifier.weight(1f).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                     com.yaz.dialer.feature.call.ReturnToCall()
                 }
-                // The network the call would go over, before it is placed.
+                // The network the call would go over, before it is placed; while a call goes on, a space as wide
+                // as Close keeps the island centred.
                 val cell: CellWatch = koinInject()
                 val sims by cell.sims.collectAsState()
-                sims.firstOrNull { it.isDefaultVoice }?.forCalls?.takeIf { it != Protocol.NONE }?.let { protocol ->
+                if (inCall) Spacer(Modifier.size(44.dp)) // BannerAction's size (ScreenBanner.kt)
+                else sims.firstOrNull { it.isDefaultVoice }?.forCalls?.takeIf { it != Protocol.NONE }?.let { protocol ->
                     NetworkChip(protocol, CellProtection.protectionOf(protocol))
                 }
             }
