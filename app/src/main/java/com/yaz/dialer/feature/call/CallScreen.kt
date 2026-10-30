@@ -469,13 +469,15 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
             .then(if (dialing) Modifier.soundWaves(accent) else Modifier)
     ) {
         if (call.isConference) {
-            ZoneSurface(shape = CircleShape, modifier = Modifier.size(size)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(56.dp))
-                }
+            // Not a tap, so flat like the face below (ContactAvatar's flat circle): no glass.
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(56.dp))
             }
         } else {
-            ContactAvatar(call.name, photo, size, look = com.yaz.dialer.ui.component.rememberLook(call.number).value)
+            ContactAvatar(call.name, photo, size, look = com.yaz.dialer.ui.component.rememberLook(call.number).value, flat = true)
         }
     }
     Spacer(Modifier.height(16.dp))

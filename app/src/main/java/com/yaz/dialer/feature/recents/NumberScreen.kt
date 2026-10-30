@@ -66,7 +66,7 @@ import com.yaz.dialer.data.contacts.PhoneIndex
 import com.yaz.dialer.ui.component.ContactAvatar
 import com.yaz.dialer.ui.component.BlockConfirm
 import com.yaz.dialer.ui.component.HeroGlow
-import com.yaz.dialer.ui.component.PersonActionTile
+import com.yaz.dialer.ui.component.PersonActionSpec
 import com.yaz.dialer.ui.component.PersonActions
 import com.yaz.dialer.ui.component.PersonBadge
 import com.yaz.dialer.ui.component.PersonHeader
@@ -179,10 +179,10 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                                     onBack()
                                 }
                             },
-                            // Blocking is Dialer's own tile, appended to the shared row.
-                            more = {
-                                if (NumberActions.canBlock(context)) {
-                                    PersonActionTile(AppIcons.Block, if (blocked) "Unblock" else "Block", Modifier.weight(1f), tint = MaterialTheme.colorScheme.error) {
+                            // Blocking is Dialer's own tile, appended to the shared flow.
+                            extra = if (NumberActions.canBlock(context)) {
+                                listOf(
+                                    PersonActionSpec(AppIcons.Block, if (blocked) "Unblock" else "Block", tint = MaterialTheme.colorScheme.error) {
                                         if (blocked) {
                                             NumberActions.unblock(context, number)
                                             blocked = NumberActions.isBlocked(context, number)
@@ -190,8 +190,8 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                                             confirmBlock = true
                                         }
                                     }
-                                }
-                            }
+                                )
+                            } else emptyList()
                         )
                         // A whole range of spam numbers (not an official sales range): the start of this number.
                         QuietButton(onClick = { askPrefix = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
