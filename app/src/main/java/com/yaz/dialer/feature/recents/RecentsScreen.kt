@@ -59,7 +59,7 @@ import com.yaz.dialer.data.calllog.CallHistory
 import com.yaz.dialer.data.contacts.PhoneBook
 import com.yaz.dialer.data.contacts.PhoneIndex
 import com.yaz.dialer.feature.call.AnswerGreen
-import com.yaz.dialer.feature.main.TabFrame
+import com.yaz.dialer.feature.main.LocalTabScroll
 import com.yaz.dialer.ui.component.ContactAvatar
 import com.yaz.dialer.ui.component.EmptyZone
 import com.yaz.dialer.ui.component.FloatingPane
@@ -81,9 +81,13 @@ import org.koin.compose.koinInject
  * The calls, newest first, day by day. A missed call not yet seen carries a
  * dot; the green phone calls back at once, a tap on the line opens the
  * number with all its calls, a long press offers the rest.
+ * The header and the search belong to MainTabs (one for the three tabs, as Fossify Phone's
+ * https://github.com/FossifyOrg/Phone activity_main.xml main_menu): this tab filters with its [query] and
+ * draws under the header by [padding]. The All and Missed filters open the list (Google's Phone keeps
+ * its Recents filter chips at the top of the list).
  */
 @Composable
-fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
+fun RecentsScreen(visible: Boolean, query: String, padding: PaddingValues, onOpenNumber: (String) -> Unit) {
     val history: CallHistory = koinInject()
     val book: PhoneBook = koinInject()
     var allowed by remember { mutableStateOf(history.canRead()) }
@@ -104,7 +108,6 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
     val contacts by book.entries.collectAsState()
     val index = remember(contacts, com.yaz.dialer.core.dial.PrivateNames.version.intValue) { PhoneIndex(contacts) }
     var missedOnly by rememberSaveable { mutableStateOf(false) }
-    var query by rememberSaveable { mutableStateOf("") }
     val sections = remember(entries, missedOnly, query, index) {
         val q = People.plain(query.trim())
         val digits = query.filter(Char::isDigit)
@@ -133,16 +136,10 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
         }
     }
 
-    TabFrame(
-        title = "Recents",
-        onOpenSettings = onOpenSettings,
-        scroll = listState,
-        controls = {
-            if (allowed && loaded && entries.isNotEmpty()) {
-                Filters(missedOnly, onChange = { missedOnly = it }, query = query, onQuery = { query = it })
-            }
-        }
-    ) { padding ->
+    // The scroll state goes up to MainTabs: the header's drag and the dock's drag scroll this list.
+    val handUp = LocalTabScroll.current
+    LaunchedEffect(listState) { handUp?.invoke(listState) }
+
       Box(Modifier.fillMaxSize()) {
         when {
             !allowed -> EmptyZone(
@@ -161,14 +158,6 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
             else -> {
-                if (loaded && sections.isEmpty()) {
-                    EmptyZone(
-                        title = if (query.isNotBlank()) "No calls found" else "No missed calls",
-                        message = if (query.isNotBlank()) "No name or number matches \"$query\"." else "Every call was answered.",
-                        icon = AppIcons.Missed,
-                        modifier = Modifier.fillMaxSize().padding(padding)
-                    )
-                } else {
                     // As many columns as fit, each card at least 280 dp, as SMS's conversation list
                     // (ConversationsScreen.kt, after Android's "Feed" canonical layout, GridCells.Adaptive(minSize):
                     // https://developer.android.com/guide/topics/large-screens/large-screen-canonical-layouts):
@@ -193,6 +182,19 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                             verticalArrangement = Arrangement.spacedBy(gap),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            // The filters stay at the head of the list, centred, so a filter that leaves nothing
+                            // can still be turned off.
+                            item(key = "filters") { Filters(missedOnly, onChange = { missedOnly = it }) }
+                            if (sections.isEmpty()) {
+                                item(key = "none") {
+                                    EmptyZone(
+                                        title = if (query.isNotBlank()) "No calls found" else "No missed calls",
+                                        message = if (query.isNotBlank()) "No name or number matches \"$query\"." else "Every call was answered.",
+                                        icon = AppIcons.Missed,
+                                        modifier = Modifier.fillParentMaxHeight(0.7f)
+                                    )
+                                }
+                            }
                             sections.forEach { section ->
                                 item(key = "day/${section.day}") {
                                     Text(
@@ -222,24 +224,21 @@ fun RecentsScreen(visible: Boolean, onOpenSettings: () -> Unit, onOpenNumber: (S
                             }
                         }
                     }
-                }
             }
         }
         UndoBar(undo, bottom = padding.calculateBottomPadding() + 8.dp)
       }
-    }
 }
 
-/** All calls, or only the missed ones: two pills under the banner. */
+/** All calls, or only the missed ones: two pills at the head of the list. */
 @Composable
-private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit, query: String, onQuery: (String) -> Unit) {
+private fun Filters(missedOnly: Boolean, onChange: (Boolean) -> Unit) {
     val haptics = rememberHaptics()
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
-        SearchPill(query, onQuery, hint = "Search calls", modifier = Modifier.widthIn(max = 420.dp).weight(1f, fill = false).fillMaxWidth(), floating = true)
         listOf(false to "All", true to "Missed").forEach { (value, label) ->
             FloatingPane(
                 shape = CircleShape,

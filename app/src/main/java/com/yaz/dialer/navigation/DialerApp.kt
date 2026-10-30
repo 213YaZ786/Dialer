@@ -101,6 +101,14 @@ import com.yaz.dialer.feature.favorites.FavoritesScreen
 import com.yaz.dialer.feature.recents.NumberScreen
 import com.yaz.dialer.feature.recents.RecentsScreen
 import com.yaz.dialer.core.calllog.CallKind
+import com.yaz.dialer.core.calllog.Frequents
+import com.yaz.dialer.core.dial.People
+import com.yaz.dialer.data.contacts.PhoneBook
+import com.yaz.dialer.feature.main.TabFrame
+import com.yaz.dialer.ui.component.SearchPill
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import com.yaz.dialer.data.calllog.CallHistory
 import android.net.Uri
 import androidx.navigation.NavType
@@ -223,9 +231,9 @@ private fun DialerNavHost(navController: NavHostController) {
 }
 
 /**
- * The three tabs side by side in one pager. On a phone a swipe moves between
- * them, with the floating dock at the bottom. From 600 dp wide the same dock
- * stands upright on the left edge and the tabs switch in place. Back from
+ * The three tabs side by side in one pager, swiped or slid to from the dock.
+ * On a phone the floating dock sits at the bottom; from 600 dp wide it
+ * stands upright on the left edge. Back from
  * Recents or Contacts returns to Favorites before leaving the app.
  */
 @Composable
@@ -285,6 +293,18 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit,
     val calls by history.entries.collectAsState()
     val unseenMissed = calls.any { it.isNew && it.kind == CallKind.MISSED }
 
+    // One search for the three tabs, over one header that stays still while only the lists slide, as Fossify
+    // Phone's single search menu over its ViewPager, whose query goes to the current tab (activity_main.xml
+    // main_menu; MainActivity.kt onSearchTextChangedListener and the page change,
+    // https://github.com/FossifyOrg/Phone), and as our Contacts' ListScreen (one TabFrame around the pager).
+    // The pill shows only where its tab has something to search, as each tab's own search did.
+    var query by rememberSaveable { mutableStateOf("") }
+    val book: PhoneBook = koinInject()
+    val contacts by book.entries.collectAsState()
+    val people = remember(contacts) { People.of(contacts) }
+    val frequents = remember(calls, people) { Frequents.of(calls, people, System.currentTimeMillis()) }
+    val callsLoaded by history.loaded.collectAsState()
+
     // The missed call notification and the phone's "call history" links
     // open Recents.
     val showRecents by dial.recents.collectAsState()
@@ -336,11 +356,9 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit,
             // Firm: moving to another tab is taking the whole screen
             // somewhere else, not pressing a button on the one in sight.
             if (index != pager.currentPage) haptics.firm()
-            scope.launch {
-                // On the side, tabs switch in place, like a navigation rail.
-                // At the bottom they slide, because there pages are also swiped.
-                if (side) pager.scrollToPage(index) else pager.animateScrollToPage(index)
-            }
+            // Tabs slide on every width, as Contacts' (the user, 2026-10-30): pages are swiped there too.
+            // Compose Pager's animateScrollToPage, https://developer.android.com/develop/ui/compose/layouts/pager
+            scope.launch { pager.animateScrollToPage(index) }
         }
 
         // Predictive back: the tabs shrink under the finger while the gesture
@@ -393,40 +411,68 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit,
             )
         } else Modifier
 
+        // One TabFrame around the pager, as Contacts' ListScreen (feature/list/ListScreen.kt): the title, the
+        // settings button and the search stay still, only the lists slide. The title and the search hint follow
+        // the current page. Compose Pager, https://developer.android.com/develop/ui/compose/layouts/pager
         val pages: @Composable (Modifier) -> Unit = { modifier ->
-            HorizontalPager(
-                state = pager,
-                // All three stay alive, so switching tabs never reloads or
-                // loses the scroll position.
-                beyondViewportPageCount = tabs.size - 1,
-                // With the side dock a sideways swipe would only fight
-                // horizontal gestures in the wide content.
-                // Recents' rows no longer swipe (Google's Phone: tabs swiped, rows tapped or held), so the pager
-                // moves there like on every tab. Source: Pager's userScrollEnabled,
-                // https://developer.android.com/develop/ui/compose/layouts/pager
-                userScrollEnabled = !side,
-                modifier = modifier.graphicsLayer {
+            val tab = tabs[pager.currentPage]
+            val searchHint: String? = when (tab) {
+                TopDestination.FAVORITES -> "Search favorites".takeIf { people.any { it.starred } || frequents.isNotEmpty() }
+                TopDestination.RECENTS -> "Search calls".takeIf { callsLoaded && calls.isNotEmpty() }
+                TopDestination.CONTACTS -> "Search ${people.size} contacts".takeIf { people.isNotEmpty() }
+            }
+            Box(
+                modifier.graphicsLayer {
                     val shrink = 1f - 0.08f * backProgress
                     scaleX = shrink
                     scaleY = shrink
                 }
-            ) { page ->
-                val handUp = remember(page) { { state: ScrollableState -> tabScroll[page] = state } }
-                CompositionLocalProvider(LocalTabScroll provides handUp) {
+            ) {
                 ReadableScroll {
-                    when (tabs[page]) {
-                        TopDestination.FAVORITES -> FavoritesScreen(
-                            onOpenSettings = onOpenSettings,
-                            onOpenNumber = onOpenNumber
-                        )
-                        TopDestination.RECENTS -> RecentsScreen(
-                            visible = pager.settledPage == page && dialpad == null && !showWelcome,
-                            onOpenSettings = onOpenSettings,
-                            onOpenNumber = onOpenNumber
-                        )
-                        TopDestination.CONTACTS -> ContactsScreen(onOpenSettings = onOpenSettings, onOpenNumber = onOpenNumber)
+                    TabFrame(
+                        title = tab.label,
+                        onOpenSettings = onOpenSettings,
+                        scroll = tabScroll[pager.currentPage],
+                        controls = {
+                            searchHint?.let { hint ->
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
+                                    SearchPill(
+                                        query, { query = it },
+                                        hint = hint,
+                                        modifier = Modifier.widthIn(max = 560.dp).weight(1f, fill = false).fillMaxWidth(),
+                                        floating = true
+                                    )
+                                }
+                            }
+                        }
+                    ) { padding ->
+                        HorizontalPager(
+                            state = pager,
+                            // All three stay alive, so switching tabs never reloads or
+                            // loses the scroll position.
+                            beyondViewportPageCount = tabs.size - 1,
+                            // Swiped on every width, side dock included, as Contacts' tabs (the user, 2026-10-30): no row
+                            // swipes any more (Google's Phone: tabs swiped, rows tapped or held).
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            val handUp = remember(page) { { state: ScrollableState -> tabScroll[page] = state } }
+                            CompositionLocalProvider(LocalTabScroll provides handUp) {
+                                when (tabs[page]) {
+                                    TopDestination.FAVORITES -> FavoritesScreen(query = query, padding = padding, onOpenNumber = onOpenNumber)
+                                    TopDestination.RECENTS -> RecentsScreen(
+                                        visible = pager.settledPage == page && dialpad == null && !showWelcome,
+                                        query = query,
+                                        padding = padding,
+                                        onOpenNumber = onOpenNumber
+                                    )
+                                    TopDestination.CONTACTS -> ContactsScreen(query = query, padding = padding, onOpenNumber = onOpenNumber)
+                                }
+                            }
+                        }
                     }
-                }
                 }
             }
         }

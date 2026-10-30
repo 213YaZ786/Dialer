@@ -51,13 +51,12 @@ import com.yaz.dialer.core.dial.People
 import com.yaz.dialer.core.dial.Person
 import com.yaz.dialer.data.contacts.PhoneBook
 import com.yaz.dialer.feature.call.AnswerGreen
-import com.yaz.dialer.feature.main.TabFrame
+import com.yaz.dialer.feature.main.LocalTabScroll
 import com.yaz.dialer.ui.component.ContactAvatar
 import com.yaz.dialer.ui.component.EmptyZone
 import com.yaz.dialer.ui.component.PillItem
 import com.yaz.dialer.ui.component.PillMenu
 import com.yaz.dialer.ui.component.PillMotion
-import com.yaz.dialer.ui.component.SearchPill
 import com.yaz.dialer.ui.component.ZoneSurface
 import com.yaz.dialer.ui.component.rememberHaptics
 import com.yaz.dialer.ui.component.rememberPillMenu
@@ -69,37 +68,26 @@ import org.koin.compose.koinInject
  * letter, with a search on top: a way to call, not a second contacts app.
  * The green phone calls, a tap opens the calls with them, a long press
  * offers the rest; making or changing a contact opens the Contacts app.
+ * The header and the search belong to MainTabs (one for the three tabs, as Fossify Phone's
+ * https://github.com/FossifyOrg/Phone activity_main.xml main_menu): this tab filters with its [query] and
+ * draws under the header by [padding], as our Contacts' Page(...).
  */
 @Composable
-fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
+fun ContactsScreen(query: String, padding: PaddingValues, onOpenNumber: (String) -> Unit) {
     val book: PhoneBook = koinInject()
     var allowed by remember { mutableStateOf(book.canRead()) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     LaunchedEffect(allowed) { if (allowed) book.refresh() }
     val entries by book.entries.collectAsState()
     val people = remember(entries) { People.of(entries) }
-    var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(people, query) { People.search(people, query) }
     val context = LocalContext.current
     val list = rememberLazyListState()
+    // The scroll state goes up to MainTabs: the header's drag and the dock's drag scroll this list.
+    val handUp = LocalTabScroll.current
+    LaunchedEffect(list) { handUp?.invoke(list) }
 
-    TabFrame(
-        title = "Contacts",
-        onOpenSettings = onOpenSettings,
-        scroll = list,
-        controls = {
-            if (allowed && people.isNotEmpty()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    SearchPill(query, { query = it }, hint = "Search ${people.size} contacts", modifier = Modifier.widthIn(max = 560.dp).weight(1f, fill = false).fillMaxWidth(), floating = true)
-                }
-            }
-        }
-    ) { padding ->
-      // TabFrame gives the whole width (as SMS's); the list keeps its readable column here.
+      // The frame gives the whole width (as SMS's); the list keeps its readable column here.
       Box(Modifier.fillMaxSize().padding(horizontal = com.yaz.dialer.navigation.LocalReadableInset.current)) {
         if (!allowed) {
             EmptyZone(
@@ -110,7 +98,7 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
                 onAction = { ask.launch(Manifest.permission.READ_CONTACTS) },
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
-            return@TabFrame
+            return
         }
         when {
             people.isEmpty() -> EmptyZone(
@@ -170,7 +158,6 @@ fun ContactsScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
             }
         }
       }
-    }
 }
 
 /** From this many contacts, the letters stand at the edge of the list. */

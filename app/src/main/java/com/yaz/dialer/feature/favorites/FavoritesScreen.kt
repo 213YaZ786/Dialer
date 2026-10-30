@@ -53,7 +53,7 @@ import com.yaz.dialer.feature.call.AnswerGreen
 import com.yaz.dialer.feature.contacts.NumberChooser
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.yaz.dialer.feature.main.TabFrame
+import com.yaz.dialer.feature.main.LocalTabScroll
 import com.yaz.dialer.ui.component.ContactAvatar
 import com.yaz.dialer.ui.component.EmptyZone
 import com.yaz.dialer.ui.component.PillItem
@@ -68,9 +68,12 @@ import org.koin.compose.koinInject
 /**
  * The people called in one tap: the favourites as large drops of glass,
  * then the people called most these last weeks, saved or not.
+ * The header and the search belong to MainTabs (one for the three tabs, as Fossify Phone's
+ * https://github.com/FossifyOrg/Phone activity_main.xml main_menu): this tab filters with its [query] and
+ * draws under the header by [padding], as Contacts' Page(...).
  */
 @Composable
-fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) {
+fun FavoritesScreen(query: String, padding: PaddingValues, onOpenNumber: (String) -> Unit) {
     val book: PhoneBook = koinInject()
     val history: CallHistory = koinInject()
     val settings: SettingsStore = koinInject()
@@ -86,18 +89,41 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
     val frequents = remember(calls, people) { Frequents.of(calls, people, System.currentTimeMillis()) }
     val context = LocalContext.current
 
-    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
-    TabFrame(title = "Favorites", onOpenSettings = onOpenSettings, scroll = grid) { padding ->
-        if (favorites.isEmpty() && frequents.isEmpty()) {
-            EmptyZone(
-                title = "No favorites yet",
-                message = "Star a contact to call them in one tap.",
-                icon = AppIcons.Star,
-                modifier = Modifier.fillMaxSize().padding(padding)
-            )
-            return@TabFrame
+    // The query of the one search; a frequent number is found by its digits, a saved one by its name too.
+    val shownFavorites = remember(favorites, query) { People.search(favorites, query) }
+    val shownFrequents = remember(frequents, query) {
+        if (query.isBlank()) frequents else {
+            val digits = query.filter(Char::isDigit)
+            frequents.filter { f ->
+                f.person?.let { People.search(listOf(it), query).isNotEmpty() } == true ||
+                    (digits.length >= 2 && f.number.filter(Char::isDigit).contains(digits))
+            }
         }
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    }
+
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    // The scroll state goes up to MainTabs: the header's drag and the dock's drag scroll this list.
+    val handUp = LocalTabScroll.current
+    LaunchedEffect(grid) { handUp?.invoke(grid) }
+    if (favorites.isEmpty() && frequents.isEmpty()) {
+        EmptyZone(
+            title = "No favorites yet",
+            message = "Star a contact to call them in one tap.",
+            icon = AppIcons.Star,
+            modifier = Modifier.fillMaxSize().padding(padding)
+        )
+        return
+    }
+    if (shownFavorites.isEmpty() && shownFrequents.isEmpty()) {
+        EmptyZone(
+            title = "No one found",
+            message = "No name or number matches \"$query\".",
+            icon = AppIcons.Search,
+            modifier = Modifier.fillMaxSize().padding(padding)
+        )
+        return
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyVerticalGrid(
             state = grid,
             columns = GridCells.Adaptive(150.dp),
@@ -106,11 +132,11 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(favorites, key = { "fav/${it.id}" }) { person ->
+            items(shownFavorites, key = { "fav/${it.id}" }) { person ->
                 val digit = prefs.speedDial.entries.firstOrNull { (_, n) -> person.numbers.any { T9.clean(n) == it.digits } }?.key
                 FavoriteTile(person, digit, onOpen = { onOpenNumber(person.number) })
             }
-            if (frequents.isNotEmpty()) {
+            if (shownFrequents.isNotEmpty()) {
                 item(key = "frequent-heading", span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         "Frequently called",
@@ -120,7 +146,7 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
                     )
                 }
                 // Tiles in the same grid as the favourites, smaller: never cut, never off screen.
-                items(frequents, key = { "frequent/${it.number}" }) { frequent ->
+                items(shownFrequents, key = { "frequent/${it.number}" }) { frequent ->
                     FrequentTile(
                         name = frequent.person?.name ?: Numbers.format(context, frequent.number),
                         photo = frequent.person?.photo,
@@ -131,7 +157,6 @@ fun FavoritesScreen(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit) 
                     )
                 }
             }
-        }
         }
     }
 }
