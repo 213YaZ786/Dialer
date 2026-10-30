@@ -20,6 +20,32 @@ class PrefixRulesTest {
 
     private val paris = BlockedPrefix("+3328103", "02 81 03")
 
+    /** libphonenumber's own example numbers per type (resources/PhoneNumberMetadata.xml, exampleNumber). */
+    @Test
+    fun aRangeIsOfferedForFixedAndServiceLinesOnly() {
+        // France: fixed 01, internet 09, free 080; mobiles 06 and 07.
+        assertTrue(PrefixRules.offersRange("+33123456789", "FR"))
+        assertTrue(PrefixRules.offersRange("0912345678", "FR"))
+        assertTrue(PrefixRules.offersRange("+33801234567", null))
+        assertFalse(PrefixRules.offersRange("+33612345678", "FR"))
+        assertFalse(PrefixRules.offersRange("0712345678", "FR"))
+        // Germany, the United Kingdom, Spain, Morocco.
+        assertTrue(PrefixRules.offersRange("+4930123456", "US"))
+        assertFalse(PrefixRules.offersRange("+4915123456789", "US"))
+        assertTrue(PrefixRules.offersRange("+441212345678", null))
+        assertFalse(PrefixRules.offersRange("+447400123456", null))
+        assertTrue(PrefixRules.offersRange("+34810123456", null))
+        assertFalse(PrefixRules.offersRange("+34612345678", null))
+        assertTrue(PrefixRules.offersRange("+212520123456", null))
+        assertFalse(PrefixRules.offersRange("+212650123456", null))
+        // The United States: fixed and mobile cannot be told apart; toll free can.
+        assertFalse(PrefixRules.offersRange("+12015550123", "US"))
+        assertTrue(PrefixRules.offersRange("+18002345678", "US"))
+        // Not a number, a national number with no country.
+        assertFalse(PrefixRules.offersRange("AMAZON", "FR"))
+        assertFalse(PrefixRules.offersRange("0123456789", null))
+    }
+
     @Test
     fun aNationalPrefixIsTheInternationalOne() {
         assertEquals("+3328103", PrefixRules.normalize("02 81 03", "FR"))

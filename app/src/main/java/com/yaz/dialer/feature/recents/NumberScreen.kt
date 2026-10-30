@@ -193,8 +193,9 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                                 )
                             } else emptyList()
                         )
-                        // A whole range of spam numbers (not an official sales range): the start of this number.
-                        QuietButton(onClick = { askPrefix = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        // A whole range of spam numbers (not an official sales range): the start of this number,
+                        // only for a fixed, internet or service line (PrefixRules.offersRange), never a mobile.
+                        if (PrefixRules.offersRange(number, prefixRegion)) QuietButton(onClick = { askPrefix = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                             Icon(AppIcons.Block, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Block numbers starting like this")

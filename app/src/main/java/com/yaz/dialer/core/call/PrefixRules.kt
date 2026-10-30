@@ -57,6 +57,29 @@ object PrefixRules {
         return "+$code$rest"
     }
 
+    /** Lines given out in ranges to companies and call centres: a range of them can be blocked. */
+    private val RANGE_TYPES = setOf(
+        PhoneNumberUtil.PhoneNumberType.FIXED_LINE,
+        PhoneNumberUtil.PhoneNumberType.VOIP,
+        PhoneNumberUtil.PhoneNumberType.TOLL_FREE,
+        PhoneNumberUtil.PhoneNumberType.PREMIUM_RATE,
+        PhoneNumberUtil.PhoneNumberType.SHARED_COST,
+        PhoneNumberUtil.PhoneNumberType.UAN
+    )
+
+    /**
+     * Whether blocking the numbers that start like [number] makes sense: only for a fixed, internet or service
+     * line (France's 01 to 05 and 09, 08), never a mobile (06, 07), which belongs to a person, nor a number of a
+     * country where the two cannot be told apart (FIXED_LINE_OR_MOBILE, the United States). The type is
+     * libphonenumber's, read from its metadata for every country (parse and getNumberType:
+     * https://github.com/google/libphonenumber/blob/master/java/libphonenumber/src/com/google/i18n/phonenumbers/PhoneNumberUtil.java).
+     */
+    fun offersRange(number: String, region: String?): Boolean {
+        val util = PhoneNumberUtil.getInstance()
+        val parsed = runCatching { util.parse(number, region?.uppercase(Locale.ROOT) ?: "ZZ") }.getOrNull() ?: return false
+        return util.getNumberType(parsed) in RANGE_TYPES
+    }
+
     /**
      * [number] in international form: the system's own E.164 when it knows the number, else the same
      * reading as [normalize] (a number cut short, or the system not answering).
