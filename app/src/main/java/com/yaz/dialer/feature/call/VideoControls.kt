@@ -36,6 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.MutableTransitionState
@@ -214,27 +217,34 @@ private fun Unfolded(state: CallsState, call: CallInfo, actions: CallStore, onAd
     ) { actions.mute(!state.muted) }
 }
 
-/** Who, and how long, on one small pane: the lock in front when the line is encrypted. */
+/**
+ * White text with a soft black shadow, so it reads over any picture as FaceTime and WhatsApp draw
+ * names over video. Compose text shadow:
+ * https://developer.android.com/develop/ui/compose/text/style-text#add-shadow
+ */
+internal fun videoTextStyle(base: TextStyle): TextStyle =
+    base.copy(color = Color.White, shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(0f, 2f), blurRadius = 8f))
+
+/** Who, and how long, as plain text over the video (it does nothing when touched, so no zone): the lock in front when the line is encrypted. */
 @Composable
 private fun TopLine(call: CallInfo) {
     Appear(order = 0) {
-        ZoneSurface(shape = CircleShape, modifier = Modifier.widthIn(max = 420.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                if (call.encrypted) {
-                    Icon(AppIcons.Lock, contentDescription = "End-to-end encrypted", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(
-                    call.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                Spacer(Modifier.width(16.dp))
-                if (call.phase == CallPhase.ACTIVE) RollingText(elapsed(call.connectedAt), MaterialTheme.typography.titleMedium)
-                else Text(if (call.connecting) "Connecting" else "Calling", style = MaterialTheme.typography.titleMedium)
+        val style = videoTextStyle(MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.widthIn(max = 420.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+            if (call.encrypted) {
+                Icon(AppIcons.Lock, contentDescription = "End-to-end encrypted", tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
             }
+            Text(
+                call.title,
+                style = style,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Spacer(Modifier.width(16.dp))
+            if (call.phase == CallPhase.ACTIVE) RollingText(elapsed(call.connectedAt), style)
+            else Text(if (call.connecting) "Connecting" else "Calling", style = style)
         }
     }
 }

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,10 +63,14 @@ fun LetterRail(letters: List<String>, onLetter: (String) -> Unit, modifier: Modi
             ) {
                 var last by remember { mutableStateOf("") }
                 touched?.let { last = it }
-                ZoneSurface(shape = CircleShape, accent = true, modifier = Modifier.size(56.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(last, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                    }
+                // A transient indicator that does nothing when touched: a large plain letter, no zone.
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(56.dp)) {
+                    Text(
+                        last,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

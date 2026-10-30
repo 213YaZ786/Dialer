@@ -217,7 +217,7 @@ fun CallScreen(
         Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
         // The time and the network the call goes over side by side; the network red on 2G before anything is said.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            StatusPill(call)
+            CallStatus(call)
             if (call.encrypted && call.phase != CallPhase.ENDED) {
                 // Over the messaging app's encrypted line: the phone network has nothing to do with it.
                 EncryptedChip()
@@ -231,14 +231,10 @@ fun CallScreen(
         Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
         // The round picture lower, a third of the free space above it; a poster keeps its name at the top.
         if (!compact && !poster && !(call.video && call.phase == CallPhase.ACTIVE)) Spacer(Modifier.weight(0.5f))
-        // A video call: the picture speaks for itself, the caller stays small,
-        // on a pane of glass so it reads over any picture.
+        // A video call: the picture speaks for itself, the caller stays small, plain white text
+        // with a soft shadow so it reads over any picture (no zone: it does nothing when touched).
         if (call.video && call.phase == CallPhase.ACTIVE) {
-            // Zones over the call: Material 3's extra large corner (ShapeDefaults,
-            // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
-            ZoneSurface(shape = ShapeDefaults.ExtraLarge) {
-                Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true) }
-            }
+            Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true, overVideo = true) }
         } else {
             Caller(call, photo, compact = compact, poster = if (poster) entry?.look?.style ?: "classic" else null, posterName = entry?.name)
         }
@@ -334,9 +330,13 @@ fun CallScreen(
 
 private enum class Panel { RINGING, REPLY, SIM, KEYPAD, CONTROLS, ENDED }
 
-/** One small pane at the top: what is happening, or how long it has lasted. */
+/**
+ * What is happening, or how long it has lasted, as plain text on the page: it does nothing when
+ * touched, so it has no zone. LineageOS Dialer's status line is a bare TextView,
+ * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-21.0/java/com/android/incallui/contactgrid/res/layout/incall_contactgrid_top_row.xml
+ */
 @Composable
-private fun StatusPill(call: CallInfo) {
+private fun CallStatus(call: CallInfo) {
     val text = when (call.phase) {
         CallPhase.RINGING -> "Incoming call"
         CallPhase.DIALING -> if (call.connecting) "Connecting" else "Calling"
@@ -345,21 +345,24 @@ private fun StatusPill(call: CallInfo) {
         CallPhase.ENDED -> "Call ended"
         CallPhase.ACTIVE -> elapsed(call.connectedAt)
     }
-    // On hold, the pill breathes, so a call left waiting is not forgotten.
+    // On hold, the text breathes, so a call left waiting is not forgotten.
     val breathing = rememberInfiniteTransition(label = "hold")
     val breath by breathing.animateFloat(1f, 0.55f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "breath")
-    ZoneSurface(
-        shape = CircleShape,
-        modifier = Modifier.graphicsLayer { alpha = if (call.phase == CallPhase.HOLDING) breath else 1f }
+    val style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
+    // 48 dp tall, centred, so the network pill beside it stays aligned.
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .height(48.dp)
+            .padding(horizontal = 12.dp)
+            .graphicsLayer { alpha = if (call.phase == CallPhase.HOLDING) breath else 1f }
+            .animateContentSize()
     ) {
-        // 48 dp tall, as the network pill beside it (a tappable pill is never lower).
-        Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp).animateContentSize()) {
-            if (call.phase == CallPhase.ACTIVE) {
-                RollingText(text, MaterialTheme.typography.titleMedium)
-            } else {
-                AnimatedContent(targetState = text, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "status") {
-                    Text(it, style = MaterialTheme.typography.titleMedium)
-                }
+        if (call.phase == CallPhase.ACTIVE) {
+            RollingText(text, style)
+        } else {
+            AnimatedContent(targetState = text, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "status") {
+                Text(it, style = style)
             }
         }
     }
@@ -408,10 +411,15 @@ internal fun elapsed(since: Long): String {
  * the other side picks up the drop pops once; on hold it fades back.
  */
 @Composable
-private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null) {
+private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null, overVideo: Boolean = false) {
     if (compact) {
-        // With the keypad open, the name alone: the keys need the room.
-        Text(call.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // With the keypad open, the name alone: the keys need the room. Over a video, white with a shadow (VideoControls' VideoTextStyle).
+        Text(
+            call.title,
+            style = if (overVideo) videoTextStyle(MaterialTheme.typography.titleMedium) else MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         return
     }
     val size = 120.dp
@@ -723,15 +731,13 @@ private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () 
     }
 }
 
-/** The mark of a call over the messaging app's end-to-end encrypted line. */
+/** The mark of a call over the messaging app's end-to-end encrypted line: plain text, no zone, as it does nothing. */
 @Composable
 private fun EncryptedChip() {
-    ZoneSurface(shape = androidx.compose.foundation.shape.CircleShape) {
-        // As tall as the time beside it (48 dp).
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
-            Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("End-to-end encrypted", style = MaterialTheme.typography.labelLarge)
-        }
+    // As tall as the time beside it (48 dp).
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(48.dp).padding(horizontal = 12.dp)) {
+        Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("End-to-end encrypted", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
