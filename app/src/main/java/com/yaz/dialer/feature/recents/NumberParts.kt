@@ -3,7 +3,13 @@ package com.yaz.dialer.feature.recents
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +39,7 @@ import com.yaz.dialer.ui.component.ZoneSurface
  * calls in the accent, the others in red on top. Under it how much was
  * said in all, and the hour they usually happen at.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RhythmCard(rhythm: Rhythm, hourLabel: (Int) -> String) {
     val accent = MaterialTheme.colorScheme.primary
@@ -43,10 +50,39 @@ fun RhythmCard(rhythm: Rhythm, hourLabel: (Int) -> String) {
     // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
     ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Stat("${rhythm.calls}", if (rhythm.calls == 1) "call" else "calls", Modifier.weight(1f))
-                Stat(talkedLabel(rhythm.talkedSeconds), "spoken", Modifier.weight(1f))
-                rhythm.usualHour?.let { Stat(hourLabel(it), "usual time", Modifier.weight(1f)) }
+            // The stats side by side while the widest, measured on one line in this font and language
+            // (TextMeasurer, https://developer.android.com/develop/ui/compose/text/measure-text-layout),
+            // fits three times; else one under the other, full width: FlowRow's maxItemsInEachRow with
+            // weight (https://developer.android.com/develop/ui/compose/layouts/flow), as PersonActions does.
+            val stats = buildList {
+                add("${rhythm.calls}" to if (rhythm.calls == 1) "call" else "calls")
+                add(talkedLabel(rhythm.talkedSeconds) to "spoken")
+                rhythm.usualHour?.let { add(hourLabel(it) to "usual time") }
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val measurer = rememberTextMeasurer()
+                val density = LocalDensity.current
+                val valueStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+                val labelStyle = MaterialTheme.typography.labelMedium
+                val widest = remember(stats, valueStyle, labelStyle, density) {
+                    stats.maxOf { (value, label) ->
+                        maxOf(
+                            measurer.measure(value, valueStyle, softWrap = false, maxLines = 1).size.width,
+                            measurer.measure(label, labelStyle, softWrap = false, maxLines = 1).size.width
+                        )
+                    }.let { with(density) { it.toDp() } }
+                }
+                val gap = 12.dp
+                val perRow = if (widest * stats.size + gap * (stats.size - 1) <= maxWidth) stats.size else 1
+                FlowRow(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    itemVerticalAlignment = Alignment.Bottom,
+                    maxItemsInEachRow = perRow
+                ) {
+                    stats.forEach { (value, label) -> Stat(value, label, Modifier.weight(1f)) }
+                }
             }
             Spacer(Modifier.height(16.dp))
             val most = (rhythm.weeks.maxOfOrNull { it.total } ?: 0).coerceAtLeast(1)

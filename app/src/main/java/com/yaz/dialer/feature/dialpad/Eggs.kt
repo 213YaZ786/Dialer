@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -139,7 +140,7 @@ private fun BellDial(onDone: () -> Unit, modifier: Modifier) {
             WATSON.take(letters),
             style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif),
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = 320.dp).height(52.dp)
+            modifier = Modifier.widthIn(max = 320.dp).heightIn(min = 52.dp)
         )
         Text("Alexander Graham Bell, 10 March 1876", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

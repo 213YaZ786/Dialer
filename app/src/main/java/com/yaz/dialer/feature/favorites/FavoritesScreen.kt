@@ -39,6 +39,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import com.yaz.dialer.core.call.Dialing
 import com.yaz.dialer.core.dial.DialRequests
 import com.yaz.dialer.core.dial.NumberActions
@@ -273,7 +276,16 @@ private fun FavoriteTile(person: Person, speedDigit: Int?, onOpen: () -> Unit) {
                 Box {
                     ContactAvatar(person.name, person.photo, 88.dp, look = person.look)
                     if (speedDigit != null) {
-                        ZoneSurface(shape = CircleShape, accent = true, modifier = Modifier.align(Alignment.BottomEnd).size(26.dp)) {
+                        // The badge is 26 dp at least and grows with the digit's line (200 % font), kept round:
+                        // measured with TextMeasurer (https://developer.android.com/develop/ui/compose/text/measure-text-layout).
+                        val badgeStyle = MaterialTheme.typography.labelLarge
+                        val measurer = rememberTextMeasurer()
+                        val density = LocalDensity.current
+                        val badge = remember(badgeStyle, density) {
+                            val digit = measurer.measure("9", badgeStyle, softWrap = false, maxLines = 1).size
+                            with(density) { maxOf(26.dp, maxOf(digit.width, digit.height).toDp() + 4.dp) }
+                        }
+                        ZoneSurface(shape = CircleShape, accent = true, modifier = Modifier.align(Alignment.BottomEnd).defaultMinSize(badge, badge)) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(speedDigit.toString(), style = MaterialTheme.typography.labelLarge)
                             }

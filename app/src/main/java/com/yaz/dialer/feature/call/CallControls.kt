@@ -72,7 +72,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import com.yaz.dialer.core.call.AudioRoute
 import com.yaz.dialer.core.call.CallInfo
 import com.yaz.dialer.core.call.CallPhase
@@ -115,6 +121,8 @@ fun CallControls(
     // Hang up in the middle of the second, each as wide as a third of the room allows.
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
         val diameter = ((maxWidth - GridGap * 2) / 3 - 16.dp).coerceIn(ControlSize, GridMax)
+        // A third of the room: the widest a label may be, so it wraps between words in it.
+        val cell = maxOf((maxWidth - GridGap * 2) / 3, diameter + 16.dp)
         val mute: @Composable () -> Unit = {
             CallControl(
                 icon = if (state.muted) AppIcons.MicOff else AppIcons.Mic,
@@ -122,7 +130,7 @@ fun CallControls(
                 on = state.muted,
                 enabled = call.canMute,
                 order = 2,
-                diameter = diameter
+                diameter = diameter, maxWidth = cell
             ) { actions.mute(!state.muted) }
         }
         // Sound: a tap switches between the ear and the speaker; with a
@@ -138,7 +146,7 @@ fun CallControls(
                 on = route != null && route.kind != AudioRoute.Kind.EARPIECE,
                 motion = if (route?.kind == AudioRoute.Kind.SPEAKER) ControlMotion.WAVES else ControlMotion.NONE,
                 order = 0,
-                diameter = diameter,
+                diameter = diameter, maxWidth = cell,
                 onLongPress = { routes = true },
                 extra = {
                     if (routes) {
@@ -168,7 +176,7 @@ fun CallControls(
                         label = if (camera.on) "Camera off" else "Camera on",
                         on = !camera.on,
                         order = 1,
-                        diameter = diameter
+                        diameter = diameter, maxWidth = cell
                     ) { actions.camera(call.id, camera.copy(on = !camera.on)) }
                 } else {
                     // A second call: the dialpad opens, Telecom holds this one when
@@ -180,7 +188,7 @@ fun CallControls(
                         enabled = state.secondary == null && !call.encrypted,
                         motion = ControlMotion.TURN,
                         order = 1,
-                        diameter = diameter,
+                        diameter = diameter, maxWidth = cell,
                         onClick = onAddCall
                     )
                 }
@@ -190,7 +198,7 @@ fun CallControls(
             Row(horizontalArrangement = Arrangement.spacedBy(GridGap), verticalAlignment = Alignment.Top) {
                 if (call.video) {
                     val camera by actions.camera.collectAsState()
-                    CallControl(AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3, diameter = diameter) {
+                    CallControl(AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3, diameter = diameter, maxWidth = cell) {
                         actions.camera(call.id, camera.copy(front = !camera.front))
                     }
                 } else CallControl(
@@ -199,10 +207,10 @@ fun CallControls(
                     on = held,
                     enabled = call.canHold,
                     order = 3,
-                    diameter = diameter
+                    diameter = diameter, maxWidth = cell
                 ) { actions.hold(call.id, !held) }
                 Appear(order = 4) {
-                    Box(Modifier.width(diameter + 16.dp), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.widthIn(min = diameter + 16.dp, max = cell), contentAlignment = Alignment.TopCenter) {
                         GlassCallButton(
                             icon = AppIcons.CallEnd,
                             label = "Hang up",
@@ -215,7 +223,7 @@ fun CallControls(
                     }
                 }
                 // Tones mean nothing on an encrypted line: no keypad there.
-                CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted && !call.video, order = 5, diameter = diameter, onClick = onKeypad)
+                CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted && !call.video, order = 5, diameter = diameter, maxWidth = cell, onClick = onKeypad)
             }
         }
     }
@@ -260,6 +268,7 @@ fun CallControl(
     extra: @Composable () -> Unit = {},
     diameter: androidx.compose.ui.unit.Dp = ControlSize,
     labelShown: Boolean = true,
+    maxWidth: androidx.compose.ui.unit.Dp = androidx.compose.ui.unit.Dp.Unspecified,
     onClick: () -> Unit
 ) {
     val haptics = rememberHaptics()
@@ -275,7 +284,8 @@ fun CallControl(
     val alpha = if (enabled) 1f else 0.38f
 
     Appear(order) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(diameter + if (labelShown) 16.dp else 0.dp)) {
+        // At least the drop and a margin wide, never a fixed width around words: the label wraps inside [maxWidth].
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = diameter + if (labelShown) 16.dp else 0.dp, max = maxWidth)) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -343,12 +353,20 @@ fun CallControl(
             if (labelShown) {
                 Spacer(Modifier.height(8.dp))
                 AnimatedContent(targetState = label, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "label") { text ->
-                    Text(
-                        text,
-                        style = MaterialTheme.typography.labelMedium,
+                    // Lines break between words, centred, two at most; a single word still too wide shrinks as
+                    // the last resort: TextAutoSize.StepBased (https://developer.android.com/develop/ui/compose/text/autosize),
+                    // as in PersonActionTile. The width is bounded only in the grid (maxWidth).
+                    val style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
-                        maxLines = 1
+                        textAlign = TextAlign.Center
+                    )
+                    BasicText(
+                        text,
+                        style = style,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        autoSize = if (maxWidth.isSpecified) TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = style.fontSize, stepSize = 0.5.sp) else null
                     )
                 }
             }
@@ -431,7 +449,9 @@ internal fun RoutePopover(state: CallsState, onPick: (AudioRoute) -> Unit, onDis
                                     option.label,
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                                    maxLines = 1,
+                                    // A device name: two lines, then an ellipsis.
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).padding(start = 14.dp)
                                 )
                                 if (chosen) Icon(AppIcons.CheckCircle, contentDescription = "In use", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))

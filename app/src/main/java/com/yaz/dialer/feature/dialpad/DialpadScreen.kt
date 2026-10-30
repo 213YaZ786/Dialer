@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -80,6 +81,7 @@ import com.yaz.dialer.ui.component.BannerAction
 import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.GlassKeypad
 import com.yaz.dialer.ui.component.QuietButton
+import com.yaz.dialer.ui.component.keypadKeySide
 import com.yaz.dialer.ui.component.ZoneSurface
 import com.yaz.dialer.ui.component.rememberHaptics
 import com.yaz.dialer.ui.glass.LocalGlass
@@ -303,7 +305,7 @@ private fun Keys(
         // anything is typed, Voicemail and SOS stand in its place.
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().height(76.dp).combinedClickable(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 76.dp).combinedClickable(
                 interactionSource = null,
                 indication = null,
                 onClick = {},
@@ -362,17 +364,19 @@ private fun Keys(
             lit = lit
         )
         Spacer(Modifier.height(20.dp))
+        // The call row keeps the keys' columns when the keys grow with the font.
+        val keySide = keypadKeySide()
         Row(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(22.dp)
         ) {
-            Spacer(Modifier.size(72.dp))
-            GlassCallButton(icon = AppIcons.Call, label = "Call", color = AnswerGreen, size = 72.dp, glow = 0.35f, onClick = onCall)
+            Spacer(Modifier.size(keySide))
+            GlassCallButton(icon = AppIcons.Call, label = "Call", color = AnswerGreen, size = keySide, glow = 0.35f, onClick = onCall)
             // Backspace: a tap takes the last digit, held it clears the number.
             val glass = LocalGlass.current
-            val base = Modifier.size(72.dp).clip(CircleShape)
+            val base = Modifier.size(keySide).clip(CircleShape)
             if (number.isEmpty()) {
-                Spacer(Modifier.size(72.dp))
+                Spacer(Modifier.size(keySide))
                 return@Row
             }
             Box(

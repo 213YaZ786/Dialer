@@ -108,6 +108,8 @@ import org.koin.compose.koinInject
 import androidx.compose.runtime.collectAsState
 import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.GlassKeypad
+import com.yaz.dialer.ui.component.keypadKeySide
+import androidx.compose.foundation.layout.FlowRow
 import com.yaz.dialer.ui.component.QuietButton
 import com.yaz.dialer.ui.component.ZoneAlertDialog
 import com.yaz.dialer.ui.component.ZoneSurface
@@ -120,6 +122,7 @@ import com.yaz.dialer.ui.theme.zone
 import kotlinx.coroutines.delay
 
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun CallScreen(
     state: CallsState,
@@ -216,7 +219,14 @@ fun CallScreen(
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
         // The time and the network the call goes over side by side; the network red on 2G before anything is said.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // A FlowRow centred, so the pill goes under the time when they do not fit (a long language, the
+        // 200 % font): https://developer.android.com/develop/ui/compose/layouts/flow
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically
+        ) {
             CallStatus(call)
             if (call.encrypted && call.phase != CallPhase.ENDED) {
                 // Over the messaging app's encrypted line: the phone network has nothing to do with it.
@@ -349,11 +359,11 @@ private fun CallStatus(call: CallInfo) {
     val breathing = rememberInfiniteTransition(label = "hold")
     val breath by breathing.animateFloat(1f, 0.55f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "breath")
     val style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
-    // 48 dp tall, centred, so the network pill beside it stays aligned.
+    // At least 48 dp tall, centred, so the network pill beside it stays aligned; the words wrap.
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .padding(horizontal = 12.dp)
             .graphicsLayer { alpha = if (call.phase == CallPhase.HOLDING) breath else 1f }
             .animateContentSize()
@@ -362,7 +372,7 @@ private fun CallStatus(call: CallInfo) {
             RollingText(text, style)
         } else {
             AnimatedContent(targetState = text, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "status") {
-                Text(it, style = style)
+                Text(it, style = style, textAlign = TextAlign.Center)
             }
         }
     }
@@ -673,10 +683,11 @@ private fun InCallKeypad(onTone: (Char?) -> Unit, onHide: () -> Unit, onHangUp: 
         )
         Spacer(Modifier.height(28.dp))
         // In the keys' own columns: Hang up under 0, Hide under #.
+        val keySide = keypadKeySide()
         Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
-            Spacer(Modifier.width(72.dp))
-            Box(Modifier.width(72.dp).wrapContentWidth(unbounded = true)) { BigButton(AppIcons.CallEnd, "Hang up", HangUpRed, size = 72.dp, onClick = onHangUp) }
-            Box(Modifier.width(72.dp).wrapContentWidth(unbounded = true)) { CallControl(AppIcons.Dialpad, "Hide", on = true, onClick = onHide) }
+            Spacer(Modifier.width(keySide))
+            Box(Modifier.width(keySide).wrapContentWidth(unbounded = true)) { BigButton(AppIcons.CallEnd, "Hang up", HangUpRed, size = keySide, onClick = onHangUp) }
+            Box(Modifier.width(keySide).wrapContentWidth(unbounded = true)) { CallControl(AppIcons.Dialpad, "Hide", on = true, onClick = onHide) }
         }
     }
 }
@@ -736,10 +747,10 @@ private fun Replies(replies: List<String>, onSend: (String) -> Unit, onBack: () 
 /** The mark of a call over the messaging app's end-to-end encrypted line: plain text, no zone, as it does nothing. */
 @Composable
 private fun EncryptedChip() {
-    // As tall as the time beside it (48 dp).
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(48.dp).padding(horizontal = 12.dp)) {
+    // At least as tall as the time beside it (48 dp); the words wrap between words.
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp)) {
         Icon(AppIcons.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
-        Text("End-to-end encrypted", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+        Text("End-to-end encrypted", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f, fill = false))
     }
 }

@@ -269,7 +269,7 @@ private fun EffectChoices(onPick: (ScreenKind) -> Unit, onDismiss: () -> Unit) {
         ) {
             // A pane over the call: Material 3's extra large corner, its rows the large one (ShapeDefaults,
             // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
-            ZoneSurface(shape = ShapeDefaults.ExtraLarge, shadowElevation = 6.dp, modifier = Modifier.width(200.dp)) {
+            ZoneSurface(shape = ShapeDefaults.ExtraLarge, shadowElevation = 6.dp, modifier = Modifier.widthIn(min = 200.dp)) {
                 Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     EFFECTS.forEach { kind ->
                         Row(
@@ -284,7 +284,8 @@ private fun EffectChoices(onPick: (ScreenKind) -> Unit, onDismiss: () -> Unit) {
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(glyphOf(kind), style = MaterialTheme.typography.titleLarge)
-                            Text(nameOf(kind), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 14.dp))
+                            // The name wraps between words when the pane is narrow or the font large.
+                            Text(nameOf(kind), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f, fill = false).padding(start = 14.dp))
                         }
                     }
                 }

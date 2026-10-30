@@ -72,6 +72,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import com.yaz.dialer.core.call.AudioRoute
 import com.yaz.dialer.core.call.CallInfo
 import com.yaz.dialer.core.call.CallPhase
@@ -179,10 +182,19 @@ fun CallIsland(
     // Sizes follow the screen: as wide as it allows when it asks something,
     // a centred pill of two thirds while the call goes on.
     val wide = min(room * 0.94f, 460.dp)
+    // The island's heights are minimums (84, 140, 60 dp, the design): the glass grows when its text does
+    // (the 200 % font), by the line heights of what it holds in the current scale, as heightIn(min) would;
+    // https://developer.android.com/develop/ui/compose/accessibility/scalable-content
+    val typo = MaterialTheme.typography
+    val scaled = androidx.compose.ui.platform.LocalDensity.current
+    fun lineOf(style: androidx.compose.ui.text.TextStyle) = with(scaled) { style.lineHeight.toDp() }
+    val ringHeight = maxOf(84.dp, lineOf(typo.labelMedium) + lineOf(typo.titleLarge) + 24.dp)
+    val openHeight = maxOf(140.dp, maxOf(36.dp, lineOf(typo.titleMedium)) + 56.dp + 24.dp + 8.dp)
+    val smallHeight = maxOf(60.dp, lineOf(typo.titleSmall) + lineOf(typo.labelLarge) + 16.dp)
     fun sizeOf(s: Shape) = when (s) {
-        Shape.RING -> DpSize(wide, 84.dp)
-        Shape.OPEN -> DpSize(wide, 140.dp)
-        Shape.SMALL -> DpSize(min(room * 0.66f, 300.dp).coerceAtLeast(min(room, 240.dp)), 60.dp)
+        Shape.RING -> DpSize(wide, ringHeight)
+        Shape.OPEN -> DpSize(wide, openHeight)
+        Shape.SMALL -> DpSize(min(room * 0.66f, 300.dp).coerceAtLeast(min(room, 240.dp)), smallHeight)
     }
     val target = sizeOf(shape)
     // The wave a button lets go: answering, it settles away into the call;
@@ -459,13 +471,16 @@ private fun Ringing(call: CallInfo, photo: String?, twoG: Boolean, onDecline: (O
                     Icon(AppIcons.Night, contentDescription = "Night there", tint = com.yaz.dialer.ui.component.NightAmber, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(3.dp))
                 }
-                Text(
+                // A status, never cut by an ellipsis: it shrinks to the room left, as the last resort
+                // (TextAutoSize.StepBased, https://developer.android.com/develop/ui/compose/text/autosize).
+                val status = MaterialTheme.typography.labelMedium
+                BasicText(
                     from?.let { listOfNotNull(it.time?.removeSuffix(" there"), it.name).joinToString(", ") }
                         ?: if (call.encrypted) (if (call.video) "Encrypted video" else "Encrypted") else if (call.video) "Video" else "Mobile",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (from?.night == true) com.yaz.dialer.ui.component.NightAmber else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = status.copy(color = if (from?.night == true) com.yaz.dialer.ui.component.NightAmber else MaterialTheme.colorScheme.onSurfaceVariant),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = status.fontSize, stepSize = 0.5.sp)
                 )
                 if (twoG) TwoG()
             }

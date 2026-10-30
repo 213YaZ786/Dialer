@@ -7,6 +7,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -52,9 +55,18 @@ fun LetterRail(letters: List<String>, onLetter: (String) -> Unit, modifier: Modi
     var touched by remember { mutableStateOf<String?>(null) }
     var fingerY by remember { mutableFloatStateOf(0f) }
 
-    Row(modifier, verticalAlignment = Alignment.Top) {
+    // The rail keeps within the room it is given: the letters shrink to fit its height first (the 200 % font,
+    // a long alphabet), a minimum width and a minimum indicator instead of fixed sizes
+    // (https://developer.android.com/develop/ui/compose/accessibility/scalable-content).
+    BoxWithConstraints(modifier) {
+    val base = MaterialTheme.typography.labelSmall
+    val natural = with(density) { base.lineHeight.toDp() } + 2.dp
+    val room = (maxHeight - 16.dp) / letters.size.coerceAtLeast(1)
+    val fit = (room / natural).coerceIn(0.5f, 1f)
+    val letterStyle = base.copy(fontSize = base.fontSize * fit, lineHeight = base.lineHeight * fit)
+    Row(verticalAlignment = Alignment.Top) {
         // The letter under the finger, large, level with it.
-        Box(Modifier.width(64.dp)) {
+        Box(Modifier.widthIn(min = 64.dp)) {
             androidx.compose.animation.AnimatedVisibility(
                 visible = touched != null,
                 enter = scaleIn(initialScale = 0.6f) + fadeIn(),
@@ -64,7 +76,7 @@ fun LetterRail(letters: List<String>, onLetter: (String) -> Unit, modifier: Modi
                 var last by remember { mutableStateOf("") }
                 touched?.let { last = it }
                 // A transient indicator that does nothing when touched: a large plain letter, no zone.
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(56.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.sizeIn(minWidth = 56.dp, minHeight = 56.dp)) {
                     Text(
                         last,
                         style = MaterialTheme.typography.headlineMedium,
@@ -80,7 +92,7 @@ fun LetterRail(letters: List<String>, onLetter: (String) -> Unit, modifier: Modi
             // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
             shape = ShapeDefaults.Large,
             modifier = Modifier
-                .width(28.dp)
+                .widthIn(min = 28.dp)
                 .onSizeChanged { height = it.height.toFloat().coerceAtLeast(1f) }
                 .semantics { contentDescription = "Jump to a letter" }
                 .pointerInput(letters) {
@@ -117,7 +129,7 @@ fun LetterRail(letters: List<String>, onLetter: (String) -> Unit, modifier: Modi
                 letters.forEach { letter ->
                     Text(
                         letter,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = letterStyle,
                         fontWeight = if (letter == touched) FontWeight.Bold else FontWeight.Medium,
                         color = if (letter == touched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 1.dp)
@@ -125,5 +137,6 @@ fun LetterRail(letters: List<String>, onLetter: (String) -> Unit, modifier: Modi
                 }
             }
         }
+    }
     }
 }

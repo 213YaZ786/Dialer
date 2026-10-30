@@ -31,6 +31,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import kotlin.math.hypot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +43,8 @@ import com.yaz.dialer.ui.glass.glassZone
 import com.yaz.dialer.ui.icon.AppIcons
 import com.yaz.dialer.ui.theme.zone
 import kotlinx.coroutines.withTimeoutOrNull
+
+private val KeyDigitStyle = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp)
 
 /** The letters under each key, as on every phone. */
 private val KeyLetters = mapOf(
@@ -66,12 +72,37 @@ fun GlassKeypad(
     lit: Char? = null
 ) {
     var index = 0
+    val side = keypadKeySide(keySize)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf("123", "456", "789", "*0#").forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                row.forEach { key -> GlassKey(key, keySize, onPress, onRelease, onLongPress, voicemail && key == '1', order = index++, lit = lit == key) }
+                row.forEach { key -> GlassKey(key, side, onPress, onRelease, onLongPress, voicemail && key == '1', order = index++, lit = lit == key) }
             }
         }
+    }
+}
+
+/**
+ * The side of every key, which grows with the font: the content (digit, letters, voicemail sign)
+ * must sit inside the circle, so the diameter is the diagonal of the largest content measured with
+ * TextMeasurer (https://developer.android.com/develop/ui/compose/text/measure-text-layout) plus a
+ * margin, never under [keySize]; every key takes the same one so the grid stays aligned, and the
+ * dialpad's call row takes it too. AOSP Dialer's DialpadKeyButton keeps digit and letters inside
+ * the key as well
+ * (https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/dialpadview/DialpadKeyButton.java).
+ */
+@Composable
+fun keypadKeySide(keySize: Dp = 72.dp): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val lettersStyle = MaterialTheme.typography.labelSmall
+    return remember(keySize, lettersStyle, density) {
+        val digit = measurer.measure("0", KeyDigitStyle, softWrap = false, maxLines = 1).size
+        val letters = KeyLetters.values.map { measurer.measure(it, lettersStyle, softWrap = false, maxLines = 1).size }
+        val width = maxOf(digit.width, letters.maxOf { it.width })
+        val height = digit.height + maxOf(letters.maxOf { it.height }, with(density) { 16.dp.roundToPx() })
+        val diagonal = with(density) { hypot(width.toDouble(), height.toDouble()).toFloat().toDp() }
+        maxOf(keySize, diagonal + 8.dp)
     }
 }
 
@@ -132,7 +163,7 @@ private fun GlassKey(
     ) {
         if (glow > 0.01f) androidx.compose.foundation.Canvas(Modifier.matchParentSize()) { drawCircle(accent.copy(alpha = 0.45f * glow)) }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(key.toString(), fontSize = 30.sp, fontWeight = FontWeight.Normal, lineHeight = 32.sp)
+            Text(key.toString(), style = KeyDigitStyle)
             KeyLetters[key]?.let {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
