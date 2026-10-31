@@ -61,6 +61,12 @@ internal fun PosterStage(entry: PhoneEntry) {
                 // Read at about the screen's size: a full photo can be much larger.
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                // A small photo (a 96 px thumbnail only) is never stretched over the screen: it needs a shorter side of
+                // at least half the screen's, else the colour and the monogram stand alone. LineageOS Dialer's
+                // ContactGridManager shows the photo in a round, never enlarged to the screen (Apache-2.0,
+                // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/contactgrid/ContactGridManager.java).
+                val screen = context.resources.displayMetrics
+                if (minOf(bounds.outWidth, bounds.outHeight) * 2 < minOf(screen.widthPixels, screen.heightPixels)) return@runCatching null
                 var sample = 1
                 while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
@@ -112,7 +118,8 @@ internal fun PosterStage(entry: PhoneEntry) {
                 }
                 val mark = look?.emoji ?: look?.letters ?: initials(entry.name)
                 val density = LocalDensity.current
-                Text(
+                // No letter in the name: no monogram at all, never a digit or a "?".
+                if (mark != null) Text(
                     mark,
                     color = Color.White.copy(alpha = 0.92f),
                     style = monogramStyle(look?.font).copy(fontSize = with(density) { (side * if (look?.emoji != null) 0.42f else 0.36f).toSp() }),
@@ -161,5 +168,11 @@ private fun monogramStyle(font: String?): TextStyle = when (font) {
     else -> TextStyle(fontWeight = FontWeight.Normal)
 }
 
-private fun initials(name: String): String =
-    name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+/**
+ * The first letters of the first two words that start with a letter; null when there is none.
+ * LineageOS Dialer, LetterTileDrawable.setLetterAndColorFromContactDetails (Apache-2.0): a letter only when
+ * `Character.isLetter(displayName.charAt(0))`.
+ * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/dialer/lettertile/LetterTileDrawable.java
+ */
+private fun initials(name: String): String? =
+    name.split(' ').filter { it.isNotBlank() && it.first().isLetter() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { null }

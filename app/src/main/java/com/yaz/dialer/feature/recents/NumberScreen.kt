@@ -50,6 +50,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.yaz.dialer.core.call.Dialing
 import com.yaz.dialer.core.call.PrefixRules
+import com.yaz.dialer.core.call.nameIsNumber
+import androidx.compose.ui.graphics.graphicsLayer
 import com.yaz.dialer.core.call.ScreeningRules
 import com.yaz.dialer.data.settings.PrefixStore
 import com.yaz.dialer.feature.settings.PrefixDialog
@@ -120,14 +122,20 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
         top = { FloatingTop(null, leading = { FloatingAction(AppIcons.ArrowBack, "Back", onBack) }) },
         overlay = { UndoBar(undo, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp) }
     ) { padding ->
-        Column(Modifier.fillMaxSize().verticalScroll(pageScroll),horizontalAlignment = Alignment.CenterHorizontally) {
-            // The person's light behind the top of the page, under the glass.
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            // The person's colour, chosen in the Contacts app, when there is no photo.
-            val color by androidx.compose.runtime.produceState<Int?>(null, contact?.contactId) {
-                value = contact?.contactId?.let { id -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.yaz.dialer.core.dial.ContactLook.of(context, id)?.color } }
-            }
+        // The person's colour, chosen in the Contacts app, when there is no photo.
+        val color by androidx.compose.runtime.produceState<Int?>(null, contact?.contactId) {
+            value = contact?.contactId?.let { id -> kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.yaz.dialer.core.dial.ContactLook.of(context, id)?.color } }
+        }
+        // The person's light behind the page, a sibling of the scrolling column as in Contacts' ContactScreen and SMS's PersonPage
+        // (Box { HeroGlow; Column(verticalScroll) }): the bounce moves the content of the scroller only (androidx foundation
+        // AndroidOverscroll.kt, StretchOverscrollNode), so the light stays still and no bare band shows above it. It leaves with
+        // the scroll, read from the scroll state in the draw phase, never from the overscroll.
+        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth().graphicsLayer { translationY = -pageScroll.value.toFloat() }) {
             HeroGlow(contact?.photo, height = padding.calculateTopPadding() + 180.dp, color = color?.let { androidx.compose.ui.graphics.Color(it) })
+        }
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll),horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
@@ -141,9 +149,11 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
                 // https://android.googlesource.com/platform/packages/apps/Dialer/+/refs/heads/main/java/com/android/dialer/calldetails/res/layout/contact_container.xml
                 // (QuickContactBadge opens the contact, then contact_name, phone_number, network toEndOf the photo; Apache-2.0).
                 PersonHeader(
-                    name = contact?.name ?: shown,
-                    number = if (contact != null) shown else null,
-                    face = { size -> ContactAvatar(contact?.name, contact?.photo, size, look = contact?.look) },
+                    name = contact?.name?.takeUnless { nameIsNumber(it) } ?: shown,
+                    // The number under the name only when the name is not the number (LineageOS Dialer, TopRow.shouldShowNumber:
+                    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/contactgrid/TopRow.java).
+                    number = if (contact != null && !nameIsNumber(contact.name)) shown else null,
+                    face = { size -> ContactAvatar(contact?.name?.takeUnless { nameIsNumber(it) }, contact?.photo, size, look = contact?.look) },
                     onFace = contact?.contactId?.takeIf { it > 0 }?.let { id -> { NumberActions.openContact(context, id) } },
                     // Where the number is from and the time there, from the number itself.
                     extra = if (hidden) null else {
@@ -242,6 +252,7 @@ fun NumberScreen(number: String, onBack: () -> Unit) {
             }
             }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
         }
     }
 

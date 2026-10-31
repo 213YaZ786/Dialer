@@ -331,13 +331,18 @@ class CallStore(private val context: Context, private val scope: CoroutineScope,
             Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> CallPhase.ENDED
             else -> CallPhase.DIALING
         }
-        val name = details.contactDisplayName?.toString()?.takeIf { it.isNotBlank() }
+        // A name that is only the number (a nameless contact: Telecom gives the number as the display name)
+        // counts as no name, so the number shows once and the default avatar stands in
+        // (LineageOS Dialer, CallCardPresenter.updatePrimaryDisplayInfo: nameIsNumber, Apache-2.0,
+        // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/CallCardPresenter.java).
+        val name = (details.contactDisplayName?.toString()?.takeIf { it.isNotBlank() }
             ?: details.callerDisplayName?.takeIf {
                 it.isNotBlank() && details.callerDisplayNamePresentation == TelecomManager.PRESENTATION_ALLOWED
             }
             // Kept private in the Contacts app: Telecom does not know it, the Contacts app tells while unlocked.
             ?: details.handle?.takeIf { it.scheme == "tel" && details.handlePresentation == TelecomManager.PRESENTATION_ALLOWED }
-                ?.schemeSpecificPart?.let { com.yaz.dialer.core.dial.PrivateNames.cached(it)?.name }
+                ?.schemeSpecificPart?.let { com.yaz.dialer.core.dial.PrivateNames.cached(it)?.name })
+            ?.takeUnless { nameIsNumber(it) }
         return CallInfo(
             id = id,
             phase = phase,
@@ -432,3 +437,15 @@ val EFFECTS = listOf(
     com.yaz.dialer.ui.effects.ScreenKind.LOVE, com.yaz.dialer.ui.effects.ScreenKind.STARS, com.yaz.dialer.ui.effects.ScreenKind.CELEBRATION,
     com.yaz.dialer.ui.effects.ScreenKind.LASERS
 )
+
+/**
+ * True when [name] is blank or only a number (no letter but at least one digit, so "620", "06 20" and
+ * "+33 6 20" count; an emoji-only name such as a heart is a real name): it is then not a name to show beside the number. LineageOS Dialer (Apache-2.0): CallCardPresenter's
+ * `name.equals(number)`, improved to also catch any spelling of the digits; TopRow.shouldShowNumber returns
+ * false for it; LetterTileDrawable draws a letter only for a name that starts with one.
+ * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/CallCardPresenter.java
+ * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/contactgrid/TopRow.java
+ * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/dialer/lettertile/LetterTileDrawable.java
+ */
+internal fun nameIsNumber(name: String?): Boolean =
+    name.isNullOrBlank() || (name.none { it.isLetter() } && name.any { it.isDigit() })

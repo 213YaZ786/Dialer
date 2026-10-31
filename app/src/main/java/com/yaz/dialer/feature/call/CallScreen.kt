@@ -94,6 +94,7 @@ import com.yaz.dialer.core.call.CallPhase
 import com.yaz.dialer.core.call.CallStore
 import com.yaz.dialer.core.call.CallsState
 import com.yaz.dialer.core.call.NumberCheck
+import com.yaz.dialer.core.call.nameIsNumber
 import androidx.compose.foundation.layout.width
 import com.yaz.dialer.core.network.CellProtection
 import com.yaz.dialer.core.network.CellWatch
@@ -153,7 +154,10 @@ fun CallScreen(
     }
     val photo = entry?.photo
     // A saved person: their poster behind the call, as set in the Contacts app.
-    val poster = entry != null && !call.video
+    // Not for a nameless contact whose "name" is only the number: the round default avatar then, as
+    // LineageOS Dialer (CallCardPresenter nameIsNumber, LetterTileDrawable: a letter only for a name starting with one;
+    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/CallCardPresenter.java).
+    val poster = entry != null && !call.video && !nameIsNumber(entry.name)
 
     // Writing back instead of answering: the replies replace Answer and Decline.
     var replying by remember(call.id) { mutableStateOf(false) }
@@ -452,8 +456,9 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
     // Over a poster the photo is the screen itself: the name alone, large, white, in its style.
     if (poster != null) {
         Spacer(Modifier.height(8.dp))
+        val shownName = call.name ?: posterName ?: call.title
         Text(
-            posterName(call.name ?: posterName ?: call.title, poster),
+            posterName(shownName, poster),
             style = posterNameStyle(MaterialTheme.typography.displayMedium, poster),
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -461,8 +466,12 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = dim }
         )
-        Spacer(Modifier.height(6.dp))
-        Text(call.number, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f))
+        // The number under the name only when the name is not the number (TopRow.shouldShowNumber, LineageOS Dialer:
+        // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/contactgrid/TopRow.java).
+        if (!nameIsNumber(shownName)) {
+            Spacer(Modifier.height(6.dp))
+            Text(call.number, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f))
+        }
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Color.White) {
             com.yaz.dialer.ui.component.PlaceLine(call.number, known = true, modifier = Modifier.padding(top = 6.dp))
         }
