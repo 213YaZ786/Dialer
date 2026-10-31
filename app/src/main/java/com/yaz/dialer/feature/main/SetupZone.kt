@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,29 +34,32 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.yaz.dialer.ui.component.BoldButton
-import com.yaz.dialer.ui.component.ZoneSurface
 
 /** What Dialer needs before it can take calls, in the order it is asked. */
-internal enum class SetupStep(val title: String, val message: String, val action: String) {
+internal enum class SetupStep(val title: String, val message: String, val action: String, val refuse: String) {
     ROLE(
         "Make Dialer your phone app",
         "To make and receive calls with it.",
-        "Choose Dialer"
+        "Choose Dialer",
+        "Not now"
     ),
     SCREENING(
         "Filter spam calls",
         "Spam and sales calls are turned away before they ring. Choose Dialer as the caller ID and spam app.",
-        "Choose Dialer"
+        "Choose Dialer",
+        "Not now"
     ),
     NOTIFICATIONS(
         "Allow call notifications",
         "Incoming calls and the call in progress.",
-        "Allow"
+        "Allow",
+        "Don't allow"
     ),
     FULL_SCREEN(
         "Show calls on the lock screen",
         "Incoming calls fill the screen when the phone is locked.",
-        "Open settings"
+        "Open settings",
+        "Don't allow"
     )
 }
 
@@ -73,9 +75,9 @@ internal class Setup(
     val screeningMissing: Boolean,
     /** Android no longer shows the question for the screening role. */
     val screeningBlocked: Boolean,
-    /** The step the card on Recents shows: [step] without the optional one set aside by "Not now". */
+    /** The step the card on Recents shows: [step] without the ones the user refused. */
     val cardStep: SetupStep? = step,
-    /** "Not now" on an optional step: remembered for good, the card moves on at once. */
+    /** "Not now" or "Don't allow" on a step: remembered for good, the card moves on at once. */
     val skip: (SetupStep) -> Unit = {}
 ) {
     /** The label of [step]'s button: Android's page once it no longer asks. */
@@ -116,8 +118,10 @@ internal fun rememberSetup(): Setup {
         if (!granted) openNotificationSettings(context)
         checks++
     }
-    val step = remember(checks) { nextStep(context, skipOptional = false) }
-    val cardStep = remember(checks) { nextStep(context, skipOptional = true) }
+    // Read here so that every card on screen follows a refusal made on another at once.
+    val refusals = refusalCount.intValue
+    val step = remember(checks) { nextStep(context, skipRefused = false) }
+    val cardStep = remember(checks, refusals) { nextStep(context, skipRefused = true) }
     val screeningMissing = remember(checks) { screeningMissing(context) }
     return Setup(step, screeningMissing = screeningMissing, screeningBlocked = screeningBlocked, cardStep = cardStep, skip = { skipped ->
         skip(context, skipped)
@@ -152,65 +156,69 @@ internal fun rememberSetup(): Setup {
 /**
  * The step still missing, shown on the main screen until Dialer can take
  * calls: when the first launch page was skipped, or something was turned
- * off in Android since.
+ * off in Android since. Laid straight on the page (a zone means a tap), with a button to refuse the step:
+ * Element X's opt-in card, "Not now" beside the confirm button, the refusal stored so the card never comes back
+ * (element-hq/element-x-android, AGPL-3.0, behaviour only:
+ * https://github.com/element-hq/element-x-android/blob/develop/features/ftue/impl/src/main/kotlin/io/element/android/features/ftue/impl/notifications/NotificationsOptInView.kt
+ * and NotificationsOptInPresenter.kt, NotNowClicked).
  */
 @Composable
 fun SetupZone(modifier: Modifier = Modifier) {
     val setup = rememberSetup()
     val step = setup.cardStep ?: return
 
-    // A zone on the page: Material 3's extra large corner (ShapeDefaults,
-    // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
-    ZoneSurface(
-        shape = ShapeDefaults.ExtraLarge,
-        modifier = modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp).padding(horizontal = 24.dp, vertical = 22.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp)
-        ) {
-            Text(step.title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            Text(
-                step.message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            setup.warning(step)?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-            }
-            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // The optional step: SMS's SetupZone, "Not now" before the action.
-                if (step == SetupStep.SCREENING) {
-                    BoldButton(filled = false, onClick = { setup.skip(step) }) { Text("Not now") }
-                }
-                BoldButton(filled = true, onClick = { setup.run(step) }) { Text(setup.action(step)) }
-            }
+        // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
+        Text(step.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+        Text(
+            step.message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        setup.warning(step)?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+        }
+        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Every step can be refused: SMS's SetupZone, the refusing button before the action.
+            BoldButton(filled = false, onClick = { setup.skip(step) }) { Text(step.refuse) }
+            BoldButton(filled = true, onClick = { setup.run(step) }) { Text(setup.action(step)) }
         }
     }
 }
 
+/** Steps refused so far: read by every card on screen, so that all follow a refusal at once. */
+private val refusalCount = mutableIntStateOf(0)
+
 /**
- * The step set aside for good by "Not now" (only an optional one), taken from SMS's SetupZone.skip, which keeps its
- * bubbles step (/home/yghouar/Claude Code/APK/YAZ/SMS/app/src/main/java/com/yaz/sms/feature/main/SetupZone.kt),
+ * The step set aside for good, one key per step, taken from SMS's SetupZone.skip
+ * (https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/SetupZone.kt),
  * stored as SharedPreferences.Editor.putBoolean
  * (https://developer.android.com/reference/android/content/SharedPreferences.Editor#putBoolean(java.lang.String,%20boolean)).
  */
 private fun skip(context: Context, step: SetupStep) {
-    if (step == SetupStep.SCREENING) {
-        context.getSharedPreferences(SETUP, Context.MODE_PRIVATE).edit().putBoolean(SCREENING_SKIPPED, true).apply()
-    }
+    context.getSharedPreferences(SETUP, Context.MODE_PRIVATE).edit().putBoolean(REFUSED + step.name, true).apply()
+    refusalCount.intValue++
 }
 
-private fun nextStep(context: Context, skipOptional: Boolean): SetupStep? {
+/** Refused now, or by the old "Not now" on the spam step, whose key stays honoured. */
+private fun refused(context: Context, step: SetupStep): Boolean {
+    val prefs = context.getSharedPreferences(SETUP, Context.MODE_PRIVATE)
+    return prefs.getBoolean(REFUSED + step.name, false) || (step == SetupStep.SCREENING && prefs.getBoolean(SCREENING_SKIPPED, false))
+}
+
+private fun nextStep(context: Context, skipRefused: Boolean): SetupStep? {
+    fun open(step: SetupStep) = !(skipRefused && refused(context, step))
     val roles = context.getSystemService(RoleManager::class.java)
-    if (roles.isRoleAvailable(RoleManager.ROLE_DIALER) && !roles.isRoleHeld(RoleManager.ROLE_DIALER)) return SetupStep.ROLE
-    val skipped = skipOptional && context.getSharedPreferences(SETUP, Context.MODE_PRIVATE).getBoolean(SCREENING_SKIPPED, false)
-    if (!skipped && screeningMissing(context)) return SetupStep.SCREENING
+    if (roles.isRoleAvailable(RoleManager.ROLE_DIALER) && !roles.isRoleHeld(RoleManager.ROLE_DIALER) && open(SetupStep.ROLE)) return SetupStep.ROLE
+    if (screeningMissing(context) && open(SetupStep.SCREENING)) return SetupStep.SCREENING
     val notifications = context.getSystemService(NotificationManager::class.java)
-    if (!notifications.areNotificationsEnabled()) return SetupStep.NOTIFICATIONS
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !notifications.canUseFullScreenIntent()) {
+    if (!notifications.areNotificationsEnabled() && open(SetupStep.NOTIFICATIONS)) return SetupStep.NOTIFICATIONS
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !notifications.canUseFullScreenIntent() && open(SetupStep.FULL_SCREEN)) {
         return SetupStep.FULL_SCREEN
     }
     return null
@@ -225,6 +233,7 @@ private fun screeningMissing(context: Context): Boolean {
 private const val NO_QUESTION_MS = 250L
 private const val SETUP = "setup"
 private const val SCREENING_SKIPPED = "screening_skipped"
+private const val REFUSED = "refused_"
 
 /**
  * Android's default apps page, where the caller ID and spam app is chosen when the role is no longer asked:

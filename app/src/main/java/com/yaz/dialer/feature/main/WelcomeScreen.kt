@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ShapeDefaults
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +46,6 @@ import com.yaz.dialer.ui.component.rememberHaptics
 import org.koin.compose.koinInject
 import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.LoadingMark
-import com.yaz.dialer.ui.component.ZoneSurface
 import com.yaz.dialer.ui.icon.AppIcons
 
 /**
@@ -90,7 +88,8 @@ fun WelcomeScreen(onStart: () -> Unit) {
         // The app's own mark, large and ringing, as on the other apps' first page.
         LoadingMark(size = 160.dp)
         Spacer(Modifier.height(20.dp))
-        Text("Welcome to Dialer", style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
+        // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
+        Text("Welcome to Dialer", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(
             "A phone app with no account, no tracking and no ads.",
@@ -116,30 +115,27 @@ fun WelcomeScreen(onStart: () -> Unit) {
             val store: SettingsStore = koinInject()
             val settings by store.settings.collectAsState()
             val haptics = rememberHaptics()
-            // A zone on the page: Material 3's extra large corner (ShapeDefaults,
-            // https://developer.android.com/reference/kotlin/androidx/compose/material3/ShapeDefaults).
-            ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)
-                ) {
-                    Icon(AppIcons.Block, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text("Reject sales calls", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Numbers reserved for cold calls never ring, unless saved in your contacts.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    GlassSwitch(
-                        checked = settings.blockSalesCalls,
-                        onCheckedChange = { on ->
-                            haptics.toggle(on)
-                            store.update { it.copy(blockSalesCalls = on) }
-                        }
+            // No zone: the switch is the tap, the row lies on the page (a zone means a tap, 2026-10-28).
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)
+            ) {
+                Icon(AppIcons.Block, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text("Reject sales calls", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Numbers reserved for cold calls never ring, unless saved in your contacts.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                GlassSwitch(
+                    checked = settings.blockSalesCalls,
+                    onCheckedChange = { on ->
+                        haptics.toggle(on)
+                        store.update { it.copy(blockSalesCalls = on) }
+                    }
+                )
             }
         }
         // Nothing to bring over: Android keeps calls, contacts and blocked numbers for every phone app.
@@ -179,44 +175,27 @@ private fun WelcomeZone(
     action: String?,
     onAction: () -> Unit
 ) {
-    // A zone means a tap (the user, 2026-10-28): with nothing to tap, no action, it is plain text on
-    // the page, icon, title and message. Ported from SMS's WelcomeZone
-    // (/home/yghouar/Claude Code/APK/YAZ/SMS/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt).
-    if (done || action == null) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    if (done) AppIcons.CheckCircle else icon,
-                    contentDescription = if (done) "Done" else null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
-            }
-            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // A zone means a tap (the user, 2026-10-28): the text and its button lie straight on the page, as Element X's
+    // NotificationsOptInView lays its text and buttons (element-hq/element-x-android, AGPL-3.0, layout only:
+    // https://github.com/element-hq/element-x-android/blob/develop/features/ftue/impl/src/main/kotlin/io/element/android/features/ftue/impl/notifications/NotificationsOptInView.kt),
+    // and as SMS's WelcomeZone does when it has nothing to tap
+    // (https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt).
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (done) AppIcons.CheckCircle else icon,
+                contentDescription = if (done) "Done" else null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
         }
-        return
-    }
-    ZoneSurface(shape = ShapeDefaults.ExtraLarge, modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    if (done) AppIcons.CheckCircle else icon,
-                    contentDescription = if (done) "Done" else null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
-            }
-            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (!done && action != null) {
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
-                    BoldButton(onClick = onAction) { Text(action) }
-                }
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!done && action != null) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
+                BoldButton(onClick = onAction) { Text(action) }
             }
         }
     }
