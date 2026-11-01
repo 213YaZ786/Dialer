@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "ground": {"day": "system_accent1_500", "night": "system_accent1_500"},
+  "layers": [
+    {"png": "dial_body.png", "sha256": "2f7caa5e59dca4adca709e3792fe6ad0f660700483595f3419b69c7b12b0618a", "day": "system_accent1_500", "night": "system_accent1_500"},
+    {"png": "dial_shine.png", "sha256": "5f07162fede89d298e589e140f46a6fab998b8f22f04447d710c2427867cc789"},
+    {"png": "dial_handset.png", "sha256": "2d6e28be8a164ad4d680d22ed1591d86290b51bfbffa39e8c4aa686c13b395c2"}
+  ]
+}
