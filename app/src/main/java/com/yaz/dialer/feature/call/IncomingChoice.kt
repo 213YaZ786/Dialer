@@ -279,6 +279,7 @@ internal fun rememberTinted(look: GlassLook?, tint: Color?): GlassLook? = rememb
     if (look == null || tint == null) {
         null
     } else {
-        GlassLook(look.dark, look.ground, look.halos, zoneTint = tint, floatTint = tint, accentTint = look.accentTint)
+        // Quiet stays quiet: the tint is the one flat fill (Modules' GlassZone and GlassBackdrop, look.quiet).
+        GlassLook(look.dark, look.ground, look.halos, zoneTint = tint, floatTint = tint, accentTint = look.accentTint, quiet = look.quiet)
     }
 }

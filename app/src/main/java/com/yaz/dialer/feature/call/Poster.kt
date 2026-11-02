@@ -138,8 +138,9 @@ internal fun PosterTheme(on: Boolean, content: @Composable () -> Unit) {
     if (!on) return content()
     val context = LocalContext.current
     val scheme = remember { androidx.compose.material3.dynamicDarkColorScheme(context) }
-    val glassOn = com.yaz.dialer.ui.glass.LocalGlass.current != null
-    val look = com.yaz.dialer.ui.glass.rememberGlassLook(scheme, glassOn)
+    val outer = com.yaz.dialer.ui.glass.LocalGlass.current
+    // The window's quiet glass kept over the poster (DialerSurface's rememberGlassLook(..., quiet = true), as SMS's AppSurface).
+    val look = com.yaz.dialer.ui.glass.rememberGlassLook(scheme, outer != null, quiet = outer?.quiet ?: false)
     MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
         androidx.compose.runtime.CompositionLocalProvider(
             com.yaz.dialer.ui.glass.LocalGlass provides look,
