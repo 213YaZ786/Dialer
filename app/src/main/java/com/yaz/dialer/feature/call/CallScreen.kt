@@ -60,6 +60,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ShapeDefaults
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -123,7 +127,7 @@ import com.yaz.dialer.ui.theme.zone
 import kotlinx.coroutines.delay
 
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun CallScreen(
     state: CallsState,
@@ -157,7 +161,10 @@ fun CallScreen(
     // Not for a nameless contact whose "name" is only the number: the round default avatar then, as
     // LineageOS Dialer (CallCardPresenter nameIsNumber, LetterTileDrawable: a letter only for a name starting with one;
     // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/incallui/CallCardPresenter.java).
-    val poster = entry != null && !call.video && !nameIsNumber(entry.name)
+    // A saved contact (a name that is not the number) gets the dark screen and its own ground; the full screen
+    // poster only when a poster was chosen in Contacts and the contact has a photo (2026-11-03).
+    val saved = entry != null && !nameIsNumber(entry.name)
+    val poster = entry != null && !call.video && !nameIsNumber(entry.name) && entry.photo != null && posterChosen(entry.look)
 
     // Writing back instead of answering: the replies replace Answer and Decline.
     var replying by remember(call.id) { mutableStateOf(false) }
@@ -185,8 +192,8 @@ fun CallScreen(
     // At least the screen's height, so the buttons sit at the bottom, and
     // scrolling when two calls and the keypad need more: Hang up is never
     // pushed out of reach.
-    // Over a poster the call screen is dark, its glass and its words light, whatever the theme.
-    PosterTheme(poster) {
+    // Over a saved contact's ground or poster the call screen is dark, its glass and its words light, whatever the theme.
+    PosterTheme(saved) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
     // Seeing the person: their picture, one line at the top, the controls folded at the bottom right.
     if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING) && state.secondary == null && !keypadOpen) {
@@ -209,29 +216,25 @@ fun CallScreen(
             .drawWithContent { drawContent(); drawRect(Color.Black.copy(alpha = 0.22f * behind)) }
     ) {
         if (call.video && (call.phase == CallPhase.ACTIVE || call.phase == CallPhase.DIALING)) VideoStage(call, actions)
-        else if (poster) PosterStage(entry!!)
-        else CallingCard(photo)
+        else if (poster) PosterStage(entry)
+        else CallingCard(photo, tone = if (saved) entry.look?.color?.let { Color(it) } ?: MaterialTheme.colorScheme.primary else null)
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = maxHeight)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
-        // The time and the network the call goes over side by side; the network red on 2G before anything is said.
-        // A FlowRow centred, so the pill goes under the time when they do not fit (a long language, the
-        // 200 % font): https://developer.android.com/develop/ui/compose/layouts/flow
+    // LineageOS Dialer's in-call layout: the contact grid at the top (marginTop 12dp: avatar, status, name, number,
+    // location), the panels below it, the end call apart at the bottom; a poster, the compact keypad and a video
+    // keep today's order.
+    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/res/layout/frag_incall_voice.xml#incall_contact_grid
+    val contactGrid = !compact && !poster && !(call.video && call.phase == CallPhase.ACTIVE)
+    // The time and the network the call goes over side by side; the network red on 2G before anything is said.
+    // A FlowRow centred, so the pill goes under the time when they do not fit (a long language, the
+    // 200 % font): https://developer.android.com/develop/ui/compose/layouts/flow
+    val statusRow: @Composable () -> Unit = {
         FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically
         ) {
-            CallStatus(call)
+            CallStatus(call, large = contactGrid)
             if (call.encrypted && call.phase != CallPhase.ENDED) {
                 // Over the messaging app's encrypted line: the phone network has nothing to do with it.
                 EncryptedChip()
@@ -242,15 +245,31 @@ fun CallScreen(
             }
         }
         if (!call.encrypted && call.phase != CallPhase.ENDED && !compact) NetworkAlertBanner(call, callProtocol(call))
-        Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
-        // The round picture lower, a third of the free space above it; a poster keeps its name at the top.
-        if (!compact && !poster && !(call.video && call.phase == CallPhase.ACTIVE)) Spacer(Modifier.weight(0.5f))
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = maxHeight)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // incall_window_margin_horizontal 24dp around everything but the sheet, which runs edge to edge.
+        Column(Modifier.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        if (contactGrid) {
+            // incall_contact_grid: layout_marginTop 12dp; the status row is part of the grid, under the avatar.
+            Spacer(Modifier.height(12.dp))
+        } else {
+            Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
+            statusRow()
+            Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
+        }
         // A video call: the picture speaks for itself, the caller stays small, plain white text
         // with a soft shadow so it reads over any picture (no zone: it does nothing when touched).
         if (call.video && call.phase == CallPhase.ACTIVE) {
             Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true, overVideo = true) }
         } else {
-            Caller(call, photo, compact = compact, poster = if (poster) entry?.look?.style ?: "classic" else null, posterName = entry?.name)
+            Caller(call, photo, compact = compact, poster = if (poster) entry.look?.style ?: "classic" else null, posterName = entry?.name, status = statusRow.takeIf { contactGrid })
         }
         if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {
             Spacer(Modifier.height(16.dp))
@@ -266,10 +285,26 @@ fun CallScreen(
                 onMerge = { actions.merge(call.id) }.takeIf { taken && call.canMerge }
             )
         }
+        }
         Spacer(Modifier.weight(1f))
 
-        // A readable column on a tablet, the whole width on a phone.
-        Box(Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
+        // The panels in a bottom sheet, edge to edge: Material 3's BottomSheetDefaults.ExpandedShape in our glass
+        // (ZoneSurface). Inside it the content is padded 24dp at the sides and incall_button_vertical_padding on top,
+        // 36dp under it (incall_end_call's marginBottom, 24dp while the keypad is open), the navigation bar inset
+        // below; a readable column of 440dp on a tablet, the whole width on a phone.
+        // https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/SheetDefaults.kt#ExpandedShape
+        val windowSize = androidx.compose.ui.platform.LocalConfiguration.current
+        // incall_button_vertical_padding: values/dimens.xml 8 dp, values-w260dp-h580dp 16 dp, values-w300dp-h620dp 32 dp:
+        // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/res/values-w300dp-h620dp/dimens.xml#incall_button_vertical_padding
+        val incallButtonVerticalPadding = when {
+            windowSize.screenWidthDp >= 300 && windowSize.screenHeightDp >= 620 -> 32.dp
+            windowSize.screenWidthDp >= 260 && windowSize.screenHeightDp >= 580 -> 16.dp
+            else -> 8.dp
+        }
+        ZoneSurface(shape = BottomSheetDefaults.ExpandedShape, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.height(incallButtonVerticalPadding))
+        Box(Modifier.padding(horizontal = 24.dp).widthIn(max = 440.dp).fillMaxWidth()) {
             AnimatedContent(
                 targetState = when {
                     call.phase == CallPhase.ENDED -> Panel.ENDED
@@ -330,8 +365,10 @@ fun CallScreen(
                 }
             }
         }
-        Spacer(Modifier.height(if (compact) 24.dp else 56.dp))
+        Spacer(Modifier.height(if (compact) 24.dp else 36.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+        }
     }
     // Back closes the keypad, as its Hide does.
     androidx.activity.compose.BackHandler(keypadOpen && call.phase != CallPhase.ENDED && call.phase != CallPhase.RINGING) { onKeypad(false) }
@@ -350,7 +387,7 @@ private enum class Panel { RINGING, REPLY, SIM, KEYPAD, CONTROLS, ENDED }
  * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-21.0/java/com/android/incallui/contactgrid/res/layout/incall_contactgrid_top_row.xml
  */
 @Composable
-private fun CallStatus(call: CallInfo) {
+private fun CallStatus(call: CallInfo, large: Boolean = false) {
     val text = when (call.phase) {
         CallPhase.RINGING -> "Incoming call"
         CallPhase.DIALING -> if (call.connecting) "Connecting" else "Calling"
@@ -362,7 +399,9 @@ private fun CallStatus(call: CallInfo) {
     // On hold, the text breathes, so a call left waiting is not forgotten.
     val breathing = rememberInfiniteTransition(label = "hold")
     val breath by breathing.animateFloat(1f, 0.55f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "breath")
-    val style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
+    // In the contact grid: Dialer.Incall.TextAppearance, 18sp in textColorSecondary (styles.xml).
+    val style = if (large) MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    else MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
     // At least 48 dp tall, centred, so the network pill beside it stays aligned; the words wrap.
     Box(
         contentAlignment = Alignment.Center,
@@ -425,7 +464,7 @@ internal fun elapsed(since: Long): String {
  * the other side picks up the drop pops once; on hold it fades back.
  */
 @Composable
-private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null, overVideo: Boolean = false) {
+private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null, overVideo: Boolean = false, status: (@Composable () -> Unit)? = null) {
     if (compact) {
         // With the keypad open, the name alone: the keys need the room, and a number without a name says
         // nothing the user needs while typing (the user, 2026-10-30). Over a video, the title, white with a
@@ -439,7 +478,15 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
         )
         return
     }
-    val size = 120.dp
+    // incall_avatar_size: values/dimens.xml 0 dp (the avatar hidden), values-h385dp 64 dp, values-h600dp 88 dp; the
+    // qualifiers read from the screen's height in dp, as the resources are:
+    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/res/values-h600dp/dimens.xml#incall_avatar_size
+    val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val size = when {
+        screenHeightDp >= 600 -> 88.dp
+        screenHeightDp >= 385 -> 64.dp
+        else -> 0.dp
+    }
     val accent = MaterialTheme.colorScheme.primary
     val pop = remember(call.id) { Animatable(1f) }
     var wasDialing by remember(call.id) { mutableStateOf(call.phase == CallPhase.DIALING) }
@@ -478,41 +525,59 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
         return
     }
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(size)
-            .graphicsLayer {
-                scaleX = pop.value
-                scaleY = pop.value
-                alpha = dim
+    // The contact grid in LineageOS's order (frag_incall_voice.xml, incall_contact_grid): the avatar (contactgrid_avatar,
+    // elevation 2dp, marginBottom 8dp), the top row (the status), the name, the bottom row (the number), the location
+    // holder. Ours keeps the flat face, the pop, the hold dim and the sound waves. Moved from this Caller:
+    // https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallScreen.kt#Caller
+    if (size > 0.dp) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(size)
+                .graphicsLayer {
+                    scaleX = pop.value
+                    scaleY = pop.value
+                    alpha = dim
+                }
+                // While dialing, the speaker button's arcs of sound on both sides of the face (CallControls' soundWaves).
+                .then(if (dialing) Modifier.soundWaves(accent) else Modifier)
+        ) {
+            if (call.isConference) {
+                // Not a tap, so flat like the face below (ContactAvatar's flat circle): no glass.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(size).shadow(2.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                ) {
+                    Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(size * 0.47f))
+                }
+            } else {
+                ContactAvatar(call.name, photo, size, modifier = Modifier.shadow(2.dp, CircleShape), look = com.yaz.dialer.ui.component.rememberLook(call.number).value, flat = true)
             }
-            // While dialing, the speaker button's arcs of sound on both sides of the face (CallControls' soundWaves).
-            .then(if (dialing) Modifier.soundWaves(accent) else Modifier)
-    ) {
-        if (call.isConference) {
-            // Not a tap, so flat like the face below (ContactAvatar's flat circle): no glass.
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            ) {
-                Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(56.dp))
-            }
-        } else {
-            ContactAvatar(call.name, photo, size, look = com.yaz.dialer.ui.component.rememberLook(call.number).value, flat = true)
         }
+        Spacer(Modifier.height(8.dp))
     }
-    Spacer(Modifier.height(16.dp))
-    Text(
-        call.title,
-        style = MaterialTheme.typography.displaySmall,
-        textAlign = TextAlign.Center,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis
+    status?.invoke()
+    // The name: Dialer.Incall.TextAppearance.Large (styles.xml, 36sp, textColorPrimary), one line shrinking to 28sp
+    // (autoResizeText_minTextSize), marginBottom 4dp, as CallControl's label shrinks (BasicText with TextAutoSize.StepBased):
+    // https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallControls.kt#CallControl
+    val style = MaterialTheme.typography.displaySmall.copy(
+        fontSize = 36.sp,
+        lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center
     )
+    BasicText(
+        call.title,
+        style = style,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = 28.sp, maxFontSize = style.fontSize),
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(Modifier.height(4.dp))
+    // The bottom row: the number, Dialer.Incall.TextAppearance (18sp, textColorSecondary), only when the name is not it.
     if (call.name != null && !call.isConference) {
-        Spacer(Modifier.height(6.dp))
-        Text(call.number, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(call.number, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     // Where the caller is and the time there: abroad, or a landline's city for a stranger.
     if (!call.isConference) com.yaz.dialer.ui.component.PlaceLine(call.number, known = call.name != null, modifier = Modifier.padding(top = 6.dp))
@@ -544,7 +609,7 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
  * colour, fading into the page towards the controls so the glass reads.
  */
 @Composable
-private fun CallingCard(photo: String?) {
+private fun CallingCard(photo: String?, tone: Color? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, photo) {
         value = photo?.let { uri ->
@@ -556,9 +621,29 @@ private fun CallingCard(photo: String?) {
             }
         }
     }
-    val bitmap = image ?: return
     val show = remember { Animatable(0f) }
-    LaunchedEffect(bitmap) { show.animateTo(1f, tween(700)) }
+    LaunchedEffect(image) { if (image != null) show.animateTo(1f, tween(700)) }
+    // A saved contact: its ground, and over it the photo blurred 36 dp at 0.85, under a scrim of black 0.25 to 0.55
+    // so the white words read (moved from the drawing below, CallingCard):
+    // https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallScreen.kt#CallingCard
+    if (tone != null) {
+        Box(Modifier.fillMaxSize()) {
+            ContactGround(tone)
+            image?.let { bitmap ->
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = show.value }) {
+                    androidx.compose.foundation.Image(
+                        bitmap,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().blur(36.dp).graphicsLayer { alpha = 0.85f }
+                    )
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.55f)))))
+                }
+            }
+        }
+        return
+    }
+    val bitmap = image ?: return
     val ground = MaterialTheme.colorScheme.background
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = show.value }) {
         androidx.compose.foundation.Image(

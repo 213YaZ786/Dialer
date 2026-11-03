@@ -8,17 +8,13 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -27,15 +23,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.yaz.dialer.core.dial.ContactLook
 import com.yaz.dialer.core.dial.PhoneEntry
@@ -46,8 +39,8 @@ import kotlin.math.max
 /**
  * A person's poster behind the whole call screen, as set in the Contacts
  * app: their large photo full screen, zoomed in with the chosen point at
- * the centre, darker towards the controls; without a photo, their
- * monogram large on a light of their colour. It settles in on arrival.
+ * the centre, darker towards the controls; a photo too small for that leaves
+ * only the contact's ground. It settles in on arrival.
  */
 @Composable
 internal fun PosterStage(entry: PhoneEntry) {
@@ -105,30 +98,26 @@ internal fun PosterStage(entry: PhoneEntry) {
                 drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.22f to Color.Transparent, 0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.82f)))
             }
         } else {
-            // No photo: their monogram, large, on a light of their colour.
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val side = maxWidth
-                Canvas(Modifier.fillMaxSize()) {
-                    drawRect(Color.Black)
-                    // Deep enough for white words whatever the colour, a pale one included.
-                    val core = androidx.compose.ui.graphics.lerp(tone, Color.Black, 0.35f)
-                    val edge = androidx.compose.ui.graphics.lerp(tone, Color.Black, 0.75f)
-                    drawRect(Brush.radialGradient(listOf(core, edge, Color.Black), center = Offset(size.width / 2f, size.height * 0.42f), radius = size.maxDimension * 0.7f))
-                    drawRect(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f)))
-                }
-                val mark = look?.emoji ?: look?.letters ?: initials(entry.name)
-                val density = LocalDensity.current
-                // No letter in the name: no monogram at all, never a digit or a "?".
-                if (mark != null) Text(
-                    mark,
-                    color = Color.White.copy(alpha = 0.92f),
-                    style = monogramStyle(look?.font).copy(fontSize = with(density) { (side * if (look?.emoji != null) 0.42f else 0.36f).toSp() }),
-                    textAlign = TextAlign.Center,
-                    // In the free middle of the screen, under the name, above the buttons.
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = maxHeight * 0.33f).graphicsLayer { alpha = 0.85f }
-                )
-            }
+            // The photo was too small to be a poster: only the ground (the monogram is gone).
+            ContactGround(tone)
         }
+    }
+}
+
+/**
+ * The ground of a saved contact's call screen: black, a light of the contact's colour, a shade towards the
+ * controls. Moved as it was from PosterStage's no-photo branch:
+ * https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/Poster.kt#PosterStage
+ */
+@Composable
+internal fun ContactGround(tone: Color) {
+    Canvas(Modifier.fillMaxSize()) {
+        drawRect(Color.Black)
+        // Deep enough for white words whatever the colour, a pale one included.
+        val core = androidx.compose.ui.graphics.lerp(tone, Color.Black, 0.35f)
+        val edge = androidx.compose.ui.graphics.lerp(tone, Color.Black, 0.75f)
+        drawRect(Brush.radialGradient(listOf(core, edge, Color.Black), center = Offset(size.width / 2f, size.height * 0.42f), radius = size.maxDimension * 0.7f))
+        drawRect(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f)))
     }
 }
 
@@ -149,6 +138,14 @@ internal fun PosterTheme(on: Boolean, content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * A poster chosen in Contacts: zoom, x, y or style off the default. LookCodec writes them only when they differ
+ * (Json encodeDefaults = false; Stored's defaults zoom 1f, x 0.5f, y 0.4f, style "classic"):
+ * https://github.com/213YaZ786/Contacts/blob/main/app/src/main/java/com/yaz/contacts/core/contacts/LookCodec.kt#Stored
+ */
+internal fun posterChosen(look: ContactLook.Look?): Boolean =
+    look != null && (look.zoom != 1f || look.x != 0.5f || look.y != 0.4f || look.style != "classic")
+
 /** The name on a poster, in the style chosen in the Contacts app. */
 internal fun posterNameStyle(base: TextStyle, style: String): TextStyle = when (style) {
     "bold" -> base.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.02).em)
@@ -160,20 +157,3 @@ internal fun posterNameStyle(base: TextStyle, style: String): TextStyle = when (
 
 /** The name as the poster shows it: capitals for the bold style. */
 internal fun posterName(name: String, style: String) = if (style == "bold") name.uppercase() else name
-
-private fun monogramStyle(font: String?): TextStyle = when (font) {
-    "serif" -> TextStyle(fontFamily = FontFamily.Serif)
-    "mono" -> TextStyle(fontFamily = FontFamily.Monospace)
-    "rounded" -> TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium)
-    "bold" -> TextStyle(fontWeight = FontWeight.Black)
-    else -> TextStyle(fontWeight = FontWeight.Normal)
-}
-
-/**
- * The first letters of the first two words that start with a letter; null when there is none.
- * LineageOS Dialer, LetterTileDrawable.setLetterAndColorFromContactDetails (Apache-2.0): a letter only when
- * `Character.isLetter(displayName.charAt(0))`.
- * https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-23.0/java/com/android/dialer/lettertile/LetterTileDrawable.java
- */
-private fun initials(name: String): String? =
-    name.split(' ').filter { it.isNotBlank() && it.first().isLetter() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { null }

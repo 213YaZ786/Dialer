@@ -66,7 +66,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -96,9 +99,10 @@ import kotlinx.coroutines.delay
 enum class ControlMotion { NONE, TURN, WAVES }
 
 /**
- * The controls of a call, each its own drop of glass, standing free: Speaker,
- * Add call, Mute, then Hold, Hang up, Keypad. They rise one after the other
- * when the call screen opens.
+ * The controls of a call, each its own drop of glass, standing free, in
+ * LineageOS's grid of three: Speaker, Mute, Keypad, then Add call, Hold, and
+ * Hang up apart under them. They rise one after the other when the call
+ * screen opens.
  */
 @Composable
 fun CallControls(
@@ -117,26 +121,36 @@ fun CallControls(
     val held = call.phase == CallPhase.HOLDING
     var hangUpAt by remember { mutableStateOf(Offset.Zero) }
 
-    // iOS's grid, as the user chose (2026-10-10): two rows of three large drops of glass,
-    // Hang up in the middle of the second, each as wide as a third of the room allows.
+    // LineageOS Dialer's button grid (2026-11-03): a GridLayout of 3 columns of equal weight, the buttons centred
+    // in their cell, the second row incall_button_vertical_padding lower, then the end call apart, 36 dp under it
+    // (incall_end_call's marginTop). The 24 dp window margins are the sheet's padding.
+    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/res/layout/incall_button_grid.xml#GridLayout
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val diameter = ((maxWidth - GridGap * 2) / 3 - 16.dp).coerceIn(ControlSize, GridMax)
-        // A third of the room: the widest a label may be, so it wraps between words in it.
-        val cell = maxOf((maxWidth - GridGap * 2) / 3, diameter + 16.dp)
-        val mute: @Composable () -> Unit = {
-            CallControl(
+        val cell = maxWidth / IncallButtonGridColumnCount
+        // incall_button_vertical_padding: values/dimens.xml 8 dp, values-w260dp-h580dp 16 dp, values-w300dp-h620dp 32 dp
+        // (the qualifiers read from the window's size in dp, as the resources are):
+        // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/res/values-w300dp-h620dp/dimens.xml#incall_button_vertical_padding
+        val windowSize = androidx.compose.ui.platform.LocalConfiguration.current
+        val incallButtonVerticalPadding = when {
+            windowSize.screenWidthDp >= 300 && windowSize.screenHeightDp >= 620 -> 32.dp
+            windowSize.screenWidthDp >= 260 && windowSize.screenHeightDp >= 580 -> 16.dp
+            else -> 8.dp
+        }
+        val mute: @Composable (Int) -> Unit = { order ->
+            CheckableLabeledButton(
+                cell = cell,
                 icon = if (state.muted) AppIcons.MicOff else AppIcons.Mic,
                 label = if (state.muted) "Unmute" else "Mute",
                 on = state.muted,
                 enabled = call.canMute,
-                order = 2,
-                diameter = diameter, maxWidth = cell
+                order = order
             ) { actions.mute(!state.muted) }
         }
         // Sound: a tap switches between the ear and the speaker; with a
         // headset or Bluetooth device about, or held, it offers them all.
         val speaker: @Composable () -> Unit = {
-            CallControl(
+            CheckableLabeledButton(
+                cell = cell,
                 icon = routeIcon(route?.kind),
                 label = when {
                     route == null -> "Speaker"
@@ -146,7 +160,6 @@ fun CallControls(
                 on = route != null && route.kind != AudioRoute.Kind.EARPIECE,
                 motion = if (route?.kind == AudioRoute.Kind.SPEAKER) ControlMotion.WAVES else ControlMotion.NONE,
                 order = 0,
-                diameter = diameter, maxWidth = cell,
                 onLongPress = { routes = true },
                 extra = {
                     if (routes) {
@@ -166,68 +179,176 @@ fun CallControls(
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(GridGap), verticalAlignment = Alignment.Top) {
+            // The same controls and rules as before, in LineageOS's slots (incall_button_grid.xml: first to sixth
+            // button, rows centred), moved from this CallControls:
+            // https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallControls.kt#CallControls
+            // Row 1: Speaker, Mute, Keypad; a video call: Speaker, Camera, Mute.
+            Row(verticalAlignment = Alignment.Top) {
                 speaker()
                 if (call.video) {
                     // A video call: the camera in the middle.
                     val camera by actions.camera.collectAsState()
-                    CallControl(
+                    CheckableLabeledButton(
+                        cell = cell,
                         icon = if (camera.on) AppIcons.Videocam else AppIcons.VideocamOff,
                         label = if (camera.on) "Camera off" else "Camera on",
                         on = !camera.on,
-                        order = 1,
-                        diameter = diameter, maxWidth = cell
+                        order = 1
                     ) { actions.camera(call.id, camera.copy(on = !camera.on)) }
+                    mute(2)
+                } else {
+                    mute(1)
+                    // Tones mean nothing on an encrypted line: no keypad there.
+                    CheckableLabeledButton(cell, AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted && !call.video, order = 2, onClick = onKeypad)
+                }
+            }
+            // Row 2 (layout_marginTop incall_button_vertical_padding), centred: Add call, Hold;
+            // a video call: Switch camera, Keypad.
+            Spacer(Modifier.height(incallButtonVerticalPadding))
+            Row(verticalAlignment = Alignment.Top) {
+                if (call.video) {
+                    val camera by actions.camera.collectAsState()
+                    CheckableLabeledButton(cell, AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3) {
+                        actions.camera(call.id, camera.copy(front = !camera.front))
+                    }
+                    CheckableLabeledButton(cell, AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted && !call.video, order = 4, onClick = onKeypad)
                 } else {
                     // A second call: the dialpad opens, Telecom holds this one when
                     // the new one goes out, and Merge joins them after.
-                    CallControl(
+                    CheckableLabeledButton(
+                        cell,
                         AppIcons.AddCall,
                         "Add call",
                         on = false,
                         enabled = state.secondary == null && !call.encrypted,
                         motion = ControlMotion.TURN,
-                        order = 1,
-                        diameter = diameter, maxWidth = cell,
+                        order = 3,
                         onClick = onAddCall
                     )
+                    CheckableLabeledButton(
+                        cell = cell,
+                        icon = if (held) AppIcons.Play else AppIcons.Hold,
+                        label = if (held) "Resume" else "Hold",
+                        on = held,
+                        enabled = call.canHold,
+                        order = 4
+                    ) { actions.hold(call.id, !held) }
                 }
-                mute()
             }
-            Spacer(Modifier.height(GridGap))
-            Row(horizontalArrangement = Arrangement.spacedBy(GridGap), verticalAlignment = Alignment.Top) {
-                if (call.video) {
-                    val camera by actions.camera.collectAsState()
-                    CallControl(AppIcons.CameraSwitch, "Switch camera", on = false, enabled = camera.on, order = 3, diameter = diameter, maxWidth = cell) {
-                        actions.camera(call.id, camera.copy(front = !camera.front))
-                    }
-                } else CallControl(
-                    icon = if (held) AppIcons.Play else AppIcons.Hold,
-                    label = if (held) "Resume" else "Hold",
-                    on = held,
-                    enabled = call.canHold,
-                    order = 3,
-                    diameter = diameter, maxWidth = cell
-                ) { actions.hold(call.id, !held) }
-                Appear(order = 4) {
-                    Box(Modifier.widthIn(min = diameter + 16.dp, max = cell), contentAlignment = Alignment.TopCenter) {
-                        GlassCallButton(
-                            icon = AppIcons.CallEnd,
-                            label = "Hang up",
-                            color = HangUpRed,
-                            size = diameter,
-                            glow = 0.35f,
-                            onCenter = { hangUpAt = it },
-                            onClick = { onHangUp(hangUpAt) }
-                        )
-                    }
-                }
-                // Tones mean nothing on an encrypted line: no keypad there.
-                CallControl(AppIcons.Dialpad, "Keypad", on = false, enabled = !call.encrypted && !call.video, order = 5, diameter = diameter, maxWidth = cell, onClick = onKeypad)
+            // incall_end_call (frag_incall_voice.xml): apart under the grid, layout_marginTop 36dp; its
+            // marginBottom 36dp is the sheet's.
+            Spacer(Modifier.height(IncallEndCallMarginTop))
+            Appear(order = 5) {
+                EndCallButton(onCenter = { hangUpAt = it }, onClick = { onHangUp(hangUpAt) })
             }
         }
     }
+}
 
+/** incall_button_grid.xml: columnCount 3. */
+private const val IncallButtonGridColumnCount = 3
+/** frag_incall_voice.xml, incall_end_call: layout_marginTop. */
+private val IncallEndCallMarginTop = 36.dp
+
+/**
+ * A button of the call screen's grid: CallControl in LineageOS's CheckableLabeledButton measures (incall), centred
+ * in its [cell], the label wrapping between words inside it (two lines at most; LineageOS's is one line cut by an
+ * ellipsis at 9 ems, ours never breaks with another language or the 200 % font).
+ * https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallControls.kt#CallControl
+ */
+@Composable
+private fun CheckableLabeledButton(
+    cell: androidx.compose.ui.unit.Dp,
+    icon: ImageVector,
+    label: String,
+    on: Boolean,
+    enabled: Boolean = true,
+    motion: ControlMotion = ControlMotion.NONE,
+    order: Int = 0,
+    onLongPress: (() -> Unit)? = null,
+    extra: @Composable () -> Unit = {},
+    onClick: () -> Unit
+) {
+    Box(Modifier.width(cell), contentAlignment = Alignment.TopCenter) {
+        CallControl(icon, label, on, enabled, motion, order, onLongPress, extra, incall = true, maxWidth = cell, onClick = onClick)
+    }
+}
+
+/**
+ * Material 3 Expressive's medium icon button, wide: the tokens of the pill Hang up is drawn in (the container
+ * ContainerShapeRound is CornerFull, the pressed one PressedContainerShape CornerMedium).
+ * https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/tokens/MediumIconButtonTokens.kt#MediumIconButtonTokens
+ */
+private object MediumIconButtonTokens {
+    val ContainerHeight = 56.dp
+    val IconSize = 24.dp
+    val WideLeadingSpace = 24.dp
+    val WideTrailingSpace = 24.dp
+    val ContainerShapeRound: androidx.compose.ui.graphics.Shape = CircleShape
+    val PressedContainerShape: androidx.compose.foundation.shape.CornerBasedShape = ShapeDefaults.Medium
+}
+
+/**
+ * Hang up under the grid: the wide medium icon button of [MediumIconButtonTokens] (56 dp high, a 24 dp icon, 24 dp
+ * each side), round at rest and the medium corner pressed, in GlassCallButton's red glass (its tint, glow and
+ * onCenter, so the wave of glass starts at its centre). A sibling of GlassCallButton, which is kept for the
+ * incoming call's buttons:
+ * https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/IncomingChoice.kt#GlassCallButton
+ */
+@Composable
+internal fun EndCallButton(
+    onCenter: ((Offset) -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    val color = HangUpRed
+    val glow = 0.35f
+    val glass = LocalGlass.current
+    val tinted = rememberTinted(glass, color.copy(alpha = 0.66f))
+    val press = remember { MutableInteractionSource() }
+    val pressed by press.collectIsPressedAsState()
+    val sink by animateFloatAsState(if (pressed) 0.92f else 1f, spring(dampingRatio = 0.5f, stiffness = 800f), label = "sink")
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val width = MediumIconButtonTokens.WideLeadingSpace + MediumIconButtonTokens.IconSize + MediumIconButtonTokens.WideTrailingSpace
+    val height = MediumIconButtonTokens.ContainerHeight
+    // Round at rest (CornerFull: half the height), the medium corner while pressed, the change sprung.
+    val container = with(density) { Size(width.toPx(), height.toPx()) }
+    val corner by animateFloatAsState(
+        if (pressed) MediumIconButtonTokens.PressedContainerShape.topStart.toPx(container, density) else container.height / 2f,
+        spring(dampingRatio = 0.6f, stiffness = 500f),
+        label = "corner"
+    )
+    val shape = if (corner >= container.height / 2f - 0.5f) MediumIconButtonTokens.ContainerShapeRound else androidx.compose.foundation.shape.RoundedCornerShape(with(density) { corner.toDp() })
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(width, height)
+            .graphicsLayer {
+                scaleX = sink
+                scaleY = sink
+            }
+            .then(if (onCenter != null) Modifier.onGloballyPositioned { onCenter(it.boundsInRoot().center) } else Modifier)
+            // The halo is drawn around the button, unclipped.
+            .drawBehind {
+                val r = this.size.minDimension / 2f
+                drawCircle(
+                    Brush.radialGradient(
+                        listOf(color.copy(alpha = 0.55f * glow), color.copy(alpha = 0f)),
+                        center = center,
+                        radius = r * 1.9f
+                    ),
+                    radius = r * 1.9f
+                )
+            }
+    ) {
+        val base = Modifier.size(width, height).clip(shape)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = (if (tinted != null) base.glassZone(shape, tinted, lens = 1.6f) else base.background(color))
+                .clickable(interactionSource = press, indication = null, role = Role.Button, onClickLabel = "Hang up", onClick = onClick)
+        ) {
+            Icon(AppIcons.CallEnd, contentDescription = "Hang up", tint = Color.White, modifier = Modifier.size(MediumIconButtonTokens.IconSize))
+        }
+    }
 }
 
 /** Rises into place, a little after the controls before it. */
@@ -269,8 +390,17 @@ fun CallControl(
     diameter: androidx.compose.ui.unit.Dp = ControlSize,
     labelShown: Boolean = true,
     maxWidth: androidx.compose.ui.unit.Dp = androidx.compose.ui.unit.Dp.Unspecified,
+    incall: Boolean = false,
     onClick: () -> Unit
 ) {
+    // CheckableLabeledButton.init, for the call screen's grid (incall): paddingSize 4 dp around, the round iconSize
+    // (incall_labeled_button_size: 48 dp, 64 dp from w260dp-h580dp, read from the window's size in dp as the resource
+    // qualifiers are) holding the icon imageSize (36 dp); the label labelParams.topMargin 8 dp under it.
+    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/CheckableLabeledButton.java#init
+    val paddingSize = if (incall) 4.dp else 0.dp
+    val windowSize = androidx.compose.ui.platform.LocalConfiguration.current
+    val iconSize = if (!incall) diameter else if (windowSize.screenWidthDp >= 260 && windowSize.screenHeightDp >= 580) 64.dp else 48.dp
+    val imageSize = if (incall) 36.dp else iconSize * 0.36f
     val haptics = rememberHaptics()
     val glass = LocalGlass.current
     val accent = MaterialTheme.colorScheme.primary
@@ -285,18 +415,18 @@ fun CallControl(
 
     Appear(order) {
         // At least the drop and a margin wide, never a fixed width around words: the label wraps inside [maxWidth].
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = diameter + if (labelShown) 16.dp else 0.dp, max = maxWidth)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = iconSize + if (labelShown) 16.dp else 0.dp, max = maxWidth).padding(paddingSize)) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(diameter)
+                    .size(iconSize)
                     .graphicsLayer {
                         scaleX = sink
                         scaleY = sink
                     }
                     .then(if (motion == ControlMotion.WAVES && on) Modifier.soundWaves(accent) else Modifier)
             ) {
-                val base = Modifier.size(diameter).clip(CircleShape)
+                val base = Modifier.size(iconSize).clip(CircleShape)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = (if (glass != null) base.glassZone(CircleShape, glass, lens = 1.3f) else base.background(MaterialTheme.colorScheme.zone))
@@ -344,7 +474,7 @@ fun CallControl(
                             shown,
                             contentDescription = label,
                             tint = lerpColor(if (night) Color.White else MaterialTheme.colorScheme.primary, if (night) Color(0xFF1B1B1F) else MaterialTheme.colorScheme.onPrimary, fill).copy(alpha = alpha),
-                            modifier = Modifier.size(diameter * 0.36f).graphicsLayer { rotationZ = turn.value }
+                            modifier = Modifier.size(imageSize).graphicsLayer { rotationZ = turn.value }
                         )
                     }
                 }
@@ -360,7 +490,7 @@ fun CallControl(
                         fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
                         textAlign = TextAlign.Center
-                    )
+                    ).let { if (incall) it.copy(fontSize = 12.sp) else it } // Dialer_Incall_TextAppearance_Label: 12sp
                     BasicText(
                         text,
                         style = style,
@@ -478,7 +608,4 @@ private class Above(val margin: Int) : PopupPositionProvider {
 
 val ControlSize = 72.dp
 val ControlGap = 28.dp
-/** The call's grid: the gap between its drops, and the largest a drop grows on a wide screen. */
-private val GridGap = 20.dp
-private val GridMax = 92.dp
 private const val STAGGER_MS = 45L
