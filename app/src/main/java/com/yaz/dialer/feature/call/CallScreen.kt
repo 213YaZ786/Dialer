@@ -256,20 +256,17 @@ fun CallScreen(
         // incall_window_margin_horizontal 24dp around everything but the sheet, which runs edge to edge.
         Column(Modifier.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        if (contactGrid) {
-            // incall_contact_grid: layout_marginTop 12dp; the status row is part of the grid, under the avatar.
-            Spacer(Modifier.height(12.dp))
-        } else {
-            Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
-            statusRow()
-            Spacer(Modifier.height(if (compact) 16.dp else 28.dp))
-        }
+        // The status on top, then the name and the number, the round photo below them (the visual validated
+        // 2026-11-06, Google Phone 2025's order): the status row leads the grid, the photo comes after the number.
+        Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
+        statusRow()
+        Spacer(Modifier.height(if (compact) 16.dp else if (contactGrid) 12.dp else 28.dp))
         // A video call: the picture speaks for itself, the caller stays small, plain white text
         // with a soft shadow so it reads over any picture (no zone: it does nothing when touched).
         if (call.video && call.phase == CallPhase.ACTIVE) {
             Box(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) { Caller(call, photo, compact = true, overVideo = true) }
         } else {
-            Caller(call, photo, compact = compact, poster = if (poster) entry.look?.style ?: "classic" else null, posterName = entry?.name, status = statusRow.takeIf { contactGrid })
+            Caller(call, photo, compact = compact, poster = if (poster) entry.look?.style ?: "classic" else null, posterName = entry?.name)
         }
         if (call.participants.isNotEmpty() && !compact && call.phase != CallPhase.ENDED) {
             Spacer(Modifier.height(16.dp))
@@ -286,7 +283,16 @@ fun CallScreen(
             )
         }
         }
-        Spacer(Modifier.weight(1f))
+        if (contactGrid) {
+            // The round photo, 168 dp, centred between the number line and the sheet (the visual validated 2026-11-06);
+            // it shrinks with the room left and gives way under 64 dp (LineageOS's incall_avatar_size 64 dp floor).
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val face = minOf(CallFaceSize, maxHeight - 16.dp, maxWidth - 48.dp)
+                if (face >= 64.dp) CallerFace(call, photo, face)
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
 
         // The panels in a bottom sheet, edge to edge: Material 3's BottomSheetDefaults.ExpandedShape in our glass
         // (ZoneSurface). Inside it the content is padded 24dp at the sides and incall_button_vertical_padding on top,
@@ -301,19 +307,23 @@ fun CallScreen(
             windowSize.screenWidthDp >= 260 && windowSize.screenHeightDp >= 580 -> 16.dp
             else -> 8.dp
         }
+        val sheetPanel = when {
+            call.phase == CallPhase.ENDED -> Panel.ENDED
+            call.phase == CallPhase.RINGING && replying -> Panel.REPLY
+            call.phase == CallPhase.RINGING -> Panel.RINGING
+            call.phase == CallPhase.CHOOSE_SIM -> Panel.SIM
+            keypadOpen -> Panel.KEYPAD
+            else -> Panel.CONTROLS
+        }
+        // The controls' sheet, from the visual validated 2026-11-06: 14 dp above the pills, 12 dp at the sides (four
+        // pills of 72 dp and 14 dp gaps are 330 dp, a 360 dp phone holds them), 40 dp under Hang up.
+        val controls = sheetPanel == Panel.CONTROLS
         ZoneSurface(shape = BottomSheetDefaults.ExpandedShape, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(incallButtonVerticalPadding))
-        Box(Modifier.padding(horizontal = 24.dp).widthIn(max = 440.dp).fillMaxWidth()) {
+        Spacer(Modifier.height(if (controls) 14.dp else incallButtonVerticalPadding))
+        Box(Modifier.padding(horizontal = if (controls) 12.dp else 24.dp).widthIn(max = 440.dp).fillMaxWidth()) {
             AnimatedContent(
-                targetState = when {
-                    call.phase == CallPhase.ENDED -> Panel.ENDED
-                    call.phase == CallPhase.RINGING && replying -> Panel.REPLY
-                    call.phase == CallPhase.RINGING -> Panel.RINGING
-                    call.phase == CallPhase.CHOOSE_SIM -> Panel.SIM
-                    keypadOpen -> Panel.KEYPAD
-                    else -> Panel.CONTROLS
-                },
+                targetState = sheetPanel,
                 // Fade through, never both at once: the old panel is gone (90 ms) before the new one shows,
                 // so the controls never sit as ghosts behind the keys; the size follows unclipped, so no
                 // half buttons and the glass keeps its shadow. Compose's AnimatedContent sample,
@@ -365,7 +375,7 @@ fun CallScreen(
                 }
             }
         }
-        Spacer(Modifier.height(if (compact) 24.dp else 36.dp))
+        Spacer(Modifier.height(if (compact) 24.dp else if (controls) 40.dp else 36.dp))
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
         }
@@ -458,13 +468,70 @@ internal fun elapsed(since: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
 
+/** The round photo of the call, the visual validated 2026-11-06: 168 dp. */
+private val CallFaceSize = 168.dp
+
 /**
- * The person on the line: their photo or initial on a drop of glass, their
- * name, their number. While the call goes out, rings leave the drop; when
- * the other side picks up the drop pops once; on hold it fades back.
+ * The pop of the caller's face: when the other side picks up it grows once and settles back, moved out of Caller:
+ * https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallScreen.kt#Caller
  */
 @Composable
-private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null, overVideo: Boolean = false, status: (@Composable () -> Unit)? = null) {
+private fun rememberCallerPop(call: CallInfo): Animatable<Float, androidx.compose.animation.core.AnimationVector1D> {
+    val pop = remember(call.id) { Animatable(1f) }
+    var wasDialing by remember(call.id) { mutableStateOf(call.phase == CallPhase.DIALING) }
+    LaunchedEffect(call.phase) {
+        if (call.phase == CallPhase.ACTIVE && wasDialing) {
+            pop.animateTo(1.12f, spring(dampingRatio = 0.4f, stiffness = 900f))
+            pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f))
+        }
+        wasDialing = call.phase == CallPhase.DIALING
+    }
+    return pop
+}
+
+/**
+ * The person's photo or initial, flat and round, under the number: while the call goes out the arcs of sound leave
+ * it, when the other side picks up it pops once, on hold it fades back (Caller's avatar, moved here):
+ * https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallScreen.kt#Caller
+ */
+@Composable
+private fun CallerFace(call: CallInfo, photo: String?, size: Dp) {
+    val accent = MaterialTheme.colorScheme.primary
+    val pop = rememberCallerPop(call)
+    val dim by animateFloatAsState(if (call.phase == CallPhase.HOLDING) 0.45f else 1f, tween(500), label = "dim")
+    val dialing = call.phase == CallPhase.DIALING
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .graphicsLayer {
+                scaleX = pop.value
+                scaleY = pop.value
+                alpha = dim
+            }
+            // While dialing, the speaker button's arcs of sound on both sides of the face (CallControls' soundWaves).
+            .then(if (dialing) Modifier.soundWaves(accent) else Modifier)
+    ) {
+        if (call.isConference) {
+            // Not a tap, so flat like the face below (ContactAvatar's flat circle): no glass.
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(size).shadow(2.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(size * 0.47f))
+            }
+        } else {
+            ContactAvatar(call.name, photo, size, modifier = Modifier.shadow(2.dp, CircleShape), look = com.yaz.dialer.ui.component.rememberLook(call.number).value, flat = true)
+        }
+    }
+}
+
+/**
+ * The person on the line: the status above, their name, their number; a poster, the name alone, larger and a
+ * little lower (the visual validated 2026-11-06). Their round photo is CallerFace, under the number.
+ */
+@Composable
+private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: String? = null, posterName: String? = null, overVideo: Boolean = false) {
     if (compact) {
         // With the keypad open, the name alone: the keys need the room, and a number without a name says
         // nothing the user needs while typing (the user, 2026-10-30). Over a video, the title, white with a
@@ -478,35 +545,18 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
         )
         return
     }
-    // incall_avatar_size: values/dimens.xml 0 dp (the avatar hidden), values-h385dp 64 dp, values-h600dp 88 dp; the
-    // qualifiers read from the screen's height in dp, as the resources are:
-    // https://github.com/LineageOS/android_packages_apps_Dialer/blob/lineage-22.2/java/com/android/incallui/incall/impl/res/values-h600dp/dimens.xml#incall_avatar_size
-    val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    val size = when {
-        screenHeightDp >= 600 -> 88.dp
-        screenHeightDp >= 385 -> 64.dp
-        else -> 0.dp
-    }
-    val accent = MaterialTheme.colorScheme.primary
-    val pop = remember(call.id) { Animatable(1f) }
-    var wasDialing by remember(call.id) { mutableStateOf(call.phase == CallPhase.DIALING) }
-    LaunchedEffect(call.phase) {
-        if (call.phase == CallPhase.ACTIVE && wasDialing) {
-            pop.animateTo(1.12f, spring(dampingRatio = 0.4f, stiffness = 900f))
-            pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f))
-        }
-        wasDialing = call.phase == CallPhase.DIALING
-    }
+    // The pop and the hold dim reach the poster's name (the round photo has them in CallerFace).
+    val pop = rememberCallerPop(call)
     val dim by animateFloatAsState(if (call.phase == CallPhase.HOLDING) 0.45f else 1f, tween(500), label = "dim")
-    val dialing = call.phase == CallPhase.DIALING
 
     // Over a poster the photo is the screen itself: the name alone, large, white, in its style.
     if (poster != null) {
-        Spacer(Modifier.height(8.dp))
+        // A little lower than the plain name (the visual validated 2026-11-06: name 40 sp, 62 dp lower).
+        Spacer(Modifier.height(46.dp))
         val shownName = call.name ?: posterName ?: call.title
         Text(
             posterName(shownName, poster),
-            style = posterNameStyle(MaterialTheme.typography.displayMedium, poster),
+            style = posterNameStyle(MaterialTheme.typography.displayMedium.copy(fontSize = 40.sp, lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified), poster),
             color = Color.White,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -525,38 +575,8 @@ private fun Caller(call: CallInfo, photo: String?, compact: Boolean, poster: Str
         return
     }
 
-    // The contact grid in LineageOS's order (frag_incall_voice.xml, incall_contact_grid): the avatar (contactgrid_avatar,
-    // elevation 2dp, marginBottom 8dp), the top row (the status), the name, the bottom row (the number), the location
-    // holder. Ours keeps the flat face, the pop, the hold dim and the sound waves. Moved from this Caller:
-    // https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallScreen.kt#Caller
-    if (size > 0.dp) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(size)
-                .graphicsLayer {
-                    scaleX = pop.value
-                    scaleY = pop.value
-                    alpha = dim
-                }
-                // While dialing, the speaker button's arcs of sound on both sides of the face (CallControls' soundWaves).
-                .then(if (dialing) Modifier.soundWaves(accent) else Modifier)
-        ) {
-            if (call.isConference) {
-                // Not a tap, so flat like the face below (ContactAvatar's flat circle): no glass.
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(size).shadow(2.dp, CircleShape).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                ) {
-                    Icon(AppIcons.Group, contentDescription = null, tint = accent, modifier = Modifier.size(size * 0.47f))
-                }
-            } else {
-                ContactAvatar(call.name, photo, size, modifier = Modifier.shadow(2.dp, CircleShape), look = com.yaz.dialer.ui.component.rememberLook(call.number).value, flat = true)
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-    }
-    status?.invoke()
+    // The contact grid in LineageOS's order (frag_incall_voice.xml, incall_contact_grid), the status row lifted above it
+    // by CallScreen: the name, the bottom row (the number), the location holder; the face is CallerFace, under them.
     // The name: Dialer.Incall.TextAppearance.Large (styles.xml, 36sp, textColorPrimary), one line shrinking to 28sp
     // (autoResizeText_minTextSize), marginBottom 4dp, as CallControl's label shrinks (BasicText with TextAutoSize.StepBased):
     // https://github.com/213YaZ786/Dialer/blob/main/app/src/main/java/com/yaz/dialer/feature/call/CallControls.kt#CallControl
