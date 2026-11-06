@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yaz.dialer.feature.call.ReturnToCallPill
@@ -94,8 +93,6 @@ fun TabFrame(
                     }
                 }
             )
-            // Until Dialer can take calls, the steps to get there come first.
-            Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.TopCenter) { SetupZone() }
             controls?.invoke()
         }
     ) { padding ->

@@ -79,6 +79,8 @@ import com.yaz.dialer.data.settings.ThemeMode
 import com.yaz.dialer.feature.main.Setup
 import com.yaz.dialer.feature.main.SetupStep
 import com.yaz.dialer.feature.main.rememberSetup
+import com.yaz.dialer.feature.main.rememberSetupTiles
+import com.yaz.dialer.ui.component.leftText
 import com.yaz.dialer.navigation.LocalReadableInset
 import com.yaz.dialer.navigation.WidthClass
 import com.yaz.dialer.ui.component.BoldButton
@@ -124,6 +126,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
     val settings by viewModel.settings.collectAsState()
     val prefixes by viewModel.prefixes.collectAsState()
     val setup = rememberSetup()
+    // The Guide tile's value: how many steps are left, as Language's guideValue.
+    val guideValue = rememberSetupTiles().leftText()
     val region = rememberPrefixRegion()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -305,7 +309,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = koinViewMo
         ABOUT to listOf(
             SettingsActionTile(
                 id = "guide", name = "Guide", title = "Guide", icon = AppIcons.Play,
-                value = "Show again", summary = "See the welcome pages and the dialpad button's show again",
+                value = guideValue, summary = "See the welcome pages and the dialpad button's show again",
                 onClick = {
                     viewModel.replayGuide()
                     onBack()

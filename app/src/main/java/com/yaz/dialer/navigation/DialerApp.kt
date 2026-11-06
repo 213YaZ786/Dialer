@@ -321,6 +321,9 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit,
     val settings by store.settings.collectAsState()
     // Settings > Guide asks for the welcome pages again, then the show.
     LaunchedEffect(settings.welcomeSeen) { if (!settings.welcomeSeen) showWelcome = true }
+    // The guide was closed once before: what Settings' Guide tile reopens (its Done button), read below on entry.
+    var welcomedBefore by rememberSaveable { mutableStateOf(store.current.welcomeSeen) }
+    LaunchedEffect(settings.welcomeSeen) { if (settings.welcomeSeen) welcomedBefore = true }
     // The update installs when the user leaves the app, never during a call (any call in the store).
     // Source: Updates.arm's busy check (update kit, ProcessLifecycleOwner).
     val callStore: com.yaz.dialer.core.call.CallStore = koinInject()
@@ -560,7 +563,9 @@ private fun MainTabs(onOpenSettings: () -> Unit, onOpenNumber: (String) -> Unit,
                 color = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground
             ) {
-                Readable { WelcomeScreen(onStart = ::closeWelcome) }
+                // Read once on entry, since closing the first guide sets welcomeSeen while the screen is still leaving.
+                val reopened = remember { welcomedBefore }
+                Readable { WelcomeScreen(reopened = reopened, onStart = ::closeWelcome) }
             }
         }
 

@@ -1,9 +1,29 @@
+/*
+ * The welcome guide as tiles, after FlorisBoard's SetupScreen: every step is read from the system (what is held,
+ * allowed) and shown done or not, the tiles are Modules' SetupTiles. Translated from Language's guide.
+ *
+ * Copyright (C) 2021-2025 The FlorisBoard Contributors, Apache License 2.0
+ * (http://www.apache.org/licenses/LICENSE-2.0), translated from
+ * https://github.com/florisboard/florisboard/blob/main/app/src/main/kotlin/dev/patrickgold/florisboard/app/setup/SetupScreen.kt
+ */
+// not ported: SetupScreen (WelcomeScreen and WelcomeContent below are its port, as Language's)
+// not ported: SetupLinks (the footer links of FlorisBoard, Dialer's Settings holds the source link)
+// not ported: Flow (awaitTransition waits for a restored backup, Dialer has none)
+// not ported: rememberMicrophone (rememberPermissions below is its port for several permissions)
 package com.yaz.dialer.feature.main
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import android.Manifest
+import android.app.NotificationManager
+import android.app.role.RoleManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,192 +31,240 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.compose.runtime.collectAsState
-import com.yaz.dialer.core.dial.SalesCalls
-import com.yaz.dialer.core.update.Updates
-import com.yaz.dialer.data.settings.SettingsStore
-import com.yaz.dialer.ui.component.GlassSwitch
-import com.yaz.dialer.ui.component.rememberHaptics
-import org.koin.compose.koinInject
 import com.yaz.dialer.ui.component.BoldButton
 import com.yaz.dialer.ui.component.LoadingMark
+import com.yaz.dialer.ui.component.SetupTile
+import com.yaz.dialer.ui.component.SetupTileDialog
+import com.yaz.dialer.ui.component.SetupTileGrid
+import com.yaz.dialer.ui.component.leftText
+import com.yaz.dialer.ui.component.requiredDone
+import com.yaz.dialer.ui.component.requiredLeft
 import com.yaz.dialer.ui.icon.AppIcons
 
 /**
- * The one page shown at the first launch: what Dialer needs to be the phone
- * app, done from here, and why it uses the internet at all, which is only
- * to update itself. Each zone turns into a tick once done.
+ * The few choices worth making, as tiles: each is read from the system again each time the screen comes back
+ * (SetupScreen reads isFlorisBoardEnabled, isFlorisBoardSelected and hasNotificationPermission, and sets the current
+ * step from them), and turns done by itself. Steps: the phone app (required), the spam filter, the notifications,
+ * the contacts, the call history. Everything else is set to its best value and never asked.
+ * Ported from
+ * https://github.com/213YaZ786/Language/blob/main/app/src/main/java/com/yaz/language/feature/welcome/WelcomeScreen.kt#rememberSetupTiles
  */
 @Composable
-fun WelcomeScreen(onStart: () -> Unit) {
+fun rememberSetupTiles(): List<SetupTile> {
     val context = LocalContext.current
     val setup = rememberSetup()
-    // Installing from the app is allowed in Android's own page, so it is
-    // read again whenever the user comes back from there.
+    val contacts = rememberPermissions(arrayOf(Manifest.permission.READ_CONTACTS), "contacts")
+    val callLog = rememberPermissions(arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG), "callLog")
     var checks by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         checks++
         onPauseOrDispose { }
     }
-    val canInstall = remember(checks) { Updates.canInstall(context) }
-
-    // Android's own question comes up by itself on arriving here, once;
-    // the zone keeps its button for whoever dismissed it.
-    var asked by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!asked && setup.step == SetupStep.ROLE) {
-            asked = true
-            setup.run(SetupStep.ROLE)
-        }
+    // The phone role is held, or this phone has none to give (RoleManager isRoleAvailable and isRoleHeld).
+    val isDialer = remember(checks) {
+        val roles = context.getSystemService(RoleManager::class.java)
+        !roles.isRoleAvailable(RoleManager.ROLE_DIALER) || roles.isRoleHeld(RoleManager.ROLE_DIALER)
+    }
+    val hasNotificationPermission = remember(checks) {
+        context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp)
-    ) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-        Spacer(Modifier.height(40.dp))
-        // The app's own mark, large and ringing, as on the other apps' first page.
-        LoadingMark(size = 160.dp)
-        Spacer(Modifier.height(20.dp))
-        // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
-        Text("Welcome to Dialer", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "A phone app with no account, no tracking and no ads.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+    return listOf(
+        SetupTile(
+            id = "phoneApp", name = "Phone app", title = "Phone app", icon = AppIcons.Call,
+            state = if (isDialer) "Dialer" else "Not chosen",
+            summary = "Calls and phone links open in Dialer. Tap to choose Dialer as the phone app.",
+            done = isDialer, required = true,
+            onClick = { setup.run(SetupStep.ROLE) }
+        ),
+        SetupTile(
+            id = "spam", name = "Spam filter", title = "Spam filter", icon = AppIcons.Block,
+            state = when {
+                setup.screeningBlocked -> "Open settings"
+                !setup.screeningMissing -> "On"
+                else -> "Off"
+            },
+            summary = "Spam and sales calls are turned away before they ring. Tap to choose Dialer as the caller ID and spam app." +
+                (setup.warning(SetupStep.SCREENING)?.let { " $it" } ?: ""),
+            done = !setup.screeningMissing, required = false, error = setup.screeningBlocked,
+            onClick = { setup.run(SetupStep.SCREENING) }
+        ),
+        SetupTile(
+            id = "notifications", name = "Notifications", title = "Notifications", icon = AppIcons.Notifications,
+            state = if (hasNotificationPermission) "Allowed" else "Not allowed",
+            summary = "Incoming calls and the call in progress. Tap to allow them.",
+            done = hasNotificationPermission, required = false,
+            onClick = { setup.run(SetupStep.NOTIFICATIONS) }
+        ),
+        SetupTile(
+            id = "contacts", name = "Contacts", title = "Contacts", icon = AppIcons.Person,
+            state = when {
+                contacts.granted -> "Allowed"
+                contacts.refusedForGood -> "Refused, open settings"
+                else -> "Not allowed"
+            },
+            summary = "The names and photos of who calls, and the search by name. Tap to allow it" +
+                if (contacts.refusedForGood) "; it was refused, so Android's settings page for Dialer opens." else ".",
+            done = contacts.granted, required = false, error = contacts.refusedForGood,
+            onClick = contacts.request
+        ),
+        SetupTile(
+            id = "callLog", name = "Call history", title = "Call history", icon = AppIcons.Recents,
+            state = when {
+                callLog.granted -> "Allowed"
+                callLog.refusedForGood -> "Refused, open settings"
+                else -> "Not allowed"
+            },
+            summary = "Recents, missed calls and deleting calls. Tap to allow it" +
+                if (callLog.refusedForGood) "; it was refused, so Android's settings page for Dialer opens." else ".",
+            done = callLog.granted, required = false, error = callLog.refusedForGood,
+            onClick = callLog.request
         )
-        Spacer(Modifier.height(32.dp))
+    )
+}
 
-        val step = setup.step
-        WelcomeZone(
-            icon = AppIcons.Call,
-            title = step?.title ?: "Dialer is your phone app",
-            message = ((step?.let(setup::warning) ?: step?.message) ?: "Calls and phone links open in Dialer."),
-            done = step == null,
-            action = step?.let(setup::action),
-            onAction = { step?.let(setup.run) }
-        )
-        // Sales calls from the official ranges are turned away by default: shown on here, a switch to turn it off.
-        val country = remember { SalesCalls.country(context) }
-        if (country in SalesCalls.countries) {
-            Spacer(Modifier.height(16.dp))
-            val store: SettingsStore = koinInject()
-            val settings by store.settings.collectAsState()
-            val haptics = rememberHaptics()
-            // No zone: the switch is the tap, the row lies on the page (a zone means a tap, 2026-10-28).
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)
-            ) {
-                Icon(AppIcons.Block, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text("Reject sales calls", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Numbers reserved for cold calls never ring, unless saved in your contacts.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                GlassSwitch(
-                    checked = settings.blockSalesCalls,
-                    onCheckedChange = { on ->
-                        haptics.toggle(on)
-                        store.update { it.copy(blockSalesCalls = on) }
-                    }
-                )
-            }
+/** The rights of a tile as a screen sees them, read again each time the screen comes back (after the Settings page). */
+class PermissionsState(
+    val granted: Boolean,
+    /** Refused with Android's "don't ask again": only the app's page in Settings can allow it now. */
+    val refusedForGood: Boolean,
+    /** Asks for the rights, or opens the app's page in Settings when they were refused for good. */
+    val request: () -> Unit
+)
+
+/**
+ * The runtime permissions as Android's runtime permission workflow says: a refusal for good is asked before, not
+ * granted, and no rationale to show (the first permission decides, they are asked together). "Asked before" is kept
+ * in the setup preferences under "asked_" + [key], since a refusal before the first question looks the same.
+ * Ported from
+ * https://github.com/213YaZ786/Language/blob/main/app/src/main/java/com/yaz/language/feature/common/Phone.kt#rememberMicrophone
+ */
+@Composable
+fun rememberPermissions(permissions: Array<String>, key: String): PermissionsState {
+    val context = LocalContext.current
+    val activity = LocalActivity.current
+    val prefs = remember { context.getSharedPreferences(SETUP, Context.MODE_PRIVATE) }
+    var checks by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        checks++
+        onPauseOrDispose { }
+    }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { checks++ }
+    val granted = remember(checks) {
+        ContextCompat.checkSelfPermission(context, permissions[0]) == PackageManager.PERMISSION_GRANTED
+    }
+    val asked = remember(checks) { prefs.getBoolean("asked_$key", false) }
+    val refusedForGood = !granted && asked && activity != null &&
+        !ActivityCompat.shouldShowRequestPermissionRationale(activity, permissions[0])
+    return PermissionsState(granted, refusedForGood) {
+        if (refusedForGood) {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+            )
+        } else {
+            prefs.edit().putBoolean("asked_$key", true).apply()
+            ask.launch(permissions)
         }
-        // Nothing to bring over: Android keeps calls, contacts and blocked numbers for every phone app.
-        Spacer(Modifier.height(16.dp))
-        WelcomeZone(
-            icon = AppIcons.CheckCircle,
-            title = "Already here",
-            message = "Your call history, contacts, favourites, blocked numbers and voicemail are Android's: those of the app you used before are here.",
-            done = true,
-            action = null,
-            onAction = {}
-        )
-        Spacer(Modifier.height(16.dp))
-        WelcomeZone(
-            icon = AppIcons.Update,
-            title = "Automatic updates",
-            message = "Dialer installs its new versions. Its only connection is this check on GitHub.",
-            done = canInstall,
-            action = "Allow updates".takeIf { !canInstall },
-            onAction = { Updates.allowInstalls(context) }
-        )
-
-        Spacer(Modifier.height(32.dp))
-        BoldButton(filled = true, onClick = onStart) { Text("Start") }
-        Spacer(Modifier.height(24.dp))
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 
-/** One thing to know or to do, with its button until it is done, then a tick. */
+/**
+ * The guide: the logo, the title, how many steps are left, the tiles, then Start (Done when reopened from Settings),
+ * which waits for the required ones. Laid out as SetupScreen: header, steps, footer with the one button.
+ * Android's own question for the phone role comes up by itself on arriving here, once; the tile keeps it for whoever
+ * dismissed it.
+ * Ported from
+ * https://github.com/213YaZ786/Language/blob/main/app/src/main/java/com/yaz/language/feature/welcome/WelcomeScreen.kt#WelcomeScreen
+ */
 @Composable
-private fun WelcomeZone(
-    icon: ImageVector,
-    title: String,
-    message: String,
-    done: Boolean,
-    action: String?,
-    onAction: () -> Unit
-) {
-    // A zone means a tap (the user, 2026-10-28): the text and its button lie straight on the page, as Element X's
-    // NotificationsOptInView lays its text and buttons (element-hq/element-x-android, AGPL-3.0, layout only:
-    // https://github.com/element-hq/element-x-android/blob/develop/features/ftue/impl/src/main/kotlin/io/element/android/features/ftue/impl/notifications/NotificationsOptInView.kt),
-    // and as SMS's WelcomeZone does when it has nothing to tap
-    // (https://github.com/213YaZ786/SMS/blob/main/app/src/main/java/com/yaz/sms/feature/main/WelcomeScreen.kt).
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                if (done) AppIcons.CheckCircle else icon,
-                contentDescription = if (done) "Done" else null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
+fun WelcomeScreen(reopened: Boolean, onStart: () -> Unit) {
+    val steps = rememberSetupTiles()
+    // The tile whose long press is open (its id), "" when none.
+    var explained by rememberSaveable { mutableStateOf("") }
+
+    var asked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val phoneApp = steps.first { it.id == "phoneApp" }
+        if (!asked && !phoneApp.done) {
+            asked = true
+            phoneApp.onClick()
         }
-        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (!done && action != null) {
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
-                BoldButton(onClick = onAction) { Text(action) }
+    }
+
+    WelcomeContent(steps, reopened, onStart) { explained = it.id }
+
+    steps.firstOrNull { it.id == explained }?.let { tile ->
+        SetupTileDialog(tile, onDismiss = { explained = "" })
+    }
+}
+
+/**
+ * What the guide draws from the tiles it is given: the layout of SetupScreen (header, steps, footer with the one
+ * button), split from [WelcomeScreen] as HomeScreen is from HomeContent, so that a picture can be taken with fixed
+ * tiles, without the system checks. Ported from
+ * https://github.com/213YaZ786/Language/blob/main/app/src/main/java/com/yaz/language/feature/welcome/WelcomeScreen.kt#WelcomeContent
+ */
+@Composable
+internal fun WelcomeContent(tiles: List<SetupTile>, reopened: Boolean, onStart: () -> Unit, onExplain: (SetupTile) -> Unit = {}) {
+    val steps = tiles
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(horizontal = 8.dp)
+        ) {
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Spacer(Modifier.height(40.dp))
+            LoadingMark(size = 120.dp, running = false)
+            Spacer(Modifier.height(20.dp))
+            // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
+            Text("Welcome to Dialer", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text(steps.leftText(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(24.dp))
+            SetupTileGrid(steps, onExplain)
+
+            Spacer(Modifier.height(32.dp))
+            val ready = steps.requiredDone()
+            BoldButton(filled = true, enabled = ready, onClick = onStart) { Text(if (reopened) "Done" else "Start") }
+            if (!ready) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Still needed: " + steps.requiredLeft().joinToString(", ") { it.name },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
+            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
 }
