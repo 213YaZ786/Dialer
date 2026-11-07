@@ -241,7 +241,8 @@ internal fun WelcomeContent(tiles: List<SetupTile>, reopened: Boolean, onStart: 
         ) {
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Spacer(Modifier.height(40.dp))
-            LoadingMark(size = 120.dp, running = false)
+            // The app's own mark, large and ringing, as the guide before the tiles (fd22de5's WelcomeScreen).
+            LoadingMark(size = 160.dp)
             Spacer(Modifier.height(20.dp))
             // Every title in the accent (the user, 2026-10-31), as Modules' SettingsSectionTitle.
             Text("Welcome to Dialer", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
